@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fusion Data Academy — Scientific software & digital content for fusion research</title>
+<meta name="description" content="Fusion Data Academy builds scientific software and digital content for the magnetic-confinement fusion community: tokamak data analysis tools, an offline bilingual glossary, e-books and templates.">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    background: #0d1117; color: #e6edf3; line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+  header {
+    padding: 72px 0 56px; border-bottom: 1px solid #21262d;
+    background: radial-gradient(1200px 400px at 20% -10%, #1f6feb1a, transparent);
+  }
+  h1 { font-size: 38px; letter-spacing: -.6px; margin-bottom: 14px; }
+  h1 .accent { color: #58a6ff; }
+  .tagline { font-size: 18px; color: #8b949e; max-width: 660px; }
+  .badges { margin-top: 22px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .badge {
+    font-size: 12.5px; padding: 4px 12px; border-radius: 20px;
+    background: #1f6feb1a; color: #58a6ff; border: 1px solid #1f6feb44;
+  }
+  section { padding: 56px 0; border-bottom: 1px solid #21262d; }
+  h2 { font-size: 22px; margin-bottom: 8px; }
+  h2 + .sub { color: #8b949e; font-size: 14.5px; margin-bottom: 28px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+    padding: 22px; transition: .15s;
+  }
+  .card:hover { border-color: #58a6ff66; transform: translateY(-2px); }
+  .card h3 { font-size: 17px; margin-bottom: 6px; color: #e6edf3; }
+  .card .kind { font-size: 11.5px; color: #8b949e; text-transform: uppercase;
+    letter-spacing: .8px; margin-bottom: 12px; }
+  .card p { font-size: 14px; color: #8b949e; margin-bottom: 14px; }
+  .card ul { list-style: none; font-size: 13.5px; color: #c9d1d9; }
+  .card li { padding-left: 18px; position: relative; margin-bottom: 5px; }
+  .card li::before { content: "▸"; position: absolute; left: 0; color: #3fb950; }
+  .plain li::before { color: #58a6ff; }
+  footer { padding: 44px 0 64px; color: #6e7681; font-size: 13.5px; }
+  footer a { color: #58a6ff; text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  .contact { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 12px; }
+  .note {
+    margin-top: 26px; padding: 14px 18px; border-left: 3px solid #1f6feb;
+    background: #161b22; border-radius: 0 8px 8px 0; font-size: 13.5px; color: #8b949e;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>Fusion Data <span class="accent">Academy</span></h1>
+    <p class="tagline">
+      Scientific software and digital content for the magnetic-confinement fusion
+      community — built by a fusion-industry software engineer.
+      <br>面向磁约束聚变领域的科学软件与数字内容。
+    </p>
+    <div class="badges">
+      <span class="badge">Scientific software</span>
+      <span class="badge">Digital products</span>
+      <span class="badge">Fusion research tools</span>
+      <span class="badge">Offline-first</span>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>What we build</h2>
+    <p class="sub">Desktop tools and reference material that make fusion data work faster —
+      no programming required.</p>
+    <div class="grid">
+
+      <div class="card">
+        <div class="kind">Analysis tool</div>
+        <h3>Fusion Data Workbench</h3>
+        <p>Analyse tokamak discharges without writing code. Detects the flat-top
+           phase automatically, computes the statistics that matter, and extracts
+           dominant frequencies with FFT.</p>
+        <ul>
+          <li>Automatic flat-top detection</li>
+          <li>Statistics + FFT spectrum</li>
+          <li>CSV import and export</li>
+          <li>Runs fully offline</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="kind">Reference tool</div>
+        <h3>Fusion Terms</h3>
+        <p>An offline bilingual glossary for magnetic-confinement fusion:
+           295 curated terms with Chinese translations, bidirectional search and
+           one-click copy.</p>
+        <ul class="plain">
+          <li>295 terms across 11 topics</li>
+          <li>Search in English or Chinese</li>
+          <li>Browse by category</li>
+          <li>Fully offline, instant startup</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="kind">Educational content</div>
+        <h3>Field guide &amp; templates</h3>
+        <p>Hands-on tutorials on working with real fusion data (MAST, MDSplus, IMAS),
+           plus ready-to-use templates and AI-assisted workflows for researchers.</p>
+        <ul class="plain">
+          <li>Bilingual tutorials (EN / 中文)</li>
+          <li>Verified against live public data</li>
+          <li>Notion &amp; AI workflow templates</li>
+          <li>E-books for Kindle and other stores</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="note">
+      <strong>Our approach:</strong> everything we ship runs locally.
+      No accounts, no telemetry, no data leaving your machine — important when
+      working with unpublished research data.
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Where to get our products</h2>
+    <p class="sub">Available through the stores below. Links are updated as listings go live.</p>
+    <ul style="list-style:none; font-size:14.5px; color:#c9d1d9">
+      <li>▸ <strong>itch.io</strong> — desktop tools (page coming soon)</li>
+      <li>▸ <strong>Steam</strong> — desktop tools (page coming soon)</li>
+      <li>▸ <strong>Amazon Kindle</strong> — field guides and reference books</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>About</h2>
+    <p class="sub">Who is behind this</p>
+    <p style="font-size:14.5px; color:#8b949e; max-width:720px">
+      Fusion Data Academy is the independent publishing and software label of a
+      software engineer working in the magnetic-confinement fusion field. All
+      material is based on hands-on work with publicly released tokamak data
+      (UKAEA MAST and others), and every code sample we publish has been run
+      against real data before release.
+    </p>
+    <div class="contact">
+      <span>📧 <a href="mailto:REPLACE_WITH_YOUR_EMAIL">REPLACE_WITH_YOUR_EMAIL</a></span>
+      <span>💻 <a href="https://github.com/REPLACE_WITH_YOUR_GITHUB">github.com/REPLACE_WITH_YOUR_GITHUB</a></span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    © 2026 Fusion Data Academy. Scientific software and digital content for fusion research.
+    <br>Website: static HTML · no cookies · no tracking.
+  </div>
+</footer>
+
+</body>
+</html>
