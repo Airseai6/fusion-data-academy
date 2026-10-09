@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#080b12">
+<title>华容道 · 曹操快跑</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:#080b12;user-select:none;
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;color:#e8eef7}
+  #bg{position:fixed;inset:0;z-index:0;
+    background:
+      radial-gradient(900px 600px at 22% 8%, #1b2740 0%, transparent 62%),
+      radial-gradient(700px 500px at 88% 92%, #14283a 0%, transparent 60%),
+      linear-gradient(170deg,#080b12,#0d1420 55%,#080b12)}
+  #bg::after{content:'';position:absolute;inset:0;opacity:.055;
+    background-image:linear-gradient(#7ec8ff 1px,transparent 1px),
+                     linear-gradient(90deg,#7ec8ff 1px,transparent 1px);
+    background-size:46px 46px}
+  #wrap{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;
+    align-items:center;justify-content:center}
+  #hud{display:flex;gap:10px;align-items:center;margin-bottom:13px;font-size:14px}
+  .chip{background:#161b2288;border:1px solid #30363d;border-radius:9px;
+    padding:6px 13px;backdrop-filter:blur(8px);letter-spacing:.5px;
+    white-space:nowrap;font-family:inherit;font-size:inherit}
+  .chip.lv{color:#79c0ff;border-color:#1f6feb66;font-weight:700;cursor:pointer;
+    max-width:44vw;overflow:hidden;text-overflow:ellipsis}
+  .chip b{color:#e8eef7;font-weight:700}
+  .chip.rec{color:#d29922;border-color:#9e6a0366}
+  .chip.act{cursor:pointer;color:#8b949e;font-size:13px;transition:.15s;
+    font-family:inherit;background:#161b2288;border:1px solid #30363d}
+  .chip.act:hover:not(:disabled){color:#58a6ff;border-color:#58a6ff66}
+  .chip.act:disabled{opacity:.35;cursor:not-allowed}
+  canvas{border-radius:18px;touch-action:none;flex-shrink:0;
+    max-width:calc(100vw - 20px);max-height:calc(100vh - 130px);
+    box-shadow:0 24px 60px #000a,0 0 0 1px #30363d,inset 0 1px 0 #ffffff0d}
+  #wrap{padding:0 10px}
+  #tip{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:15px;background:#080b12e8;backdrop-filter:blur(10px);
+    z-index:10;text-align:center;padding:26px}
+  #tip.hide{display:none}
+  #tip h1{font-size:33px;letter-spacing:5px;font-weight:800;
+    background:linear-gradient(96deg,#79c0ff,#3fb950 60%,#79c0ff);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 22px #1f6feb55)}
+  #tip p{color:#8b949e;font-size:14px;line-height:1.85;max-width:330px}
+  .btn{margin-top:4px;padding:14px 46px;border:none;border-radius:13px;font-size:17px;
+    font-weight:700;color:#fff;cursor:pointer;letter-spacing:2px;
+    background:linear-gradient(135deg,#1f6feb,#2ea043);
+    box-shadow:0 8px 26px #1f6feb55,inset 0 1px 0 #ffffff33;transition:.15s}
+  .btn:hover{filter:brightness(1.12)}
+  .btn:active{transform:scale(.955)}
+  .btn.ghost{background:#161b22;box-shadow:none;color:#8b949e;font-size:14px;
+    padding:10px 26px;font-weight:500;letter-spacing:1px;border:1px solid #30363d}
+  .btn.ghost:hover{border-color:#58a6ff;color:#58a6ff}
+  #toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.86);
+    background:#1f6febf0;padding:15px 32px;border-radius:13px;font-size:16px;font-weight:700;
+    opacity:0;pointer-events:none;transition:.28s cubic-bezier(.2,1.3,.4,1);z-index:20;
+    white-space:nowrap;box-shadow:0 12px 34px #0008}
+  #toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  #toast.bad{background:#da3633f0}
+  #toast.gold{background:linear-gradient(135deg,#d29922,#f0883e);color:#1a1200}
+  #mute{position:fixed;top:14px;right:14px;z-index:30;width:40px;height:40px;
+    border-radius:11px;background:#161b2288;border:1px solid #30363d;color:#8b949e;
+    font-size:17px;cursor:pointer;backdrop-filter:blur(8px);transition:.15s}
+  #mute:hover{color:#58a6ff;border-color:#58a6ff66}
+  /* 军师锦囊（卡住后才出现）——位置抬高，避免被手机浏览器底栏遮住 */
+  #hintBtn{position:fixed;bottom:calc(88px + env(safe-area-inset-bottom,0px));
+    left:50%;transform:translateX(-50%);z-index:60;
+    padding:12px 28px;border-radius:26px;cursor:pointer;font-size:16px;font-weight:600;
+    letter-spacing:1px;color:#1a1200;font-family:"KaiTi","STKaiti",serif;
+    background:linear-gradient(135deg,#e8c05a,#d29922);
+    border:none;box-shadow:0 8px 30px #d2992266,inset 0 1px 0 #ffffff55;
+    opacity:0;pointer-events:none;transition:.35s cubic-bezier(.2,1.3,.4,1)}
+  #hintBtn.show{opacity:1;pointer-events:auto;animation:hintPulse 2s ease-in-out infinite}
+  @keyframes hintPulse{0%,100%{box-shadow:0 8px 30px #d2992266,inset 0 1px 0 #ffffff55}
+    50%{box-shadow:0 8px 42px #e8c05aaa,inset 0 1px 0 #ffffff88}}
+  #hintBtn:hover{filter:brightness(1.1)}
+  #hintBtn:active{transform:translateX(-50%) scale(.96)}
+  #hintBox{position:fixed;bottom:calc(150px + env(safe-area-inset-bottom,0px));
+    left:50%;transform:translateX(-50%) translateY(8px);
+    z-index:60;max-width:88vw;padding:14px 24px;border-radius:14px;
+    background:#1c1910f5;border:1px solid #d2992266;color:#f0e6c8;
+    font-size:16px;line-height:1.65;text-align:center;opacity:0;pointer-events:none;
+    transition:.28s;backdrop-filter:blur(10px);
+    box-shadow:0 10px 34px #000a}
+  #hintBox.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #hintBox b{color:#e8c05a;font-size:18px}
+  #hintBox .step{color:#9a9284;font-size:13px;display:block;margin-top:6px}
+  /* 选关面板 */
+  #lvPanel{position:fixed;inset:0;z-index:70;display:none;
+    align-items:center;justify-content:center;background:#080b12ee;
+    backdrop-filter:blur(10px);padding:20px}
+  #lvPanel.show{display:flex}
+  #lvInner{max-width:520px;width:100%;max-height:80vh;overflow-y:auto;
+    background:#12161e;border:1px solid #30363d;border-radius:18px;padding:20px;
+    box-shadow:0 24px 60px #000c}
+  #lvInner h2{font-family:"KaiTi","STKaiti",serif;font-size:22px;color:#e8c05a;
+    text-align:center;margin-bottom:16px;letter-spacing:3px}
+  .lvItem{display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:8px;
+    border-radius:12px;background:#0d1117;border:1px solid #21262d;cursor:pointer;
+    transition:.15s}
+  .lvItem:hover{border-color:#58a6ff66;background:#161b22}
+  .lvItem.cur{border-color:#e8c05a;background:#1c1910}
+  .lvItem .num{width:34px;height:34px;border-radius:9px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;
+    background:#1f6feb;color:#fff}
+  .lvItem.cur .num{background:linear-gradient(135deg,#e8c05a,#d29922);color:#1a1200}
+  .lvItem .info{flex:1;min-width:0}
+  .lvItem .nm{font-size:15px;color:#e8eef7;font-family:"KaiTi","STKaiti",serif}
+  .lvItem .sub{font-size:12px;color:#8b949e;margin-top:2px}
+  .lvItem .badge{font-size:11px;padding:3px 8px;border-radius:6px;flex-shrink:0;
+    background:#23863633;color:#3fb950;border:1px solid #23863666}
+  #lvClose{display:block;margin:14px auto 0;padding:10px 30px;border-radius:11px;
+    background:#21262d;border:1px solid #30363d;color:#8b949e;font-size:14px;cursor:pointer}
+  #lvClose:hover{color:#58a6ff;border-color:#58a6ff66}
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<button id="mute" title="音效开关">🔊</button>
+<button id="hintBtn">🎋 请军师指点</button>
+<div id="hintBox"></div>
+<div id="lvPanel">
+  <div id="lvInner">
+    <h2>选 关</h2>
+    <div id="lvList"></div>
+    <button id="lvClose">关 闭</button>
+  </div>
+</div>
+<div id="wrap">
+  <div id="hud">
+    <button class="chip lv" id="lvText" title="点击选关">第 1 关 ▾</button>
+    <span class="chip">步数 <b id="mvText">0</b></span>
+    <span class="chip rec" id="bestChip" style="display:none">最佳 <b id="bestText">—</b></span>
+    <button class="chip act" id="undoBtn" title="撤销上一步">↶ 撤销</button>
+  </div>
+  <canvas id="cv"></canvas>
+  <div id="toast"></div>
+  <div id="tip">
+    <h1>华 容 道</h1>
+    <p>建安十三年，曹操败走华容道。<br>
+       拖动棋子，为<b style="color:#e04b3a">曹操</b>开出一条生路，<br>
+       把他移到右侧出口。</p>
+    <button class="btn" id="startBtn">开 始 突 围</button>
+  </div>
+</div>
+<script>
+/* ============================================================
+   音效系统（Web Audio 合成，零依赖）
+   ============================================================ */
+const SFX = (() => {
+  let ac = null, muted = false, master = null;
+  const init = () => {
+    if (!ac) {
+      const C = window.AudioContext || window.webkitAudioContext;
+      if (!C) return null;
+      ac = new C();
+      master = ac.createGain();
+      master.gain.value = 0.9;
+      master.connect(ac.destination);
+    }
+    if (ac.state === 'suspended') ac.resume();
+    return ac;
+  };
+  const tone = (freq, dur, type = 'sine', vol = 0.14, glideTo = null, delay = 0) => {
+    if (muted) return;
+    const c = init(); if (!c) return;
+    const t0 = c.currentTime + delay;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t0);
+    if (glideTo) o.frequency.exponentialRampToValueAtTime(glideTo, t0 + dur);
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(vol, t0 + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(master);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  };
+  const noise = (dur, vol = 0.06, delay = 0) => {
+    if (muted) return;
+    const c = init(); if (!c) return;
+    const n = Math.floor(c.sampleRate * dur);
+    const buf = c.createBuffer(1, n, c.sampleRate);
+    const dt = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) dt[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = c.createBufferSource(); s.buffer = buf;
+    const g = c.createGain(); g.gain.value = vol;
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800;
+    s.connect(f); f.connect(g); g.connect(master);
+    s.start(c.currentTime + delay);
+  };
+  return {
+    unlock: init,
+    setMuted: (m) => { muted = m; if (!m) init(); },
+    isMuted: () => muted,
+    grab:  () => { tone(240, 0.06, 'triangle', 0.09, 180); },
+    move:  (mul) => { tone(760 * (mul || 1), 0.045, 'sine', 0.055); noise(0.03, 0.028); },
+    block: () => { tone(96, 0.11, 'square', 0.075, 70); noise(0.05, 0.035); },
+    place: () => { tone(1040, 0.06, 'triangle', 0.075); tone(1560, 0.05, 'sine', 0.04, null, 0.03); },
+    tap:   () => { tone(560, 0.045, 'sine', 0.055); },
+    win:   () => {
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.28, 'triangle', 0.11, null, i * 0.09));
+      tone(1318.5, 0.5, 'sine', 0.07, null, 0.4);
+      noise(0.25, 0.04, 0.02);
+    },
+    fail:  () => { tone(220, 0.15, 'sawtooth', 0.09, 110); },
+    start: () => { tone(392, 0.1, 'triangle', 0.09); tone(587.33, 0.16, 'triangle', 0.09, null, 0.1); },
+  };
+})();
+
+/* ============================================================
+   关卡数据
+   ============================================================ */
+const LEVELS = [  { name: '第 1 关 · 一夫当关', minMoves: 1, exitRow: 2, cars: [
+      { x:0, y:2, w:2, h:1, dir:'h', id:'R', color:'R' },
+      { x:4, y:0, w:1, h:2, dir:'v', id:'A', color:'B' },
+    ], winText: "只有一个小兵挡路，曹公一笑而过。" },
+  { name: '第 2 关 · 落凤坡', exitRow: 2, minMoves: 6, cars: [
+      { x:0, y:2, w:2, h:1, dir:'h', id:'R', color:'R' },
+      { x:0, y:3, w:1, h:2, dir:'v', id:'A', color:'C' },
+      { x:2, y:2, w:1, h:2, dir:'v', id:'B', color:'D' },
+      { x:4, y:3, w:2, h:1, dir:'h', id:'C', color:'E' },
+      { x:5, y:1, w:1, h:2, dir:'v', id:'D', color:'F' },
+      { x:3, y:4, w:1, h:2, dir:'v', id:'E', color:'G' },
+      { x:3, y:1, w:2, h:1, dir:'h', id:'F', color:'H' },
+      { x:4, y:4, w:1, h:2, dir:'v', id:'G', color:'I' },
+      { x:2, y:0, w:2, h:1, dir:'h', id:'H', color:'J' },
+      { x:1, y:4, w:2, h:1, dir:'h', id:'I', color:'K' },
+      { x:1, y:1, w:2, h:1, dir:'h', id:'J', color:'L' },
+      { x:1, y:5, w:2, h:1, dir:'h', id:'K', color:'M' },
+      { x:4, y:0, w:2, h:1, dir:'h', id:'L', color:'N' },
+    ], winText: "落凤坡上，险象环生，曹公险胜。" },
+
+  // ---------- 第 4 关：程序生成，最少 8 步（10 车）----------
+  { name: '第 3 关 · 长坂坡', exitRow: 2, minMoves: 8, cars: [
+      { x:0, y:2, w:2, h:1, dir:'h', id:'R', color:'R' },
+      { x:4, y:1, w:1, h:2, dir:'v', id:'A', color:'C' },
+      { x:5, y:1, w:1, h:2, dir:'v', id:'B', color:'D' },
+      { x:3, y:5, w:3, h:1, dir:'h', id:'C', color:'E' },
+      { x:0, y:5, w:2, h:1, dir:'h', id:'D', color:'F' },
+      { x:3, y:0, w:2, h:1, dir:'h', id:'E', color:'G' },
+      { x:1, y:0, w:2, h:1, dir:'h', id:'F', color:'H' },
+      { x:4, y:3, w:2, h:1, dir:'h', id:'G', color:'I' },
+      { x:0, y:0, w:1, h:2, dir:'v', id:'H', color:'J' },
+      { x:2, y:2, w:1, h:3, dir:'v', id:'I', color:'K' },
+    ], winText: "长坂坡前，赵云七进七出，曹公得以脱身。" },
+
+  // ---------- 第 5 关：程序生成，最少 16 步（13 车）----------
+  { name: '第 4 关 · 华容小道', exitRow: 2, minMoves: 16, cars: [
+      { x:0, y:2, w:2, h:1, dir:'h', id:'R', color:'R' },
+      { x:3, y:3, w:1, h:2, dir:'v', id:'A', color:'C' },
+      { x:1, y:0, w:1, h:2, dir:'v', id:'B', color:'D' },
+      { x:1, y:3, w:2, h:1, dir:'h', id:'C', color:'E' },
+      { x:5, y:4, w:1, h:2, dir:'v', id:'D', color:'F' },
+      { x:2, y:0, w:2, h:1, dir:'h', id:'E', color:'G' },
+      { x:2, y:1, w:1, h:2, dir:'v', id:'F', color:'H' },
+      { x:0, y:3, w:1, h:2, dir:'v', id:'G', color:'I' },
+      { x:4, y:4, w:1, h:2, dir:'v', id:'H', color:'J' },
+      { x:4, y:1, w:1, h:2, dir:'v', id:'I', color:'K' },
+      { x:2, y:4, w:1, h:2, dir:'v', id:'J', color:'L' },
+      { x:5, y:1, w:1, h:2, dir:'v', id:'K', color:'M' },
+      { x:3, y:1, w:1, h:2, dir:'v', id:'L', color:'N' },
+    ], winText: "华容小道，一步一险，终得脱身。" },
+
+  // ---------- 第 6 关：程序生成，最少 20 步（12 车）----------
+  { name: '第 5 关 · 乌林渡口', exitRow: 2, minMoves: 20, cars: [
+      { x:0, y:2, w:2, h:1, dir:'h', id:'R', color:'R' },
+      { x:4, y:3, w:1, h:2, dir:'v', id:'A', color:'C' },
+      { x:2, y:1, w:1, h:2, dir:'v', id:'B', color:'D' },
+      { x:5, y:0, w:1, h:2, dir:'v', id:'C', color:'E' },
+      { x:0, y:0, w:3, h:1, dir:'h', id:'D', color:'F' },
+      { x:3, y:1, w:2, h:1, dir:'h', id:'E', color:'G' },
+      { x:3, y:2, w:1, h:2, dir:'v', id:'F', color:'H' },
+      { x:2, y:4, w:2, h:1, dir:'h', id:'G', color:'I' },
+      { x:3, y:0, w:2, h:1, dir:'h', id:'H', color:'J' },
+      { x:0, y:4, w:1, h:2, dir:'v', id:'I', color:'K' },
+      { x:1, y:5, w:3, h:1, dir:'h', id:'J', color:'L' },
+      { x:5, y:3, w:1, h:2, dir:'v', id:'K', color:'M' },
+    ], winText: "乌林渡口，大雾弥漫，曹公寻路而出。", isHard: true },
+
+  // ---------- 第 7 关：程序生成，最少 24 步（11 车）----------
+  { name: '第 6 关 · 葫芦谷', exitRow: 2, minMoves: 24, cars: [
+      { x:0, y:2, w:2, h:1, dir:'h', id:'R', color:'R' },
+      { x:0, y:1, w:2, h:1, dir:'h', id:'A', color:'C' },
+      { x:0, y:5, w:2, h:1, dir:'h', id:'B', color:'D' },
+      { x:3, y:4, w:1, h:2, dir:'v', id:'C', color:'E' },
+      { x:2, y:1, w:1, h:2, dir:'v', id:'D', color:'F' },
+      { x:1, y:0, w:3, h:1, dir:'h', id:'E', color:'G' },
+      { x:4, y:1, w:1, h:3, dir:'v', id:'F', color:'H' },
+      { x:0, y:3, w:1, h:2, dir:'v', id:'G', color:'I' },
+      { x:4, y:5, w:2, h:1, dir:'h', id:'H', color:'J' },
+      { x:3, y:1, w:1, h:2, dir:'v', id:'I', color:'K' },
+      { x:4, y:4, w:2, h:1, dir:'h', id:'J', color:'L' },
+    ], winText: "葫芦谷口，诸葛亮伏兵四起，曹公竭力求生。", isHard: true },
+  { name: '第 7 关 · 华容道', minMoves: 31, exitRow: 2, cars: [
+      { x:0, y:2, w:2, h:1, dir:'h', id:'R', color:'R' },
+      { x:4, y:1, w:1, h:3, dir:'v', id:'A', color:'C' },
+      { x:3, y:5, w:2, h:1, dir:'h', id:'B', color:'D' },
+      { x:3, y:3, w:1, h:2, dir:'v', id:'C', color:'E' },
+      { x:2, y:0, w:3, h:1, dir:'h', id:'D', color:'F' },
+      { x:3, y:1, w:1, h:2, dir:'v', id:'E', color:'G' },
+      { x:0, y:0, w:1, h:2, dir:'v', id:'F', color:'H' },
+      { x:2, y:3, w:1, h:2, dir:'v', id:'G', color:'I' },
+      { x:1, y:5, w:2, h:1, dir:'h', id:'H', color:'J' },
+      { x:0, y:3, w:2, h:1, dir:'h', id:'I', color:'K' },
+      { x:4, y:4, w:2, h:1, dir:'h', id:'J', color:'L' },
+      { x:5, y:0, w:1, h:2, dir:'v', id:'K', color:'B' },
+    ], winText: "关羽念及旧情，放曹公一条生路。", isHard: true },
+
+  // ---------- 第 3 关：程序生成，最少 6 步（13 车）----------
+];
+
+/* ============================================================
+   华容道配色（中国风）
+   ============================================================ */
+const COLORS = {
+  C:['#8c1c13','#e04b3a'],   // 曹操 · 朱红
+  G:['#0f5132','#2f9e6b'],   // 关羽 · 青绿（绿袍）
+  S:['#4a3b2a','#8a7355'],   // 小兵 · 褐（木质）
+};
+
+/* 棋子名与字号（曹操/关羽为大字，兵为小字） */
+const PIECE_NAME = {
+  C: { text: '曹操', big: true },
+  G: { text: '关羽', big: true },
+  S: { text: '兵',   big: false },
+};
+/* 棋子等级：曹操=目标；其余中最大的一块的为关羽；其他为兵 */
+function assignKinds(level) {
+  let guan = null, guanSize = 0;
+  for (const c of level.cars) {
+    if (c.id === 'R') { c.kind = 'C'; continue; }
+    const size = c.w * c.h;
+    if (size > guanSize) { guanSize = size; guan = c; }
+  }
+  for (const c of level.cars) {
+    if (c.id === 'R') continue;
+    c.kind = (c === guan) ? 'G' : 'S';
+  }
+}
+
+/* ============================================================
+   军师锦囊 · 解法（关卡索引 → 每步 [棋子id, 目标x, 目标y]）
+   由 BFS 求解器预先算出，保证是最短解
+   ============================================================ */
+const SOLUTIONS = {
+  // 第 1 关 · 1 步
+  0: [["R",4,2]],
+  // 第 2 关 · 6 步
+  1: [["C",3,3],["D",5,3],["H",0,0],["J",0,1],["B",2,0],["R",4,2]],
+  // 第 3 关 · 8 步
+  2: [["B",5,0],["I",2,3],["R",1,2],["H",0,1],["F",0,0],["E",2,0],["A",4,0],["R",4,2]],
+  // 第 4 关 · 16 步
+  3: [["A",3,4],["C",2,3],["E",4,0],["F",2,0],["L",3,0],["R",2,2],["B",1,3],["R",0,2],["F",2,1],["L",3,1],["E",0,0],["F",2,0],["I",4,0],["K",5,0],["L",3,0],["R",4,2]],
+  // 第 5 关 · 20 步
+  4: [["A",4,2],["C",5,1],["G",3,4],["B",2,3],["H",4,0],["D",1,0],["R",1,2],["I",0,0],["R",0,2],["B",2,2],["G",0,4],["A",4,3],["B",2,3],["F",3,3],["R",1,2],["I",0,1],["D",0,0],["H",3,0],["C",5,0],["R",4,2]],
+  // 第 6 关 · 24 步
+  5: [["D",2,2],["E",0,0],["I",3,0],["C",3,2],["J",1,4],["C",3,4],["F",4,2],["I",3,2],["A",4,1],["E",3,0],["D",2,0],["R",1,2],["G",0,0],["J",0,4],["R",0,2],["D",2,3],["R",1,2],["G",0,1],["E",0,0],["I",3,0],["C",3,3],["H",2,5],["F",4,3],["R",4,2]],
+  // 第 7 关 · 31 步
+  6: [["H",0,5],["B",2,5],["K",5,1],["D",3,0],["G",2,0],["I",1,3],["R",1,2],["F",0,3],["R",0,2],["G",2,1],["D",0,0],["E",3,0],["C",3,2],["J",1,4],["A",4,3],["C",3,3],["E",3,1],["D",3,0],["G",2,0],["K",5,3],["R",1,2],["F",0,0],["I",0,3],["J",0,4],["R",0,2],["G",2,3],["R",1,2],["F",0,1],["D",0,0],["E",3,0],["R",4,2]],
+};
+
+/* ============================================================
+   军师锦囊 —— 实时求解器（BFS，给出当前局面的最优下一步）
+   ============================================================ */
+function solveNextStep(level) {
+  const cars = level.cars.map(c => ({ id: c.id, x: c.x, y: c.y, w: c.w, h: c.h,
+                                      dir: (c.w > c.h ? 'h' : 'v') }));
+  const byId = {};
+  cars.forEach(c => { byId[c.id] = c; });
+  const exitRow = level.exitRow;
+  const key = (cs) => cs.map(c => c.id + c.x + ',' + c.y).sort().join('|');
+
+  const isWin = (cs) => {
+    const r = cs.find(c => c.id === 'R');
+    return r.x + r.w >= GRID && r.y === exitRow;
+  };
+  if (isWin(cars)) return null;
+
+  const start = key(cars);
+  const q = [cars.map(c => ({ ...c }))];
+  const seen = new Set([start]);
+  const parent = new Map();
+  const moveOf = new Map();
+  let head = 0, guard = 0;
+
+  while (head < q.length && guard++ < 200000) {
+    const cs = q[head++];
+    const occ = new Set();
+    cs.forEach(c => { for (let x = c.x; x < c.x + c.w; x++)
+                        for (let y = c.y; y < c.y + c.h; y++) occ.add(x + ',' + y); });
+    for (const c of cs) {
+      const occWo = new Set(occ);
+      for (let x = c.x; x < c.x + c.w; x++)
+        for (let y = c.y; y < c.y + c.h; y++) occWo.delete(x + ',' + y);
+      const deltas = c.dir === 'h' ? [[-1, 0], [1, 0]] : [[0, -1], [0, 1]];
+      for (const [dx, dy] of deltas) {
+        let step = 1;
+        while (true) {
+          const nx = c.x + dx * step, ny = c.y + dy * step;
+          if (c.dir === 'h') {
+            if (nx < 0 || nx + c.w > GRID) break;
+            let blocked = false;
+            for (let x = nx; x < nx + c.w; x++) if (occWo.has(x + ',' + ny)) blocked = true;
+            if (blocked) break;
+          } else {
+            if (ny < 0 || ny + c.h > GRID) break;
+            let blocked = false;
+            for (let y = ny; y < ny + c.h; y++) if (occWo.has(nx + ',' + y)) blocked = true;
+            if (blocked) break;
+          }
+          const nc = cs.map(t => ({ ...t }));
+          const tc = nc.find(t => t.id === c.id);
+          tc.x = nx; tc.y = ny;
+          const k = key(nc);
+          if (!seen.has(k)) {
+            seen.add(k);
+            parent.set(k, key(cs));
+            moveOf.set(k, { id: c.id, fx: c.x, fy: c.y, tx: nx, ty: ny });
+            if (isWin(nc)) {
+              // 回溯到起点的第一步
+              let cur = k, first = null;
+              while (parent.has(cur)) {
+                first = moveOf.get(cur);
+                cur = parent.get(cur);
+              }
+              return first;
+            }
+            q.push(nc);
+          }
+          step++;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/* ============================================================
+   状态与渲染
+   ============================================================ */
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const tipEl = document.getElementById('tip'), toastEl = document.getElementById('toast');
+const hintBtn = document.getElementById('hintBtn'), hintBox = document.getElementById('hintBox');
+let CELL = 64, PAD = 7, GRID = 6, DPR = 1, BOARD_PX = 384;
+let cur, moves = 0, levelIdx = 0, best = {}, history = [];
+let dragging = null, dragOffset = 0, hoverT = 0, winT = 0, particles = [];
+let animating = false, t0 = 0;
+let idleTimer = null, lastActionAt = Date.now(), resetCount = 0;
+let hintShown = false, hintUseCount = 0;
+
+/* ---------- 存档（localStorage） ---------- */
+const SAVE_KEY = 'carout_save_v1';
+let starBest = {};
+function loadSave() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
+    best = s.best || {};
+    starBest = s.stars || {};
+    return s.lastLevel || 0;
+  } catch (e) { best = {}; starBest = {}; return 0; }
+}
+function persist() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(
+      { best, stars: starBest, lastLevel: levelIdx }));
+  } catch (e) {}
+}
+
+function layout() {
+  GRID = cur ? cur.cars.reduce((m, c) => Math.max(m, c.x + c.w, c.y + c.h), 6) : 6;
+  const de = document.documentElement;
+  // 取多个来源的最小值，确保不溢出
+  const vw = Math.min(
+    (window.visualViewport && window.visualViewport.width) || 1e9,
+    window.innerWidth || 1e9,
+    de.clientWidth || 1e9
+  );
+  const vh = Math.min(
+    (window.visualViewport && window.visualViewport.height) || 1e9,
+    window.innerHeight || 1e9,
+    de.clientHeight || 1e9
+  );
+  // 预留：HUD 62px + 底部提示区 76px + 安全边距 24px
+  const availW = vw - 24;
+  const availH = vh - 162;
+  CELL = Math.max(36, Math.floor(Math.min(availW / GRID, availH / GRID)));
+  // 硬上限：绝不让棋盘超出视口
+  const limit = Math.floor(Math.min(availW, availH) / GRID);
+  if (CELL > limit) CELL = Math.max(36, limit);
+  BOARD_PX = CELL * GRID;
+  cv.width = BOARD_PX * DPR; cv.height = BOARD_PX * DPR;
+  cv.style.width = BOARD_PX + 'px'; cv.style.height = BOARD_PX + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+
+function loadLevel(i, silent) {
+  if (cur && cur === LEVELS[levelIdx] && i === levelIdx) resetCount++;   // 重玩同一关
+  levelIdx = i;
+  cur = JSON.parse(JSON.stringify(LEVELS[i]));
+  GRID = 6;
+  cur.cars.forEach(c => { c.px = c.x; c.py = c.y; });
+  assignKinds(cur);                                  // 分配 曹操/关羽/兵
+  moves = 0; dragging = null; winT = 0; particles = []; history = [];
+  lastActionAt = Date.now();
+  layout(); updateHUD(); draw();
+  if (!silent) SFX.start();
+  persist();
+  // 第 1 关永远不显示锦囊；第 2 关重置提示状态
+  if (levelIdx === 0) { hintBtn.classList.remove('show'); hintShown = true; }
+  else { hintBtn.classList.remove('show'); hintShown = false; hintUseCount = 0; }
+}
+
+/* ---------- 撤销 ---------- */
+function undo() {
+  const h = history.pop();
+  if (!h) { toast('没有可撤销的步骤', ''); SFX.fail(); return; }
+  const c = cur.cars.find(x => x.id === h.id);
+  if (!c) return;
+  c.x = c.px = h.x; c.y = c.py = h.y;
+  moves = Math.max(0, moves - 1);
+  updateHUD(); draw(); SFX.grab();
+  toast('已撤销', '');
+}
+function updateUndoBtn() {
+  const b = document.getElementById('undoBtn');
+  if (b) b.disabled = history.length === 0;
+}
+
+function updateHUD() {
+  document.getElementById('lvText').textContent = cur.name + ' ▾';
+  document.getElementById('mvText').textContent = moves;
+  const b = best[levelIdx];
+  const chip = document.getElementById('bestChip');
+  if (b) { chip.style.display = ''; document.getElementById('bestText').textContent = b; }
+  else chip.style.display = 'none';
+}
+
+function toast(msg, cls) {
+  toastEl.textContent = msg; toastEl.className = 'show ' + (cls || '');
+  clearTimeout(toastEl._t); toastEl._t = setTimeout(() => toastEl.className = '', 1600);
+}
+
+function cellFree(cx, cy, ignore) {
+  if (cx < 0 || cy < 0 || cx >= GRID || cy >= GRID) return false;
+  return !cur.cars.some(c => c !== ignore && cx >= c.x && cx < c.x + c.w && cy >= c.y && cy < c.y + c.h);
+}
+function canMoveTo(car, nx, ny) {
+  if (car.dir === 'h') { if (ny !== car.y || nx < 0 || nx + car.w > GRID) return false; }
+  else { if (nx !== car.x || ny < 0 || ny + car.h > GRID) return false; }
+  for (let x = nx; x < nx + car.w; x++) for (let y = ny; y < ny + car.h; y++)
+    if (!cellFree(x, y, car)) return false;
+  return true;
+}
+function isWin() {
+  const r = cur.cars.find(c => c.id === 'R');
+  return r.x + r.w >= GRID && r.y === cur.exitRow;
+}
+
+function rr(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+function spawnParticles(cx, cy, n, hue) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 6;
+    particles.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2,
+                     life: 1, size: 2 + Math.random() * 4, hue });
+  }
+}
+
+function draw() {
+  if (!cur) return;
+  const W = BOARD_PX, now = performance.now();
+  ctx.clearRect(0, 0, W, W);
+
+  // 棋盘底
+  const bg = ctx.createLinearGradient(0, 0, W, W);
+  bg.addColorStop(0, '#141a24'); bg.addColorStop(1, '#0f151f');
+  rr(0, 0, W, W, 18); ctx.fillStyle = bg; ctx.fill();
+
+  // 网格
+  ctx.strokeStyle = '#ffffff0a'; ctx.lineWidth = 1;
+  for (let i = 1; i < GRID; i++) {
+    ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, W); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i * CELL); ctx.lineTo(W, i * CELL); ctx.stroke();
+  }
+
+  // 出口（脉动）
+  const pulse = 0.5 + 0.5 * Math.sin(now / 460);
+  const ey = cur.exitRow * CELL;
+  const eg = ctx.createLinearGradient(W - 12, 0, W, 0);
+  eg.addColorStop(0, `rgba(63,185,80,${0.12 + pulse * 0.2})`);
+  eg.addColorStop(1, `rgba(63,185,80,${0.45 + pulse * 0.4})`);
+  ctx.fillStyle = eg;
+  rr(W - 11, ey + 6, 11, CELL - 12, 5); ctx.fill();
+
+  // 棋子（按 y 排序，制造层叠感）
+  const sorted = cur.cars.slice().sort((a, b) => (a.py - b.py) || (a.px - b.px));
+  for (const c of sorted) {
+    const kind = c.kind || 'S';
+    const isMain = kind === 'C';
+    const isDrag = dragging === c;
+    const lift = isDrag ? 4 : 0;
+    const x = c.px * CELL + PAD, y = c.py * CELL + PAD - lift;
+    const w = c.w * CELL - PAD * 2, h = c.h * CELL - PAD * 2;
+    const col = COLORS[kind] || ['#444', '#666'];
+
+    // 阴影
+    ctx.save();
+    ctx.shadowColor = isDrag ? 'rgba(0,0,0,0.55)' : (isMain ? 'rgba(224,75,58,0.30)' : 'rgba(0,0,0,0.42)');
+    ctx.shadowBlur = isDrag ? 26 : (isMain ? 20 : 12);
+    ctx.shadowOffsetY = isDrag ? 10 : 5;
+    const g = ctx.createLinearGradient(x, y, x, y + h);
+    g.addColorStop(0, col[1]); g.addColorStop(1, col[0]);
+    ctx.fillStyle = g;
+    rr(x, y, w, h, Math.min(CELL * 0.21, 15)); ctx.fill();
+    ctx.restore();
+
+    // 顶部高光
+    ctx.save();
+    ctx.globalAlpha = 0.20;
+    const hg = ctx.createLinearGradient(x, y, x, y + h * 0.45);
+    hg.addColorStop(0, '#ffffff'); hg.addColorStop(1, 'transparent');
+    ctx.fillStyle = hg;
+    rr(x + 2, y + 2, w - 4, h * 0.45, Math.min(CELL * 0.18, 12)); ctx.fill();
+    ctx.restore();
+
+    // 描边（曹操/关羽加金边；被提示时闪烁）
+    const flashing = flashId === c.id && flashT > 0;
+    ctx.strokeStyle = flashing ? `rgba(255,220,90,${0.4 + 0.6 * Math.abs(Math.sin(Date.now() / 160))})`
+                    : (isMain ? 'rgba(240,196,90,0.75)'
+                    : (kind === 'G' ? 'rgba(240,196,90,0.45)' : 'rgba(255,255,255,0.13)'));
+    ctx.lineWidth = flashing ? 3.5 : (isMain ? 2 : 1.2);
+    rr(x + 0.6, y + 0.6, w - 1.2, h - 1.2, Math.min(CELL * 0.21, 15)); ctx.stroke();
+
+    // 提示光晕
+    if (flashing) {
+      ctx.save();
+      ctx.shadowColor = '#ffdc5a'; ctx.shadowBlur = 26;
+      ctx.strokeStyle = `rgba(255,220,90,${0.3 + 0.4 * Math.abs(Math.sin(Date.now() / 160))})`;
+      ctx.lineWidth = 2;
+      rr(x, y, w, h, Math.min(CELL * 0.21, 15)); ctx.stroke();
+      ctx.restore();
+    }
+
+    // 棋子汉字（竖排：两字时上下排；单字居中）
+    const info = PIECE_NAME[kind] || PIECE_NAME.S;
+    ctx.save();
+    ctx.fillStyle = '#f5efe6';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 5;
+    if (info.big && info.text.length === 2 && w >= h) {
+      // 横块：左右排
+      ctx.font = `bold ${Math.round(CELL * 0.30)}px "KaiTi","STKaiti",serif`;
+      ctx.fillText(info.text[0], x + w * 0.30, y + h / 2 + 1);
+      ctx.fillText(info.text[1], x + w * 0.70, y + h / 2 + 1);
+    } else if (info.big && info.text.length === 2) {
+      // 竖块：上下排
+      ctx.font = `bold ${Math.round(CELL * 0.30)}px "KaiTi","STKaiti",serif`;
+      ctx.fillText(info.text[0], x + w / 2, y + h * 0.32);
+      ctx.fillText(info.text[1], x + w / 2, y + h * 0.68);
+    } else {
+      ctx.font = `bold ${Math.round(CELL * 0.32)}px "KaiTi","STKaiti",serif`;
+      ctx.fillText(info.text, x + w / 2, y + h / 2 + 1);
+    }
+    ctx.restore();
+  }
+
+  // 粒子
+  if (particles.length) {
+    for (const p of particles) {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.32; p.vx *= 0.985; p.life -= 0.022;
+      if (p.life <= 0) continue;
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = `hsl(${p.hue},90%,64%)`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, 7); ctx.fill();
+    }
+    particles = particles.filter(p => p.life > 0);
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(draw);
+  }
+
+  // 通关文字
+  if (winT > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, winT);
+    ctx.fillStyle = '#e8c05a';
+    ctx.font = `bold ${Math.round(CELL * 0.34)}px "KaiTi","STKaiti",serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#e8c05a'; ctx.shadowBlur = 22;
+    ctx.fillText('脱险!', W / 2, W / 2);
+    ctx.restore();
+  }
+}
+
+/* ============================================================
+   交互
+   ============================================================ */
+/* 触摸/鼠标坐标 → 画布逻辑坐标（按实际显示尺寸等比换算，全屏/缩放都不会错位） */
+function pos(e) {
+  const r = cv.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  const sx = r.width  ? BOARD_PX / r.width  : 1;
+  const sy = r.height ? BOARD_PX / r.height : 1;
+  return { x: (t.clientX - r.left) * sx, y: (t.clientY - r.top) * sy };
+}
+/* 命中判定：加一点容错（全屏/小尺寸下手指不精确） */
+function carAt(px, py) {
+  // 先按正常格子判
+  let cx = Math.floor(px / CELL), cy = Math.floor(py / CELL);
+  let hit = cur.cars.find(c => cx >= c.x && cx < c.x + c.w && cy >= c.y && cy < c.y + c.h);
+  if (hit) return hit;
+
+  // 容错：在半径内找最近的棋子（应对圆角/边缘/手指偏移）
+  const R = Math.max(6, CELL * 0.22);
+  let best = null, bestD = 1e9;
+  for (const c of cur.cars) {
+    const left = c.x * CELL, top = c.y * CELL;
+    const right = left + c.w * CELL, bottom = top + c.h * CELL;
+    const dx = px < left ? left - px : (px > right ? px - right : 0);
+    const dy = py < top ? top - py : (py > bottom ? py - bottom : 0);
+    const d = Math.hypot(dx, dy);
+    if (d <= R && d < bestD) { bestD = d; best = c; }
+  }
+  return best;
+}
+
+function down(e) {
+  e.preventDefault();
+  if (!cur || winT > 0) return;
+  SFX.unlock();
+  const p = pos(e), c = carAt(p.x, p.y);
+  if (DEBUG) {
+    dbgLast.x = Math.round(p.x); dbgLast.y = Math.round(p.y);
+    dbgLast.cx = Math.floor(p.x / CELL); dbgLast.cy = Math.floor(p.y / CELL);
+    dbgLast.hit = c ? (c.kind || c.id) : 'none';
+    dbgUpdate();
+  }
+  if (!c) return;
+  SFX.grab();
+  dragging = c; dragOffset = c.dir === 'h' ? p.x - c.x * CELL : p.y - c.y * CELL;
+  draw();
+}
+
+function move(e) {
+  if (!dragging) return;
+  e.preventDefault();
+  const p = pos(e), c = dragging;
+  const before = c.dir === 'h' ? c.px : c.py;
+
+  if (c.dir === 'h') {
+    // 左/右边界（用整数 c.x 为基准，保证判定严格）
+    let minPx = c.x;
+    while (minPx > 0 && canMoveTo(c, minPx - 1, c.y)) minPx--;
+    let maxPx = c.x;
+    while (maxPx + c.w < GRID && canMoveTo(c, maxPx + 1, c.y)) maxPx++;
+    const want = (p.x - dragOffset) / CELL;
+    c.px = Math.max(minPx, Math.min(maxPx, want));
+  } else {
+    let minPy = c.y;
+    while (minPy > 0 && canMoveTo(c, c.x, minPy - 1)) minPy--;
+    let maxPy = c.y;
+    while (maxPy + c.h < GRID && canMoveTo(c, c.x, maxPy + 1)) maxPy++;
+    const want = (p.y - dragOffset) / CELL;
+    c.py = Math.max(minPy, Math.min(maxPy, want));
+  }
+
+  const after = c.dir === 'h' ? c.px : c.py;
+  if (Math.abs(after - before) > 0.001) {
+    if (!c._sfxAt || Math.abs(after - c._sfxAt) >= 0.9) { comboPing(); c._sfxAt = after; }
+  }
+  draw();
+}
+
+function up(e) {
+  if (!dragging) return;
+  const c = dragging;
+  // 平滑拖动用的是浮点 px/py，这里吸附回最近的"合法整数格"
+  let tx = c.x, ty = c.y;
+  if (c.dir === 'h') {
+    tx = Math.round(c.px);
+    // 夹到全局边界
+    tx = Math.max(0, Math.min(GRID - c.w, tx));
+    // 若目标非法，逐格回退直到合法（保证 x 永远是整数且合法）
+    while (tx !== c.x && !canMoveTo(c, tx, c.y)) {
+      tx += (tx > c.x) ? -1 : 1;
+    }
+  } else {
+    ty = Math.round(c.py);
+    ty = Math.max(0, Math.min(GRID - c.h, ty));
+    while (ty !== c.y && !canMoveTo(c, c.x, ty)) {
+      ty += (ty > c.y) ? -1 : 1;
+    }
+  }
+
+  if (tx !== c.x || ty !== c.y) {
+    history.push({ id: c.id, x: c.x, y: c.y });
+    c.x = tx; c.y = ty;
+    c.px = tx; c.py = ty;              // 强制归位为整数，杜绝浮点污染
+    delete c._sfxAt;
+    moves++; updateHUD(); SFX.place();
+    spawnParticles((c.x + c.w / 2) * CELL, (c.y + c.h / 2) * CELL,
+                   c.id === 'R' ? 16 : 7, c.id === 'R' ? 355 : 200);
+    updateUndoBtn();
+    draw();
+    lastActionAt = Date.now();
+    maybeRevealHint();
+    if (isWin()) setTimeout(finish, 150);
+  } else {
+    c.px = c.x; c.py = c.y; draw();     // 没移动 → 弹回原位
+  }
+  dragging = null;
+}
+
+function finish() {
+  const r = cur.cars.find(c => c.id === 'R');
+  let v = 0;
+  const slide = () => {
+    v += 0.42; r.px += 0.42; draw();
+    if (v < 2.6) requestAnimationFrame(slide); else showWin();
+  };
+  slide();
+}
+
+function showWin() {
+  SFX.win();
+  toast(cur.winText, 'gold');
+  // 粒子庆祝
+  spawnParticles(BOARD_PX / 2, BOARD_PX / 2, 40, 45);
+  spawnParticles(BOARD_PX / 3, BOARD_PX / 2, 30, 145);
+  spawnParticles(BOARD_PX * 0.66, BOARD_PX / 2, 30, 200);
+  const key = levelIdx;
+  const isRecord = !best[key] || moves < best[key];
+  if (isRecord) best[key] = moves;
+  // 星级存档（取历史最好）
+  const ns = starsFor(key, moves);
+  if (!starBest[key] || ns > starBest[key]) starBest[key] = ns;
+  persist();
+  updateHUD();
+  winT = 0.01;
+  const fade = () => { winT += 0.045; draw(); if (winT < 1) requestAnimationFrame(fade); else revealWinPanel(isRecord); };
+  fade();
+}
+
+function revealWinPanel(isRecord) {
+  const isLast = levelIdx + 1 >= LEVELS.length;
+  const nStars = starsFor(levelIdx, moves);
+  const best = minMovesOf(levelIdx);
+  tipEl.classList.remove('hide');
+  tipEl.innerHTML = `
+    <h1 style="background:linear-gradient(96deg,#e8c05a,#e04b3a 60%,#e8c05a);
+        -webkit-background-clip:text;background-clip:text;color:transparent">曹 公 脱 险</h1>
+    <div class="stars" style="font-size:38px;letter-spacing:8px;color:#e8c05a;
+        margin:2px 0 2px;text-shadow:0 0 18px #e8c05a88">${starHTML(nStars)}</div>
+    <div style="color:#d29922;font-size:15px;letter-spacing:2px;margin-bottom:10px">
+      ${starLabel(nStars)}${best > 0 && best < 90 ? ` · 最少 ${best} 步` : ''}</div>
+    <p>${cur.winText}<br>
+      <span style="color:#e8c05a;font-size:16px">用了 ${moves} 步</span>
+      ${isRecord ? '<span style="color:#d29922"> · 新纪录!</span>' : ''}</p>
+    <button class="btn" id="nextBtn">${isLast ? '从 头 再 来' : '下 一 关 →'}</button>
+    <button class="btn ghost" id="shareBtn">📤 炫耀一下</button>
+    <button class="btn ghost" id="replayBtn">重玩本关</button>`;
+  document.getElementById('nextBtn').onclick = () => {
+    SFX.tap(); tipEl.classList.add('hide'); winT = 0;
+    loadLevel(levelIdx + 1 < LEVELS.length ? levelIdx + 1 : 0);
+  };
+  document.getElementById('replayBtn').onclick = () => {
+    SFX.tap(); tipEl.classList.add('hide'); winT = 0; loadLevel(levelIdx);
+  };
+  document.getElementById('shareBtn').onclick = () => {
+    SFX.tap();
+    const text = `【华容道·曹操快跑】我在「${cur.name}」用了 ${moves} 步助曹公脱险${cur.isHard ? '（这关据说没人能过）' : ''}，你敢来试试吗？`;
+    if (typeof wx !== 'undefined' && wx.shareAppMessage) { wx.shareAppMessage({ title: text }); return; }
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(
+      () => toast('已复制分享文案 📋', 'gold'), () => toast('分享失败', 'bad'));
+    else toast(text.slice(0, 22) + '…', '');
+  };
+}
+
+cv.addEventListener('mousedown', down);
+window.addEventListener('mousemove', move);
+window.addEventListener('mouseup', up);
+cv.addEventListener('touchstart', down, { passive: false });
+cv.addEventListener('touchmove', move, { passive: false });
+cv.addEventListener('touchend', up);
+cv.addEventListener('touchcancel', () => { if (dragging) { dragging.px = dragging.x; dragging.py = dragging.y; dragging = null; draw(); } });
+/* 防长按弹出菜单 / 防选中 */
+cv.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('dblclick', e => e.preventDefault());
+
+document.getElementById('startBtn').onclick = () => {
+  SFX.unlock(); SFX.tap(); tipEl.classList.add('hide');
+  const saved = loadSave();
+  loadLevel(Math.max(0, Math.min(LEVELS.length - 1, saved)));
+};
+const _undoBtn = document.getElementById('undoBtn');
+_undoBtn.onclick = () => { if (history.length) undo(); };
+_undoBtn.disabled = true;
+document.getElementById('mute').onclick = (e) => {
+  const m = !SFX.isMuted(); SFX.setMuted(m);
+  e.target.textContent = m ? '🔇' : '🔊';
+  if (!m) SFX.tap();
+};
+
+/* ---------- 屏幕尺寸变化（旋转 / 地址栏收起）时重算布局 ---------- */
+window.addEventListener('orientationchange', () => {
+  [120, 350, 700].forEach(d => setTimeout(() => { if (cur) { layout(); draw(); } }, d));
+});
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => {
+    if (cur) { layout(); draw(); }
+  });
+}
+
+/* ---------- 调试模式（?debug=1）：实时显示触摸诊断 ---------- */
+const DEBUG = new URLSearchParams(location.search).has('debug');
+let dbgEl = null;
+function dbgInit() {
+  if (!DEBUG) return;
+  dbgEl = document.createElement('div');
+  dbgEl.style.cssText = 'position:fixed;top:0;left:0;z-index:999;background:#000c;color:#0f0;' +
+    'font:11px/1.45 monospace;padding:6px 8px;max-width:100vw;white-space:pre;pointer-events:none';
+  document.body.appendChild(dbgEl);
+  setInterval(dbgUpdate, 250);
+}
+function dbgUpdate() {
+  if (!dbgEl) return;
+  const r = cv.getBoundingClientRect();
+  const fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  dbgEl.textContent =
+    `FS:${fs ? 'ON' : 'off'}  DPR:${DPR}\n` +
+    `vv:${Math.round((window.visualViewport?.width) || 0)}x${Math.round((window.visualViewport?.height) || 0)}\n` +
+    `iw/ih:${window.innerWidth}x${window.innerHeight}\n` +
+    `rect:${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)}\n` +
+    `cv.style:${cv.style.width}/${cv.style.height}\n` +
+    `BOARD_PX:${BOARD_PX} CELL:${CELL}\n` +
+    `scale:${(BOARD_PX / (r.width || 1)).toFixed(3)}\n` +
+    `lastTouch:${dbgLast.x},${dbgLast.y} → cell:${dbgLast.cx},${dbgLast.cy}\n` +
+    `hit:${dbgLast.hit || 'none'}`;
+}
+const dbgLast = { x: '-', y: '-', cx: '-', cy: '-', hit: null };
+
+/* ---------- 星级评价 + 连击音效 ---------- */
+let comboCount = 0, lastMoveAt = 0;
+
+function starsFor(lvIdx, used) {
+  const best = minMovesOf(lvIdx);
+  if (!best || best >= 90) return 0;
+  const d = used - best;
+  if (d <= 0) return 3;
+  if (d <= 3) return 2;
+  if (d <= 8) return 1;
+  return 0;
+}
+
+function starHTML(n) {
+  let s = '';
+  for (let i = 0; i < 3; i++) s += i < n ? '★' : '☆';
+  return s;
+}
+
+function starLabel(n) {
+  return ['再来一次？', '过关', '妙手', '神之一手'][n] || '';
+}
+
+/* 连击：连续快速移动，音调递增 */
+function comboPing() {
+  const now = performance.now();
+  if (now - lastMoveAt < 800) comboCount = Math.min(comboCount + 1, 8);
+  else comboCount = 1;
+  lastMoveAt = now;
+  if (comboCount > 1) SFX.move(Math.pow(2, (comboCount - 1) / 12));
+}
+
+/* 曹操逃出动画 */
+function escapeAnim() {
+  const main = cur.cars.find(c => c.id === 'R');
+  if (!main) return;
+  return new Promise(res => {
+    const startPx = main.px;
+    const t0 = performance.now();
+    const DUR = 620;
+    (function step() {
+      const t = Math.min(1, (performance.now() - t0) / DUR);
+      const e = 1 - Math.pow(1 - t, 3);
+      main.px = startPx + e * (GRID + 2.2 - startPx);
+      draw();
+      if (t < 1) requestAnimationFrame(step);
+      else res();
+    })();
+  });
+}
+
+/* ---------- 军师锦囊 ---------- */
+function minMovesOf(idx) {
+  const s = SOLUTIONS[idx];
+  return s ? s.length : 99;
+}
+
+/* 判断是否"卡住了"，够了就露出锦囊 */
+function maybeRevealHint() {
+  if (hintShown) return;
+  const minMv = minMovesOf(levelIdx);
+  const stuckByMoves = moves >= Math.max(5, Math.ceil(minMv * 1.15));   // 超过最短解 15% 即出现
+  const stuckByResets = resetCount >= 2;                                 // 重玩 2 次
+  const stuckByIdle = (Date.now() - lastActionAt) > 45000 && moves > 2;  // 45 秒没动作
+  if (stuckByMoves || stuckByResets || stuckByIdle) {
+    hintShown = true;
+    hintBtn.classList.add('show');
+    hintBtn.textContent = '🎋 请军师指点';
+  }
+}
+/* 每秒检查一次（空闲超时会触发） */
+setInterval(() => { if (!hintShown && cur && levelIdx > 0) maybeRevealHint(); }, 1000);
+
+/* ---------- 选关面板 ---------- */
+const lvPanel = document.getElementById('lvPanel');
+const lvList = document.getElementById('lvList');
+
+function renderLevelList() {
+  lvList.innerHTML = '';
+  LEVELS.forEach((lv, i) => {
+    const unlocked = i === 0 || best[i - 1] != null;   // 上一关通关才解锁（也可全开）
+    const b = best[i];
+    const hard = lv.isHard ? '🔥 高难' : (lv.minMoves ? `${lv.minMoves} 步` : '');
+    const el = document.createElement('div');
+    el.className = 'lvItem' + (i === levelIdx ? ' cur' : '');
+    el.innerHTML = `
+      <div class="num">${i + 1}</div>
+      <div class="info">
+        <div class="nm">${lv.name.replace(/^第[一二三四五六七八九十]+关\s*·\s*/, '')}</div>
+        <div class="sub">最少 ${lv.minMoves || (SOLUTIONS[i] ? SOLUTIONS[i].length : '?')} 步${b != null ? ` · 你用了 ${b} 步` : ''}</div>
+        <div class="srow" style="color:#e8c05a;font-size:17px;letter-spacing:3px">
+          ${starHTML(starBest[i] || 0)}</div>
+      </div>
+      ${b != null ? '<span class="badge">已通关</span>' : '<span class="badge" style="background:#30363d55;color:#8b949e;border-color:#30363d">未通关</span>'}`;
+    el.onclick = () => {
+      SFX.tap();
+      lvPanel.classList.remove('show');
+      winT = 0;
+      loadLevel(i);
+    };
+    lvList.appendChild(el);
+  });
+}
+
+document.getElementById('lvText').onclick = () => {
+  SFX.tap();
+  renderLevelList();
+  lvPanel.classList.add('show');
+};
+document.getElementById('lvClose').onclick = () => {
+  SFX.tap();
+  lvPanel.classList.remove('show');
+};
+lvPanel.onclick = (e) => { if (e.target === lvPanel) lvPanel.classList.remove('show'); };
+
+hintBtn.onclick = () => {
+  SFX.tap();
+  hintUseCount++;
+  const step = solveNextStep(cur);
+  if (!step) { showHint('此局已无解 —— 点「重玩本关」吧', ''); return; }
+  const car = cur.cars.find(c => c.id === step.id);
+  const dirArrow = step.tx > step.fx ? '向右 →'
+                 : step.tx < step.fx ? '向左 ←'
+                 : step.ty > step.fy ? '向下 ↓' : '向上 ↑';
+  const nameMap = { R: '曹操', A: '关羽' };
+  let label = car.kind === 'C' ? '曹操' : (car.kind === 'G' ? '关羽' : '小兵');
+  showHint(`把 <b>${label}</b> ${dirArrow} 移动 <b>${Math.abs(step.tx - step.fx) + Math.abs(step.ty - step.fy)}</b> 格`,
+           `（第 ${hintUseCount} 次求援 · 此关最少 ${minMovesOf(levelIdx)} 步）`);
+  // 高亮该棋子
+  flashCar(car);
+};
+
+function showHint(html, sub) {
+  hintBox.innerHTML = html + (sub ? `<span class="step">${sub}</span>` : '');
+  hintBox.classList.add('show');
+  clearTimeout(hintBox._t);
+  hintBox._t = setTimeout(() => hintBox.classList.remove('show'), 6000);
+}
+
+/* 高亮棋子（短暂发光） */
+let flashId = null, flashT = 0;
+function flashCar(car) { flashId = car.id; flashT = 1; animateFlash(); }
+function animateFlash() {
+  if (flashT <= 0) { flashId = null; draw(); return; }
+  flashT -= 0.03;
+  draw();
+  requestAnimationFrame(animateFlash);
+}
+window.addEventListener('keydown', e => {
+  if (e.key === 'r' || e.key === 'R') loadLevel(levelIdx);
+});
+window.addEventListener('resize', () => { if (cur) { layout(); draw(); } });
+
+/* 启动 */
+DPR = Math.min(window.devicePixelRatio || 1, 2);
+const _params = new URLSearchParams(location.search);
+const _lv = parseInt(_params.get('level') || '1', 10);
+loadLevel(Math.max(0, Math.min(LEVELS.length - 1, _lv - 1)), true);
+if (_params.has('level')) tipEl.classList.add('hide');
+dbgInit();
+/* ?hint=1 → 立刻显示"军师锦囊"（用于验证按钮可见性/位置） */
+if (_params.has('hint')) {
+  setTimeout(() => {
+    hintShown = true;
+    hintBtn.classList.add('show');
+    tipEl.classList.add('hide');
+  }, 400);
+}
+/* 首屏后补一次 layout（等字体/布局稳定） */
+setTimeout(() => { if (cur) { layout(); draw(); } }, 300);
+</script>
+</body>
+</html>
