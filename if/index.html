@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>第一次放电 · 托卡马克值班日志</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#080A0E; --amber:#FFB347; --teal:#4EC9B0; --rust:#D2694A;
+    --paper:#E8E2D4; --dim:#5A6472; --grid:#141A22; --panel:#0D1117;
+  }
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--paper);
+    font-family:"Consolas","SF Mono",Monaco,monospace;
+    display:flex; align-items:center; justify-content:center;
+    padding:18px; letter-spacing:.2px;
+    background-image:
+      linear-gradient(var(--grid) 1px,transparent 1px),
+      linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:62px 62px;
+  }
+  .frame{
+    width:100%; max-width:760px; height:min(88vh,720px);
+    background:var(--panel); border:1px solid #1c2530;
+    display:flex; flex-direction:column; position:relative;
+  }
+  /* 四角标记 */
+  .frame::before,.frame::after{
+    content:""; position:absolute; width:14px; height:14px;
+    border-color:var(--dim); border-style:solid; pointer-events:none;
+  }
+  .frame::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+  .frame::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+
+  header{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 18px; border-bottom:1px solid #16202b; font-size:12px;
+  }
+  .hud{color:var(--dim)}
+  .hud b{color:var(--amber); font-weight:normal}
+  .title{color:var(--teal); font-size:13px}
+
+  main{flex:1; overflow-y:auto; padding:22px 24px}
+  main::-webkit-scrollbar{width:6px}
+  main::-webkit-scrollbar-thumb{background:#1e2a36}
+
+  .meta{color:var(--dim); font-size:11px; margin-bottom:14px}
+  .meta b{color:var(--rust); font-weight:normal}
+
+  .text{font-size:15px; line-height:1.9; margin-bottom:14px}
+  .text .em{color:var(--amber)}
+  .text .warn{color:var(--rust)}
+  .text .ok{color:var(--teal)}
+
+  .quote{
+    border-left:2px solid var(--amber); padding:6px 0 6px 14px;
+    margin:14px 0; color:var(--dim); font-size:14px;
+  }
+
+  .choices{display:flex; flex-direction:column; gap:9px; margin-top:20px}
+  .choice{
+    background:transparent; border:1px solid #22303d; color:var(--paper);
+    padding:13px 16px; text-align:left; cursor:pointer;
+    font-family:inherit; font-size:14px; line-height:1.5;
+    transition:.15s;
+  }
+  .choice:hover{border-color:var(--amber); color:var(--amber); padding-left:20px}
+  .choice .tag{color:var(--dim); font-size:11px; display:block; margin-top:4px}
+
+  .readout{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr));
+    gap:8px; margin:16px 0; padding:12px;
+    border:1px solid #1a242f; background:#0a0e13;
+  }
+  .ro-item{font-size:12px}
+  .ro-item .k{color:var(--dim)}
+  .ro-item .v{color:var(--amber); font-size:15px; display:block; margin-top:2px}
+  .ro-item.danger .v{color:var(--rust)}
+
+  footer{
+    padding:10px 18px; border-top:1px solid #16202b;
+    display:flex; justify-content:space-between; font-size:11px; color:var(--dim);
+  }
+  .bar{flex:1; height:4px; background:#131b24; margin:0 12px; align-self:center; max-width:220px}
+  .bar span{display:block; height:100%; background:var(--amber); width:0; transition:width .4s}
+</style>
+</head>
+<body>
+<div class="frame">
+  <header>
+    <span class="title">第一次放电 · 托卡马克值班日志</span>
+    <span class="hud">I_p <b id="hud-ip">0.0 MA</b> · q <b id="hud-q">--</b> · <b id="hud-ep">EP 01</b></span>
+  </header>
+  <main id="main"></main>
+  <footer>
+    <span>MAST-U 控制室 · 值班员：你</span>
+    <div class="bar"><span id="bar"></span></div>
+    <span id="stamp">T+00:00</span>
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   状态机：每个节点 = 一段场景 + 若干选择
+   选择可以修改状态（I_p / q / 时间 / 信任值）
+   ============================================================ */
+const S = {
+  ip: 0, q: null, t: 0, trust: 50, moves: 0, log: []
+};
+
+const SCENES = {
+
+  start: {
+    meta: "T+00:00 · 控制室",
+    text: `凌晨三点十七分，控制室只剩你一个。
+
+窗外是冷却塔的白雾。面前的屏幕上，真空室已经抽到 1e-8 毫巴，<span class="em">磁场线圈全部就位</span>。
+
+值班手册第一页写着一行字：
+
+<div class="quote">「每一次放电，都是一次不可重复的实验。跑之前想清楚你要问什么。」</div>
+
+今晚的目标：把等离子体升到 <span class="em">80 万安培</span>，然后进入平顶段，维持 800 毫秒。
+
+隔壁的资深操作员老陈在电话里说：「第一次，你说了算。但我提醒你——<span class="warn">中心螺线管升流太快，会触发磁通跳跃</span>。」`,
+    choices: [
+      { t: "慢升流：60 秒升到 80 万安培", sub: "稳，但需要更多磁通", to: "slowRamp", fx: s => { s.ip = 0.8; s.t = 60; } },
+      { t: "快升流：25 秒升到 80 万安培", sub: "省磁通，但风险高", to: "fastRamp", fx: s => { s.ip = 0.8; s.t = 25; } },
+      { t: "先做一次空载测试", sub: "多花 10 分钟，确认线圈和诊断都正常", to: "dryRun", fx: s => { s.t = 25; s.trust += 10; } }
+    ]
+  },
+
+  /* ---------- 分支 A：慢升流 → 顺利 ---------- */
+  slowRamp: {
+    meta: "T+01:00 · 平顶段",
+    text: `电流平稳爬到 80 万安培。屏幕上的曲线干净得像教科书。
+
+磁诊断开始给出等离子体位置：<span class="ok">中心在 R=0.9 m，垂直位置稳定</span>。
+
+平衡重建跑完了，q 剖面显示出来了。你盯着那条线——
+
+q 在中心附近降到了 <span class="em">0.92</span>。
+
+<div class="quote">q &lt; 1 意味着：锯齿振荡会发生。等离子体核心会周期性地崩塌一小块，把热量重新分布出去。</div>
+
+不算致命，但会让你的数据变脏。`,
+    choices: [
+      { t: "调整电流剖面：用射频波在中心驱动电流", sub: "把 q 抬到 1 以上（需要 3 分钟）", to: "fixQ", fx: s => { s.q = 1.05; s.t += 180; s.trust += 5; } },
+      { t: "不管它，继续跑", sub: "接受锯齿，拿到数据再说", to: "sawtooth", fx: s => { s.q = 0.92; } },
+      { t: "降低总电流到 70 万安培", sub: "q 自动抬升，但三重积会下降", to: "lowerIp", fx: s => { s.ip = 0.7; s.q = 1.1; } }
+    ]
+  },
+
+  /* ---------- 分支 B：快升流 → 风险 ---------- */
+  fastRamp: {
+    meta: "T+00:25 · 异常",
+    text: `<span class="warn">警告：线圈电压异常上升。</span>
+
+电流在 0.62 MA 处卡住了 0.8 秒——中心螺线管里出现了局部磁通跳跃。
+
+等离子体位置开始漂移。磁探针阵列显示：<span class="warn">垂直位移在以 3 cm/ms 增长</span>。
+
+这是垂直位移事件（VDE）的前兆。距离撞壁，大约是 <span class="em">7 毫秒</span>。`,
+    choices: [
+      { t: "立刻启动反馈控制线圈", sub: "标准应急程序，需要 2 ms 响应", to: "feedback", fx: s => { s.trust += 15; } },
+      { t: "切断电流，放弃这次放电", sub: "安全，但今晚白跑", to: "abort", fx: s => {} },
+      { t: "赌一把：加大磁场把等离子体压回去", sub: "风险极高", to: "gamble", fx: s => {} }
+    ]
+  },
+
+  /* ---------- 分支 C：空载测试 ---------- */
+  dryRun: {
+    meta: "T+00:10 · 空载测试",
+    text: `你把线圈逐个通电，读回每一路的电流。前 11 路正常。
+
+第 12 路——极向场线圈 PF4——读回值比设定值 <span class="warn">低了 6%</span>。
+
+老陈在电话那头说：「哦，那路探头上周换过，新探头还没正式标定。你要么现在补一个标定系数，要么今天别用那路。」`,
+    choices: [
+      { t: "现在补标定：用已知磁场源做一次响应曲线", sub: "多花 8 分钟，但数据干净", to: "calibrate", fx: s => { s.t += 480; s.trust += 20; } },
+      { t: "先记下来，跑完再修", sub: "接受 6% 的系统误差", to: "slowRamp", fx: s => { s.ip = 0.8; s.t += 60; s.trust -= 10; } }
+    ]
+  },
+
+  calibrate: {
+    meta: "T+00:18 · 已补标定",
+    text: `响应曲线画出来了。斜率 0.943 V/T，线性度还不错（R² = 0.9987）。
+
+系数输进去，PF4 的读回值正常了。
+
+你顺手把这组数据存进校准库，备注：<span class="ok">「新探头首次标定，2026-10-10」</span>。
+
+老陈说：「这就叫会干活。现在你可以放心升流了。」`,
+    choices: [
+      { t: "开始升流", sub: "", to: "slowRamp", fx: s => { s.ip = 0.8; s.t += 60; } }
+    ]
+  },
+
+  /* ---------- q 处理 ---------- */
+  fixQ: {
+    meta: "T+04:00 · 电流剖面已整形",
+    text: `射频波的功率缓缓加上去。q 剖面从中心开始抬升，那条线慢慢爬起来。
+
+<span class="ok">q(0) = 1.05。</span>
+
+锯齿消失了。温度剖面变得平滑，电子温度在中心达到 1.2 keV。
+
+现在的问题是：<span class="em">你多花了三分钟，等离子体加热时间是有限的。</span> 平顶段开始出现缓慢的温度衰减。`,
+    choices: [
+      { t: "加大中性束功率，补偿衰减", sub: "维持温度，但消耗燃料", to: "nbi", fx: s => { s.trust += 5; } },
+      { t: "接受衰减，记录数据", sub: "拿到一段干净的下降曲线", to: "dataTime", fx: s => {} }
+    ]
+  },
+
+  sawtooth: {
+    meta: "T+02:30 · 锯齿振荡",
+    text: `每隔约 40 毫秒，中心温度会突然掉一下，然后重新长回来。
+
+屏幕上那条曲线像心电图。
+
+<span class="warn">数据里混进了周期性扰动</span>——如果你现在分析，均值会被拉低，标准差会虚高。
+
+老陈说：「锯齿这东西，要么治，要么绕。<span class="em">你现在还能改。</span>」`,
+    choices: [
+      { t: "现在改造：加射频波抬 q", sub: "还能救，但时间不多了", to: "fixQ", fx: s => { s.q = 1.05; s.t += 120; } },
+      { t: "放弃这段，重跑一次", sub: "干净数据，但今晚多花 20 分钟", to: "restart", fx: s => { s.t += 1200; } },
+      { t: "接受它，但在分析时避开锯齿峰", sub: "考验你的数据处理功夫", to: "dataTime", fx: s => { s.trust -= 5; } }
+    ]
+  },
+
+  lowerIp: {
+    meta: "T+01:30 · 低电流运行",
+    text: `电流降到 70 万安培，q 自动抬到 1.1。等离子体很安静。
+
+但你的三重积——密度 × 温度 × 约束时间——比原目标低了约 30%。
+
+老陈说：「稳是稳，但你今晚想拿到什么？<span class="em">是一个漂亮的放电，还是一个有信息量的放电？</span>」`,
+    choices: [
+      { t: "接受这个结果，做完整的数据分析", sub: "拿到一段干净但低性能的数据", to: "dataTime", fx: s => {} },
+      { t: "回到 80 万，试试整形方案", sub: "追求目标参数", to: "fixQ", fx: s => { s.ip = 0.8; s.t += 90; } }
+    ]
+  },
+
+  /* ---------- 应急分支 ---------- */
+  feedback: {
+    meta: "T+00:27 · 反馈介入",
+    text: `反馈线圈在 <span class="ok">1.8 毫秒</span>内响应。
+
+垂直位移被拉回来了。等离子体在 R=0.9 m 处重新稳定。
+
+你手心全是汗。
+
+老陈在电话里说：「干得漂亮。不过记住——<span class="em">这次是运气好，响应够快。下次升流慢一点。</span>」`,
+    choices: [
+      { t: "降回慢升流节奏，重新来", sub: "", to: "slowRamp", fx: s => { s.ip = 0.8; s.t += 120; } },
+      { t: "继续这次放电，进入平顶段", sub: "已经稳住了，继续", to: "sawtooth", fx: s => { s.q = 0.9; } }
+    ]
+  },
+
+  abort: {
+    meta: "T+00:26 · 已中止",
+    text: `你按下了中止按钮。电流在 50 毫秒内降到零。
+
+真空室里重新变回空的。屏幕上的波形归零。
+
+老陈说：「对。宁可今晚不跑，也不要让等离子体撞壁。撞一次，偏滤器要检修两周。」`,
+    choices: [
+      { t: "重新开始", sub: "", to: "start", fx: s => { s.ip = 0; s.q = null; s.t = 0; s.trust += 5; } }
+    ]
+  },
+
+  gamble: {
+    meta: "T+00:28 · 失败",
+    text: `<span class="warn">磁场加强得太晚。</span>
+
+等离子体在 4 毫秒后撞上壁面，14 兆焦耳的能量在一瞬间释放。
+
+真空室里传来一声闷响。偏滤器靶板的温度传感器在 2 秒内报了三处异常。
+
+老陈过了很久才说话：「……记下来吧。<span class="em">这就是为什么手册里写着'不要赌'。</span>」`,
+    choices: [
+      { t: "写事故报告，重启", sub: "教训也是数据", to: "start", fx: s => { s.trust -= 20; s.ip = 0; s.q = null; s.t = 0; } }
+    ]
+  },
+
+  restart: {
+    meta: "T+22:00 · 第二次尝试",
+    text: `第二次放电。这次中心螺线管预热了十分钟，升流曲线改成了三段式。
+
+电流平滑爬到 80 万安培。q 剖面出来：<span class="ok">q(0) = 1.02</span>。
+
+没有锯齿。温度剖面很干净。
+
+老陈说：「看见了吧？<span class="em">慢，就是快。</span>」`,
+    choices: [
+      { t: "进入平顶段，开始采集", sub: "", to: "nbi", fx: s => { s.q = 1.02; s.t += 900; s.trust += 10; } }
+    ]
+  },
+
+  /* ---------- 加热 → 数据 → 分析 ---------- */
+  nbi: {
+    meta: "T+05:00 · 中性束投入",
+    text: `中性束注入器把 200 keV 的高能粒子打进等离子体。
+
+电子温度稳定在 <span class="em">1.4 keV</span>，密度 <span class="em">4.2e19 /m³</span>。
+
+平顶段还剩 400 毫秒。磁探针开始记录 Mirnov 信号——你注意到 250 kHz 附近有个很小的峰，幅度在缓慢增长。
+
+<div class="quote">一个正在长大的模。现在它还很弱，但你在日志里记了一笔。</div>`,
+    choices: [
+      { t: "结束放电，开始分析", sub: "数据已经够了", to: "dataTime", fx: s => { s.trust += 5; } },
+      { t: "继续跑，看看这个模会长到多大", sub: "有破裂风险", to: "lockMode", fx: s => {} }
+    ]
+  },
+
+  lockMode: {
+    meta: "T+05:06 · 锁定模",
+    text: `那个 250 kHz 的峰在 3 秒内从 0.8% 涨到了 <span class="warn">4.5%</span>，然后突然停住——转速掉到接近零。
+
+<span class="warn">锁定模。</span>
+
+它是破裂的强前兆。你有两个选择。`,
+    choices: [
+      { t: "立刻启动破裂缓解：注入杂质气体", sub: "把能量摊开，保护机器", to: "mitigate", fx: s => { s.trust += 15; } },
+      { t: "再用一次射频波，试着把它压回去", sub: "如果成功，能多拿 100 毫秒数据", to: "eccdSave", fx: s => {} }
+    ]
+  },
+
+  mitigate: {
+    meta: "T+05:08 · 已缓解",
+    text: `氖气在 0.5 毫秒内注入。等离子体在一场可控的辐射崩塌中结束，能量被均匀摊到真空室壁上。
+
+偏滤器最高温度比上次低了 60%。
+
+老陈说：「这才是标准操作。<span class="em">数据重要，机器更重要——机器没了，以后什么都没了。</span>」`,
+    choices: [
+      { t: "开始数据分析", sub: "", to: "dataTime", fx: s => { s.t += 60; } }
+    ]
+  },
+
+  eccdSave: {
+    meta: "T+05:09 · 部分成功",
+    text: `电子回旋波瞄准了磁岛位置，驱动了一小股电流。
+
+模的幅度停止增长，但没有缩回去。它在 3.5% 的位置卡住了，就像一个临界的水滴。
+
+<span class="ok">你多拿到了 80 毫秒的数据</span>——然后等离子体还是缓慢破裂了。
+
+比刚才好，但不够干净。`,
+    choices: [
+      { t: "开始数据分析", sub: "", to: "dataTime", fx: s => { s.t += 60; s.trust += 5; } }
+    ]
+  },
+
+  /* ---------- 数据分析（核心） ---------- */
+  dataTime: {
+    meta: "T+06:00 · 数据回来了",
+    text: `放电结束。你现在面对的是一堆数字。
+
+磁探针通道 M1 给出 1.2 MB 的电压采样，采样率 1 MHz。
+光谱仪给了 8 个通道的计数。
+汤姆逊散射打了三个时间点，每个点 12 个空间位置。
+
+<span class="em">这些都不是物理量。</span> 电压不知道自己是磁场。
+
+屏幕上跳出一行提示：<span class="dim">「请选择分析路径」</span>`,
+    choices: [
+      { t: "从标定开始：先把电压转成磁场", sub: "严谨，但要花时间", to: "analyzeCal", fx: s => { s.trust += 15; } },
+      { t: "直接 FFT 看频谱", sub: "快，但忽略幅度的绝对值", to: "analyzeFFT", fx: s => { s.trust -= 10; } },
+      { t: "先画出来看看大致形状", sub: "直观，但容易带着先入为主的判断", to: "analyzePlot", fx: s => {} }
+    ]
+  },
+
+  analyzeCal: {
+    meta: "T+06:10 · 标定后",
+    text: `你对每个通道应用标定系数（今天刚补标过 PF4，这里省了一件事）。
+
+接着去掉 50 Hz 市电拾取和 12 kHz 的高频噪声。
+
+然后选取平顶段：定义阈值为峰值的 80%，找到 0.42 s 到 0.78 s 的窗口。
+
+<span class="ok">统计量出来了：</span>`,
+    readout: s => [["均值 B", "0.284 T"], ["标准差", "0.0031 T"], ["峰峰值", "0.019 T"], ["RMS", "0.2841 T"]],
+    text2: `然后是频谱。主峰在 <span class="em">247 kHz</span>，幅度对应模数 m=2。
+
+最后，误差传播：标定误差 1.2%，噪声贡献 0.4%，窗口选择带来 0.9%。
+
+<span class="ok">最终结论：B_θ = 0.284 ± 0.005 T，主不稳定模为 m=2 撕裂模。</span>
+
+这是一个可以写进论文的数字。`,
+    choices: [
+      { t: "生成报告", sub: "", to: "ending_good", fx: s => { s.trust += 20; } }
+    ]
+  },
+
+  analyzeFFT: {
+    meta: "T+06:08 · 直接频谱",
+    text: `你把原始电压直接做了 FFT。
+
+频谱很漂亮：主峰 247 kHz，次峰 480 kHz，还有一堆低频结构。
+
+你把频率写进了日志。
+
+老陈看了一眼：「频率是对的。但<span class="warn">幅度不能这么用</span>——你还没标定，那个电压的绝对值没有意义。而且你整个波形都在算，上升段也混进去了。」`,
+    choices: [
+      { t: "回去补标定和窗口选择", sub: "亡羊补牢", to: "analyzeCal", fx: s => { s.trust += 10; s.t += 120; } },
+      { t: "就这样交报告", sub: "频率结论是对的，幅度存疑", to: "ending_mixed", fx: s => { s.trust -= 15; } }
+    ]
+  },
+
+  analyzePlot: {
+    meta: "T+06:05 · 先看图",
+    text: `你把波形画出来。看起来…挺正常的。一条上升，然后平，然后降。
+
+你盯了很久，觉得没有异常。
+
+但图上其实藏着一个东西：<span class="em">平顶段的噪声幅度，后半段比前半段大了 40%</span>——这是不稳定性在增长的迹象。
+
+肉眼看波形看不出来。要用频谱，或者算标准差随时间的演化。`,
+    choices: [
+      { t: "做正规分析：标定 + 窗口 + 统计 + 频谱", sub: "", to: "analyzeCal", fx: s => { s.trust += 5; s.t += 60; } },
+      { t: "算了，数据看着还行，交差", sub: "你会漏掉那个模", to: "ending_mixed", fx: s => { s.trust -= 20; } }
+    ]
+  },
+
+  /* ---------- 结局 ---------- */
+  ending_good: {
+    meta: "T+07:00 · 日志提交",
+    final: true,
+    text: `你把报告提交到实验数据库：<span class="ok">#64712</span>
+
+放电参数：I_p = 0.80 MA，B_t = 2.5 T，平顶 360 ms
+结论：q(0) = 1.05，未见锯齿；m=2 撕裂模在 250 kHz，幅度 0.8%，受控
+数据质量：A（标定完整，误差已传播）
+
+老陈在电话里笑了：「第一次就拿到 A 级数据，不错。」
+
+你关掉屏幕时，天已经亮了。`,
+    readout: s => [["信任", String(s.trust)], ["用时", Math.floor(s.t / 60) + " 分钟"], ["数据", "A 级"], ["结论", "可用"]],
+    endText: "—— 一局结束 ——"
+  },
+
+  ending_mixed: {
+    meta: "T+06:40 · 日志提交",
+    final: true,
+    text: `你提交了报告。
+
+频率结论没错，但幅度没有误差棒，标定那一步跳过了。
+
+审阅时被打回：「<span class="warn">请补充标定说明与误差传播。</span>」
+
+老陈说：「没事，下次记住——<span class="em">一个没有不确定度的数字，不是结果，是带小数点的猜测。</span>」`,
+    readout: s => [["信任", String(s.trust)], ["用时", Math.floor(s.t / 60) + " 分钟"], ["数据", "B 级"], ["结论", "需补充"]],
+    endText: "—— 一局结束 ——"
+  }
+};
+
+/* ============================================================
+   渲染引擎
+   ============================================================ */
+const mainEl = document.getElementById('main');
+const barEl = document.getElementById('bar');
+const stampEl = document.getElementById('stamp');
+const hudIp = document.getElementById('hud-ip');
+const hudQ = document.getElementById('hud-q');
+
+function fmtTime(sec) {
+  const h = String(Math.floor(sec / 3600)).padStart(2, '0');
+  const m = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
+  const s = String(Math.floor(sec % 60)).padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+function render(id) {
+  const sc = SCENES[id];
+  if (!sc) return;
+
+  // 应用选择产生的状态变化
+  if (sc.fx) sc.fx(S);
+
+  // HUD
+  hudIp.textContent = (S.ip || 0).toFixed(2) + ' MA';
+  hudQ.textContent = S.q == null ? '--' : S.q.toFixed(2);
+  stampEl.textContent = 'T+' + fmtTime(S.t);
+  barEl.style.width = Math.min(100, (S.t / 2400) * 100) + '%';
+
+  let html = `<div class="meta">${sc.meta}</div>`;
+  html += `<div class="text">${sc.text}</div>`;
+
+  if (sc.readout) {
+    const rows = sc.readout(S);
+    html += `<div class="readout">` + rows.map(([k, v], i) =>
+      `<div class="ro-item${i === 1 && S.q != null && S.q < 1 ? ' danger' : ''}">
+         <span class="k">${k}</span><span class="v">${v}</span></div>`).join('') + `</div>`;
+  }
+  if (sc.text2) html += `<div class="text">${sc.text2}</div>`;
+
+  if (sc.final) {
+    html += `<div class="choices">
+      <button class="choice" onclick="restart()" style="border-color:var(--amber);color:var(--amber)">
+        ${sc.endText || '重新开始'}
+        <span class="tag">再来一局，试试不同的选择</span>
+      </button></div>`;
+  } else {
+    html += `<div class="choices">` + sc.choices.map((c, i) =>
+      `<button class="choice" onclick="pick('${id}', ${i})">
+        ${c.t}${c.sub ? `<span class="tag">${c.sub}</span>` : ''}
+      </button>`).join('') + `</div>`;
+  }
+
+  mainEl.innerHTML = html;
+  mainEl.scrollTop = 0;
+}
+
+function pick(id, idx) {
+  const sc = SCENES[id];
+  const c = sc.choices[idx];
+  if (c.fx) c.fx(S);
+  render(c.to);
+}
+
+function restart() {
+  S.ip = 0; S.q = null; S.t = 0; S.trust = 50; S.moves = 0;
+  render('start');
+}
+
+render('start');
+</script>
+</body>
+</html>
