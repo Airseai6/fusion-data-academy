@@ -1,0 +1,2345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>第一次放电 · 托卡马克值班日志</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#080A0E; --panel:#0D1117; --amber:#FFB347; --teal:#4EC9B0;
+  --rust:#D2694A; --paper:#E8E2D4; --dim:#5A6472;
+  --grid:#141A22; --line:#1C2530;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg); color:var(--paper);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",serif;
+  line-height:2.05; letter-spacing:.015em; font-size:16.5px;
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:72px 72px;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ══════════ 顶部状态栏 ══════════ */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:rgba(8,10,14,.94);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);
+  padding:11px 0
+}
+.topbar-in{
+  max-width:680px;margin:0 auto;padding:0 24px;
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:"Consolas",monospace;font-size:12px
+}
+.tb-title{color:var(--teal);letter-spacing:.05em}
+.tb-hud{color:var(--dim);display:flex;gap:14px}
+.tb-hud b{color:var(--amber);font-weight:400}
+
+/* ══════════ 正文容器 ══════════ */
+.page{max-width:680px;margin:0 auto;padding:52px 24px 120px}
+
+/* ══════════ 场景头 ══════════ */
+.scene-head{
+  border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:34px;
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-family:"Consolas",monospace;font-size:12px;color:var(--dim)
+}
+.scene-head .n{color:var(--amber);letter-spacing:.14em}
+.scene-head .t{color:var(--dim)}
+
+/* ══════════ 叙事段落 ══════════ */
+.narr{margin-bottom:26px;color:#C5CEDA}
+.narr.em{color:var(--paper)}
+.narr .hl{color:var(--amber)}
+.narr .warn{color:var(--rust)}
+
+/* ══════════ 对话 ══════════ */
+.dlg{margin:0 0 26px 0;padding-left:20px;border-left:2px solid #1E2733}
+.dlg.me{border-left-color:var(--teal)}
+.dlg.chen{border-left-color:var(--amber)}
+.dlg .who{
+  font-family:"Consolas",monospace;font-size:12px;letter-spacing:.1em;
+  margin-bottom:5px;color:var(--dim)
+}
+.dlg.chen .who{color:var(--amber)}
+.dlg.me .who{color:var(--teal)}
+.dlg .say{color:var(--paper);font-size:16.5px}
+.dlg .say .quiet{color:#8A949F}
+.dlg .act{font-size:15px;color:#7A8691;font-style:normal;margin-top:8px}
+
+/* ══════════ 系统 / 日志 ══════════ */
+.sys{
+  background:#0A0E13;border:1px solid var(--line);border-left:2px solid var(--dim);
+  padding:14px 18px;margin:0 0 26px;font-family:"Consolas",monospace;
+  font-size:13px;color:#8A949F;line-height:1.8;white-space:pre-wrap
+}
+.sys b{color:var(--amber);font-weight:400}
+.sys .ok{color:var(--teal)}
+.sys .bad{color:var(--rust)}
+
+/* ══════════ 交互面板 ★ ══════════ */
+.panel{
+  border:1px solid var(--line);background:var(--panel);
+  margin:32px 0;border-radius:3px;overflow:hidden
+}
+.panel-head{
+  padding:13px 20px;border-bottom:1px solid var(--line);
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:"Consolas",monospace;font-size:12px
+}
+.panel-head .lbl{color:var(--teal);letter-spacing:.12em}
+.panel-head .st{color:var(--dim)}
+.panel-body{padding:20px}
+.panel-body p.hint{font-size:14.5px;color:#8A949F;margin-bottom:18px;line-height:1.85}
+canvas{width:100%;display:block;border-radius:2px}
+
+/* 通道网格（交互 1） */
+.coils{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.coil{
+  background:#0A0E13;border:1px solid #1A232E;border-radius:2px;
+  padding:12px 10px;text-align:center;cursor:pointer;transition:.15s
+}
+.coil:hover{border-color:var(--amber)}
+.coil.picked{border-color:var(--teal);background:#0D1A17}
+.coil.wrong{border-color:var(--rust);background:#1A0F0C}
+.coil .id{font-family:Consolas,monospace;font-size:11px;color:var(--dim);margin-bottom:5px}
+.coil .val{font-family:Consolas,monospace;font-size:15px;color:var(--paper)}
+.coil .dv{font-family:Consolas,monospace;font-size:11px;color:var(--dim);margin-top:3px}
+.coil.flagged .dv{color:var(--rust)}
+
+/* 滑块 */
+.ctrl{margin-bottom:20px}
+.ctrl:last-child{margin-bottom:0}
+.ctrl-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+.ctrl-name{font-size:14px;color:#9AA5B1}
+.ctrl-val{font-family:Consolas,monospace;font-size:16px;color:var(--amber)}
+input[type=range]{
+  width:100%;height:4px;-webkit-appearance:none;appearance:none;
+  background:#1E2733;border-radius:2px;outline:none;cursor:pointer
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+  background:var(--amber);cursor:grab;border:3px solid var(--panel);
+  box-shadow:0 0 0 1px var(--amber)
+}
+
+/* ══════════ 读数 ══════════ */
+.readout{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+  gap:1px;background:var(--line);border:1px solid var(--line);margin:18px 0
+}
+.ro{background:var(--panel);padding:13px 15px}
+.ro-k{font-size:11.5px;color:var(--dim);font-family:Consolas,monospace;margin-bottom:5px}
+.ro-v{font-family:Consolas,monospace;font-size:18px;color:var(--amber)}
+
+/* ══════════ 后果条 ══════════ */
+.cq{
+  border:1px solid var(--line);border-left:3px solid var(--dim);
+  background:var(--panel);padding:16px 18px;margin:18px 0
+}
+.cq.good{border-left-color:var(--teal)}
+.cq.warn{border-left-color:var(--amber)}
+.cq.bad{border-left-color:var(--rust)}
+.cq-h{display:flex;justify-content:space-between;margin-bottom:10px;
+  font-family:Consolas,monospace;font-size:12.5px}
+.cq-h .t{color:var(--dim);letter-spacing:.1em}
+.cq-h .s.good{color:var(--teal)}.cq-h .s.warn{color:var(--amber)}.cq-h .s.bad{color:var(--rust)}
+.bar{height:7px;background:#131B24;border-radius:4px;overflow:hidden;margin-bottom:11px}
+.bar span{display:block;height:100%;width:0;transition:width .25s;border-radius:4px}
+.cq-t{font-size:14.5px;color:#9AA5B1;line-height:1.85}
+.cq-t b{color:var(--paper)}
+
+/* ══════════ 选择 ══════════ */
+.choices{margin:34px 0 0;display:flex;flex-direction:column;gap:11px}
+.choice{
+  background:transparent;border:1px solid #22303D;color:var(--paper);
+  padding:16px 19px;text-align:left;cursor:pointer;font-family:inherit;
+  font-size:15.5px;line-height:1.7;transition:.15s;border-radius:2px
+}
+.choice:hover{border-color:var(--amber);color:var(--amber);padding-left:24px}
+.choice .sub{display:block;color:var(--dim);font-size:13.5px;margin-top:5px;font-family:Consolas,monospace}
+
+/* ══════════ 附录 ══════════ */
+details.deep{
+  border:1px solid var(--line);background:#0A0E13;margin:30px 0;border-radius:2px
+}
+details.deep summary{
+  cursor:pointer;padding:14px 19px;font-size:13.5px;color:var(--dim);
+  list-style:none;user-select:none;display:flex;justify-content:space-between;
+  font-family:Consolas,monospace
+}
+details.deep summary::-webkit-details-marker{display:none}
+details.deep summary:hover{color:var(--paper)}
+details.deep summary::after{content:"▾";transition:.2s}
+details.deep[open] summary::after{transform:rotate(180deg)}
+.deep-body{padding:0 21px 21px;border-top:1px solid var(--line);
+  font-size:14px;color:#9AA5B1;line-height:1.9}
+.deep-body h4{font-family:Consolas,monospace;font-size:12px;letter-spacing:.12em;
+  color:var(--teal);margin:20px 0 10px;text-transform:uppercase}
+.deep-body h4:first-child{margin-top:20px}
+.eq{background:#060A0F;border-left:2px solid var(--teal);padding:13px 17px;
+  margin:12px 0;font-family:Consolas,monospace;font-size:12.5px;
+  color:var(--paper);overflow-x:auto;line-height:1.95;white-space:pre}
+.eq .cm{color:var(--dim)}
+.ref{font-size:13px;color:#7A8691;padding:8px 0 8px 15px;
+  border-left:1px solid #1E2733;margin-bottom:7px;line-height:1.7}
+.ref b{color:#9AA5B1;font-weight:400}
+.tag{display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:2px;
+  background:#141C26;color:var(--dim);margin-right:6px;font-family:Consolas,monospace}
+.tag.cls{background:#1D2620;color:#7FA88E}
+.tag.tool{background:#1A1F2B;color:#7C8FB5}
+
+/* ══════════ 继续按钮 ══════════ */
+.go{margin:44px 0 0;text-align:center}
+.go button{
+  background:transparent;border:1px solid var(--amber);color:var(--amber);
+  padding:14px 44px;font-family:Consolas,monospace;font-size:14px;
+  letter-spacing:.14em;cursor:pointer;transition:.15s;border-radius:2px
+}
+.go button:hover{background:var(--amber);color:#080A0E}
+.go button:disabled{opacity:.3;cursor:not-allowed;border-color:var(--dim);color:var(--dim)}
+.go button:disabled:hover{background:transparent}
+
+/* 内容立即可见（不做入场动画，保证任何环境下都可读） */
+.fade{}
+
+footer{
+  max-width:680px;margin:0 auto;padding:0 24px 70px;
+  font-family:Consolas,monospace;font-size:11.5px;color:#3A424E;
+  border-top:1px solid var(--line);padding-top:22px;margin-top:40px
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <span class="tb-title">第一次放电 · 值班日志</span>
+    <span class="tb-hud">
+      I_p <b id="h-ip">0.00 MA</b>
+      q <b id="h-q">—</b>
+      <b id="h-t">T+00:00</b>
+    </span>
+  </div>
+</div>
+
+<div class="page" id="page"></div>
+
+<footer>
+  物理依据公开发表文献 · 反应率参数化采用 Bosch–Hale (1992)<br>
+  装置与人物为虚构，物理量级取自公开数据
+</footer>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   物理模块
+   ══════════════════════════════════════════════════════════════ */
+
+const B_G = 34.3827, M_RC2 = 1124656;
+const BH = [1.17302e-9, 1.51361e-2, 7.51886e-2, 4.60643e-3,
+            1.35000e-2, -1.06750e-4, 1.36600e-5];
+
+function sigmaV_DT(T) {                     // cm³/s
+  T = Math.max(T, 0.2);
+  const num = T * (BH[1] + T * (BH[3] + T * BH[5]));
+  const den = 1 + T * (BH[2] + T * (BH[4] + T * BH[6]));
+  const th = T / (1 - num / den);
+  const xi = Math.cbrt(B_G * B_G / (4 * th));
+  return BH[0] * th * Math.sqrt(xi / (M_RC2 * T * T * T)) * Math.exp(-3 * xi);
+}
+
+/* 状态 */
+const S = { ip: 0, q: null, t: 0, trust: 50, flags: {} };
+
+/* ══════════════════════════════════════════════════════════════
+   渲染工具
+   ══════════════════════════════════════════════════════════════ */
+
+const GRID='#141A22', AXIS='#28323E', DIM='#5A6472';
+const AMBER='#FFB347', TEAL='#4EC9B0', RUST='#D2694A', PAPER='#E8E2D4';
+
+function setupCanvas(id, h) {
+  const cv = document.getElementById(id);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = cv.getBoundingClientRect().width || 600;
+  cv.width = w * dpr; cv.height = h * dpr;
+  cv.style.height = h + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { ctx, w, h };
+}
+
+function grid(ctx, w, h, cols=8, rows=4) {
+  ctx.strokeStyle = GRID; ctx.lineWidth = 1;
+  for (let i=1;i<cols;i++){const x=w/cols*i;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  for (let i=1;i<rows;i++){const y=h/rows*i;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+}
+
+function hud() {
+  document.getElementById('h-ip').textContent = S.ip.toFixed(2) + ' MA';
+  document.getElementById('h-q').textContent = S.q == null ? '—' : S.q.toFixed(2);
+  const m = String(Math.floor(S.t/60)).padStart(2,'0');
+  const s = String(Math.floor(S.t%60)).padStart(2,'0');
+  document.getElementById('h-t').textContent = 'T+' + m + ':' + s;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   场景数据
+   ══════════════════════════════════════════════════════════════ */
+
+const SCENES = {
+
+/* ───────────── 序 ───────────── */
+prologue: {
+  n: '序', t: '凌晨三点十七分',
+  render: () => `
+    <div class="narr fade">
+      空调声。很低，低到你已经听不见了。
+    </div>
+    <div class="narr fade">
+      控制室只剩你一个。三排屏幕，其中两排是黑的——那两台装置今晚不跑。
+      窗外是冷却塔的白雾，在路灯底下慢慢翻。
+    </div>
+    <div class="narr fade">
+      你面前的屏幕上，真空室已经抽到 <span class="hl">10⁻⁸ 毫巴</span>。
+      磁场线圈全部就位，绿色指示灯一排排亮着，安静得像假的。
+    </div>
+    <div class="narr fade">
+      值班手册摊在桌上，第一页写着一行字。是手写的，不是印的。
+    </div>
+    <div class="sys fade">
+      「每一次放电，都是一次不可重复的实验。
+       跑之前，想清楚你要问什么。」
+    </div>
+    <div class="narr fade">
+      你把这行字看了两遍。然后拿起电话，拨了老陈的号。
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「喂——」</div>
+      <div class="act">背景里有电视声。他大概是在沙发上睡着了。</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「哦，是你啊。几点了……」</div>
+      <div class="act">停了两秒。</div>
+      <div class="say">「行，我醒着呢。你说。」</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「陈师傅，我今晚想做到 80 万安培。」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「……」</div>
+      <div class="act">这回他真醒了。</div>
+      <div class="say">「第一次独立值班，就想上 80？」</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「手册上写着这个参数是常规做法。」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">
+        「手册还写着'注意安全'呢，你注意到哪儿去了？」
+      </div>
+      <div class="act">他自己先笑了。</div>
+      <div class="say">
+        「行。第一次，你说了算。」
+      </div>
+      <div class="say">
+        「但我提醒你一件事——<span class="hl">中心螺线管升流太快，会出磁通跳跃</span>。」
+      </div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「磁通跳跃会怎么样？」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">
+        「线圈里的磁通会突然'跳'一下，像水烧开时那一下爆沸。」
+      </div>
+      <div class="say">
+        「然后等离子体位置会开始漂。漂得快了，就撞壁。」
+      </div>
+      <div class="say">
+        「撞一次，偏滤器要检修两周。」
+      </div>
+    </div>
+    <div class="narr fade">
+      你看了眼时间。凌晨三点十七分。
+    </div>
+    <div class="narr fade">
+      今晚的目标很清楚了：把等离子体升到 80 万安培，
+      进入平顶段，维持 800 毫秒。
+    </div>
+    <div class="sys fade">
+      值班日志 · 第 64712 号放电
+      ────────────────────────
+      目标电流      <b>0.80 MA</b>
+      平顶时长      <b>800 ms</b>
+      环向场        <b>2.50 T</b>
+      计划开始      <b>T+00:00</b>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（这一夜的物理）</summary>
+      <div class="deep-body">
+        <h4>为什么升流太快会出事</h4>
+        <p>托卡马克靠中心螺线管"感应"出等离子体电流——就像变压器。
+           螺线管里的磁通变化越快，感应出的电流涨得越快。</p>
+        <p>但螺线管里的超导材料有个脾气：<b>磁通变化太快时，会局部失超</b>，
+           也就是一小块区域突然变成电阻态，磁通"卡"住不走了。
+           这叫磁通跳跃（flux jump）。</p>
+        <p>后果是：感应电压不再平滑，等离子体电流出现台阶，
+           平衡被破坏，位置开始漂移。</p>
+        <div class="eq">升流速率上限 ≈ f(磁通储备, 超导稳定性)
+
+典型值：<span class="cm">0.5–2 MA/s</span>（视装置而定）
+本台设计目标：<span class="cm">0.8 MA / 60 s ≈ 13 kA/s</span>（保守）</div>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag cls">经典</span><b>Wesson, J. (2011).</b>
+          <i>Tokamaks</i> (4th ed.). Oxford University Press.<br>
+          —— 第 3 章：平衡与电流爬升
+        </div>
+        <div class="ref">
+          <span class="tag tool">工具</span><b>ITER Physics Basis (1999).</b>
+          <i>Nucl. Fusion</i> 39(12).<br>
+          —— 中央螺线管设计与运行限制
+        </div>
+      </div>
+    </details>
+  `,
+  next: 'act1'
+},
+
+/* ───────────── 一幕 · 空载测试 ───────────── */
+act1: {
+  n: '一幕', t: '开工前的十五分钟',
+  onEnter: () => { S.t = 0; },
+  render: () => `
+    <div class="narr fade">
+      挂电话之前，老陈多问了一句。
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">
+        「你今天做空载测试了吗？」
+      </div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「……还没。」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">
+        「那就做。」
+      </div>
+      <div class="say">
+        「多花十分钟，省下两周。」
+      </div>
+      <div class="act">他顿了顿。</div>
+      <div class="say">
+        「上周 PF4 那个探头换过。新探头，没正式标定。」
+      </div>
+    </div>
+    <div class="narr fade">
+      你把线圈逐个通电，读回每一路的电流值。
+      屏幕上刷出一串数字——设定值，和实际读回值。
+    </div>
+    <div class="sys fade">
+      空载测试 · 逐路读回
+      ────────────────────────
+      设定：<b>全部 12 路，各 10.00 kA</b>
+    </div>
+
+    <div class="panel fade">
+      <div class="panel-head">
+        <span class="lbl">线圈读回值</span>
+        <span class="st" id="coil-st">点击你认为有问题的那一路</span>
+      </div>
+      <div class="panel-body">
+        <p class="hint">
+          设定值全部是 10.00 kA。逐个点开看读回值——
+          <strong>有一路的偏差不太对劲。</strong>
+        </p>
+        <div class="coils" id="coil-grid"></div>
+        <div class="cq" id="coil-cq" style="margin-bottom:0">
+          <div class="cq-h">
+            <span class="t">诊断结论</span>
+            <span class="s" id="coil-cq-s">—</span>
+          </div>
+          <div class="cq-t" id="coil-cq-t">点选一个通道。</div>
+        </div>
+      </div>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（为什么标定这么重要）</summary>
+      <div class="deep-body">
+        <h4>测量链的第一步</h4>
+        <p>传感器给你的永远不是物理量，是<b>电压</b>。
+           磁探头感应到磁场变化，输出一个电压；这个电压要乘以一个
+           "标定系数"，才变成磁场值。</p>
+        <p>系数错了，后面<b>所有</b>结果都错——包括平衡重建、
+           等离子体位置、甚至安全性判断。</p>
+        <div class="eq"><span class="cm">// 标定：用已知输入测响应</span>
+B ∝ V × k        k = 标定系数 (T/V)
+
+<span class="cm">// 本机 PF4 的标定曲线实测斜率</span>
+k = 0.943 V/T    (R² = 0.9987)</div>
+
+        <h4>误差怎么传播</h4>
+        <p>如果 k 有 6% 误差，那么由这个通道算出的所有量，
+           至少带 6% 系统误差——而且它是<b>系统性的</b>，
+           不能靠多测几次平均掉。</p>
+        <div class="eq"><span class="cm">// 相对误差直接传递</span>
+δB/B = δk/k + δV/V
+
+系统误差 <span class="cm">(标定)</span>：不可平均，必须修正
+随机误差 <span class="cm">(噪声)</span>：可平均，~1/√N</div>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag cls">经典</span><b>Lao, L. L., et al. (1985).</b>
+          Reconstruction of equilibrium flux surfaces from magnetic probe measurements.
+          <i>Nucl. Fusion</i> 25(11), 1611.<br>
+          —— 磁诊断与平衡重建的经典文献
+        </div>
+        <div class="ref">
+          <span class="tag tool">工具</span><b>Hutchinson, I. H. (2002).</b>
+          <i>Principles of Plasma Diagnostics</i> (2nd ed.). Cambridge UP.<br>
+          —— 诊断原理标准教材
+        </div>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act1" disabled>继续</button></div>
+  `,
+  after: 'setupCoils',
+  next: 'act2'
+},
+
+/* ───────────── 二幕 · 升流 ───────────── */
+act2: {
+  n: '二幕', t: '升流',
+  onEnter: () => { S.t = 60; },
+  render: () => `
+    <div class="narr fade">
+      你回到主控屏。准备开始升流。
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">
+        「现在，升流曲线你说了算。」
+      </div>
+      <div class="say">
+        「快点省磁通，慢点稳。你自己掂量。」
+      </div>
+      <div class="act">停了一下。</div>
+      <div class="say">
+        「记住——<span class="hl">磁通是有限的</span>。
+         用完了这一炮就结束了，得等它恢复。」
+      </div>
+    </div>
+    <div class="narr fade">
+      你打开升流控制界面。一条曲线，一个滑块。
+    </div>
+
+    <div class="panel fade">
+      <div class="panel-head">
+        <span class="lbl">升流曲线</span>
+        <span class="st">目标 0.80 MA</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <span class="ctrl-name">升流时间</span>
+            <span class="ctrl-val" id="ramp-val">60 s</span>
+          </div>
+          <input type="range" id="ramp" min="20" max="90" step="1" value="60">
+        </div>
+        <canvas id="cv-ramp" height="230"></canvas>
+        <div class="readout">
+          <div class="ro"><div class="ro-k">磁通消耗</div><div class="ro-v" id="ro-flux">—</div></div>
+          <div class="ro"><div class="ro-k">磁通跳跃风险</div><div class="ro-v" id="ro-jump">—</div></div>
+          <div class="ro"><div class="ro-k">剩余磁通</div><div class="ro-v" id="ro-left">—</div></div>
+        </div>
+        <div class="cq" id="ramp-cq" style="margin-bottom:0">
+          <div class="cq-h">
+            <span class="t">评估</span>
+            <span class="s" id="ramp-cq-s">—</span>
+          </div>
+          <div class="bar"><span id="ramp-bar"></span></div>
+          <div class="cq-t" id="ramp-cq-t">拖一下试试。</div>
+        </div>
+      </div>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（磁通储备这笔账）</summary>
+      <div class="deep-body">
+        <h4>磁通：一次性资源</h4>
+        <p>托卡马克像一个变压器：中心螺线管是"原边"，等离子体是"副边"。
+           螺线管里的磁通<b>最多只能摆动一个固定的量</b>——这台装置大约是
+           数十伏秒量级。</p>
+        <p>电流乘时间，就是你花掉的磁通：</p>
+        <div class="eq"><span class="cm">// 伏秒平衡</span>
+∫V dt = ΔΦ_max          <span class="cm">(总磁通储备)</span>
+
+升流阶段消耗：ΔΦ_ramp ≈ L · I_p
+平顶阶段消耗：ΔΦ_flat ≈ V_loop · t_flat
+
+<span class="cm">// 升得快 → 电压高 → 但持续时间短 → 花掉的磁通相近</span>
+<span class="cm">// 真正的差别在：能不能"撑住"平顶段</span></div>
+
+        <h4>为什么快的更危险</h4>
+        <p>升流越快，需要的感应电压越高。高电压在超导螺线管里
+           更容易诱发局部失超和磁通跳跃——因为热量来不及导出。</p>
+        <div class="eq">磁通跳跃判据（简化）：
+dΦ/dt > 临界值 → 局部失超 → 磁通卡滞
+
+临界值 ∝ √(稳定裕度 / 热导率)</div>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag cls">经典</span><b>Wesson, J. (2011).</b>
+          <i>Tokamaks</i>, 4th ed., Ch. 3.<br>
+          —— 伏秒平衡与电流爬升分析
+        </div>
+        <div class="ref">
+          <span class="tag tool">工程</span><b>超导磁体稳定性综述文献</b><br>
+          —— 磁通跳跃（flux jump）的经典问题，见低温超导教材
+        </div>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act2" disabled>继续</button></div>
+  `,
+  after: 'setupRamp',
+  next: 'act3'
+},
+
+/* ───────────── 三幕 · q 剖面 ───────────── */
+act3: {
+  n: '三幕', t: '平顶段：那条曲线',
+  render: () => `
+    <div class="narr fade">
+      电流平稳爬到 80 万安培。屏幕上的曲线干净得像教科书。
+    </div>
+    <div class="narr fade">
+      磁诊断给出等离子体位置：中心在 R = 0.92 m，垂直位置稳得像钉住了一样。
+    </div>
+    <div class="narr fade">
+      平衡重建跑了十几秒。屏幕上刷出一张你看了半天也看不懂的图——
+      一圈圈的磁面，中间密、外面疏。旁边跟着一条曲线和一个数字。
+    </div>
+    <div class="sys fade">
+      平衡重建完成
+      ────────────────────────
+      磁轴位置    R = 0.92 m
+      q(0)        <b>0.92</b>      <span class="bad">← 低于 1</span>
+      q(95)       <b>3.41</b>
+      等离子体电流 0.80 MA
+    </div>
+    <div class="narr fade">
+      你盯着那个 <span class="warn">0.92</span>。它比 1 小。
+      你不确定这算不算问题——手册上没写清楚。
+    </div>
+    <div class="narr fade">
+      你拿起电话。
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「陈师傅，q(0) 出来是 0.92。」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「哦。」</div>
+      <div class="act">就一个字。然后他没说话。你能听见电话那头电视的声音。</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「……怎么了？」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「你知道 q 是什么吗？」</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「安全因子。手册上说是环向圈数和极向圈数的比。」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「对，但那个名字起得不怎么样。」</div>
+      <div class="act">他好像坐起来了。</div>
+      <div class="say">「你想象一根绳子，绕着一根柱子。」</div>
+      <div class="say">「绕一圈，往前走多远——这个比例，就是 q。」</div>
+      <div class="say">「q 小，就是绕得很紧。q 大，就是松松垮垮。」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="act">停了一下。</div>
+      <div class="say">「然后呢，有些地方，绳子绕回来，正好接上自己。」</div>
+      <div class="say">「那种地方最容易出事。」</div>
+      <div class="say">「书上管这个叫<span class="hl">有理面</span>。我觉得叫'麻烦面'更贴切。」</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「……所以 q(0) = 0.92 是什么意思？」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「意思是，最里面那圈'绳子'，绕一圈还没走远呢。」</div>
+      <div class="say">「它会自己接上自己，然后——抽。」</div>
+      <div class="say">「像心脏监护仪那样，一下，一下的。」</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「那怎么办？」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「让电流别那么挤在中心。摊开一点，q 就上去了。」</div>
+      <div class="say">「代价是——约束会差一点点。」</div>
+      <div class="act">他笑了一声。</div>
+      <div class="say">「聚变就是这样。你不是在赢，你是在换。」</div>
+    </div>
+
+    <div class="panel fade">
+      <div class="panel-head">
+        <span class="lbl">电流剖面控制</span>
+        <span class="st">目标：q(0) > 1</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <span class="ctrl-name">电流剖面（峰化度）</span>
+            <span class="ctrl-val" id="qpeak-val">2.40</span>
+          </div>
+          <input type="range" id="qpeak" min="1" max="3" step="0.05" value="2.4">
+          <div class="ctrl-hint">往左＝摊开（中心电流少）／往右＝集中（中心电流多）</div>
+        </div>
+        <canvas id="cv-q" height="270"></canvas>
+        <div class="readout">
+          <div class="ro"><div class="ro-k">q(0)</div><div class="ro-v" id="ro-q0">—</div></div>
+          <div class="ro"><div class="ro-k">状态</div><div class="ro-v" id="ro-qstate" style="font-size:15px">—</div></div>
+          <div class="ro"><div class="ro-k">约束影响</div><div class="ro-v" id="ro-conf" style="font-size:15px">—</div></div>
+        </div>
+        <div class="cq" id="q-cq" style="margin-bottom:0">
+          <div class="cq-h">
+            <span class="t">等离子体反应</span>
+            <span class="s" id="q-cq-s">—</span>
+          </div>
+          <div class="cq-t" id="q-cq-t">拖一下试试。</div>
+        </div>
+      </div>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（q 剖面与锯齿）</summary>
+      <div class="deep-body">
+        <h4>安全因子 q</h4>
+        <p>q 描述磁力线的缠绕：绕环向一圈时，极向走了多少。</p>
+        <div class="eq">q(r) = (r · B_φ) / (R · B_θ)
+
+<span class="cm">// 等价地：磁力线绕一圈的"螺距"</span>
+q = 环向圈数 / 极向圈数</div>
+        <p><b>q(0) &lt; 1</b> 意味着磁轴附近的磁力线"闭合得太快"——
+           扰动可以在同一位置反复累积，形成<b>锯齿振荡</b>（sawtooth）。</p>
+
+        <h4>为什么是"有理面"出事</h4>
+        <p>当 q 在某处等于有理数（3/2、2、5/3…）时，磁力线绕若干圈后
+           回到出发点。此时一个螺旋扰动可以<b>与自身共振</b>，不断增长——
+           形成撕裂模和磁岛。</p>
+        <div class="eq">共振条件：q(r_s) = m/n     <span class="cm">(m, n 为整数)</span>
+
+q = 1   → 内部扭曲模 / 锯齿
+q = 3/2 → 常见撕裂模
+q = 2   → 另一个危险面</div>
+
+        <h4>电流剖面的作用</h4>
+        <p>总电流固定时，剖面越"尖"（中心电流密度越大），q(0) 越低。
+           反之，剖面平坦 → q(0) 更高，但约束性能通常略降。</p>
+        <div class="eq"><span class="cm">// 简化关系（本页采用的模型）</span>
+q(0) ≈ q₉₅ / (1.1 + (p − 1) × 1.3)
+      p = 峰化因子 (1 = 平坦, 3 = 尖峰)</div>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag cls">经典</span><b>Furth, Killeen &amp; Rosenbluth (1973).</b>
+          Finite-Resistivity Instabilities of a Sheet Pinch.
+          <i>Phys. Fluids</i> 16(7), 1054.<br>
+          —— 撕裂模理论奠基（Δ′ 判据）
+        </div>
+        <div class="ref">
+          <span class="tag cls">经典</span><b>Wesson, J. (2011).</b>
+          <i>Tokamaks</i>, 4th ed., Ch. 6.<br>
+          —— 锯齿振荡与内部扭曲模
+        </div>
+        <div class="ref">
+          <span class="tag tool">模拟</span><b>Huysmans &amp; Czarny (2007).</b>
+          MHD stability in X-point geometry. <i>Nucl. Fusion</i> 47, 659.<br>
+          —— 非线性 MHD 模拟代码的代表
+        </div>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act3" disabled>继续</button></div>
+  `,
+  after: 'setupQ',
+  next: 'act4'
+},
+
+/* ───────────── 四幕 · 加热 ───────────── */
+act4: {
+  n: '四幕', t: '把火引进来',
+  render: () => `
+    <div class="narr fade">
+      等离子体稳住了。屏幕上那条温度曲线平得像一条直线。
+    </div>
+    <div class="narr fade">
+      但那条直线的高度——你看了很久。
+    </div>
+    <div class="sys fade">
+      当前状态
+      ────────────────────────
+      电子温度    <b>1.2 keV</b>
+      目标        <b>10.0 keV</b>
+      差距        <span class="bad">8.3 倍</span>
+    </div>
+    <div class="narr fade">
+      磁诊断给你位置，光谱给你杂质，可温度是真的低。
+      一亿度？现在连一千二百万度都不到。
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「陈师傅，温度只有 1.2。」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「正常。你现在靠的是欧姆加热。」</div>
+      <div class="say">「还想往上加？」</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「加大电流行不行？」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「行，但你会撞墙。」</div>
+      <div class="say">「等离子体跟金属反过来——<span class="hl">越热，电阻越小</span>。」</div>
+      <div class="say">「电阻小了，同样的电流就烧不出那么多热了。」</div>
+      <div class="act">停了一下。</div>
+      <div class="say">「大概到三千万度就到头了。再往上，你加多少电都是白加。」</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「那怎么办？」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「两种办法。」</div>
+      <div class="say">「一种是往里面打电磁波——像微波炉，但要挑对频率。」</div>
+      <div class="say">「另一种更直接：把高能粒子直接打进去。」</div>
+      <div class="act">他顿了一下。</div>
+      <div class="say">「两种都费钱，而且各有各的脾气。」</div>
+    </div>
+
+    <div class="panel fade">
+      <div class="panel-head">
+        <span class="lbl">加热功率分配</span>
+        <span class="st">目标：10 keV</span>
+      </div>
+      <div class="panel-body">
+        <p class="hint">
+          三种加热方式各有特点：<strong>欧姆</strong>免费但高温失效；
+          <strong>射频</strong>可以精准加热中心；<strong>中性束</strong>能量高但贵。
+        </p>
+        <div class="ctrl">
+          <div class="ctrl-head"><span class="ctrl-name">欧姆加热</span><span class="ctrl-val" id="p-ohm-v">20 MW</span></div>
+          <input type="range" id="p-ohm" min="0" max="40" step="1" value="20">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><span class="ctrl-name">射频加热</span><span class="ctrl-val" id="p-rf-v">0 MW</span></div>
+          <input type="range" id="p-rf" min="0" max="30" step="1" value="0">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><span class="ctrl-name">中性束注入</span><span class="ctrl-val" id="p-nbi-v">0 MW</span></div>
+          <input type="range" id="p-nbi" min="0" max="30" step="1" value="0">
+        </div>
+        <canvas id="cv-heat" height="250"></canvas>
+        <div class="readout">
+          <div class="ro"><div class="ro-k">电子温度</div><div class="ro-v" id="ro-te">—</div></div>
+          <div class="ro"><div class="ro-k">欧姆实际贡献</div><div class="ro-v" id="ro-ohmeff" style="font-size:15px">—</div></div>
+          <div class="ro"><div class="ro-k">总成本（相对）</div><div class="ro-v" id="ro-cost" style="font-size:15px">—</div></div>
+        </div>
+        <div class="cq" id="heat-cq" style="margin-bottom:0">
+          <div class="cq-h"><span class="t">结果</span><span class="s" id="heat-cq-s">—</span></div>
+          <div class="bar"><span id="heat-bar"></span></div>
+          <div class="cq-t" id="heat-cq-t">分配一下功率试试。</div>
+        </div>
+      </div>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（三种加热的物理）</summary>
+      <div class="deep-body">
+        <h4>为什么欧姆加热有天花板</h4>
+        <p>等离子体电阻率（Spitzer）：</p>
+        <div class="eq">η ∝ T^(−3/2)
+
+<span class="cm">// 温度升高 → 电阻下降 → 欧姆功率 P = I²R 下降</span>
+<span class="cm">// 定性上限：约 20–30 MK</span></div>
+        <p>这是"负反馈"：你越加热，它越不听话。</p>
+
+        <h4>射频加热（RF）</h4>
+        <p>把电磁波调到与粒子回旋频率共振，能量才会被吸收。</p>
+        <div class="eq">离子回旋：ω_ci = qB/m_i    <span class="cm">(约数十 MHz)</span>
+电子回旋：ω_ce = qB/m_e    <span class="cm">(约数十 GHz)</span>
+
+<span class="cm">// 共振位置随磁场变化 → 可以"定点"加热</span></div>
+
+        <h4>中性束注入（NBI）</h4>
+        <p>带电粒子进不来（被磁场挡住），所以先把它<b>中性化</b>，
+           打进去之后再被电离，然后被磁场捕获并慢化，把能量交给等离子体。</p>
+        <div class="eq">束能量：50–500 keV
+单台功率：数 MW
+<span class="cm">// 同时提供加热 + 电流驱动 + 粒子源</span></div>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag tool">工具</span><b>Pankin, A., et al. (2004).</b>
+          The tokamak Monte Carlo fast ion module NUBEAM.
+          <i>Comput. Phys. Commun.</i> 159(3), 157.
+        </div>
+        <div class="ref">
+          <span class="tag cls">经典</span><b>Wesson, J. (2011).</b>
+          <i>Tokamaks</i>, 4th ed., Ch. 9（加热与电流驱动）
+        </div>
+        <div class="ref">
+          <span class="tag tool">基准</span><b>ITER Physics Basis (1999).</b>
+          <i>Nucl. Fusion</i> 39(12).<br>
+          —— 第五章：加热与电流驱动
+        </div>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act4" disabled>继续</button></div>
+  `,
+  after: 'setupHeat',
+  next: 'act5'
+},
+
+/* ───────────── 五幕 · 那个缓慢增长的峰 ───────────── */
+act5: {
+  n: '五幕', t: '那个缓慢增长的峰',
+  render: () => `
+    <div class="narr fade">
+      温度到位了。平顶段还剩四百毫秒。
+    </div>
+    <div class="narr fade">
+      你把 Mirnov 线圈的频谱调出来——那是一圈小线圈，
+      专门听等离子体里的高频"声音"。
+    </div>
+    <div class="narr fade">
+      大部分频段是平的。但在 <span class="hl">250 千赫兹</span> 附近，
+      有一个很小的峰。
+    </div>
+    <div class="sys fade">
+      Mirnov 阵列 · 实时频谱
+      ────────────────────────
+      主峰频率     <b>250 kHz</b>
+      当前幅度     <b>0.8%</b>
+      趋势         <span class="warn">↑ 缓慢增长</span>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「你现在在看哪条信号？」</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「Mirnov，250 千赫兹有个小峰，0.8%。」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「0.8 还行。」</div>
+      <div class="say">「但你在盯着它，对吧。」</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「……对。」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「那就对了。」</div>
+      <div class="say">「这玩意儿刚出来的时候都很客气。」</div>
+      <div class="say">「你盯着它，是因为你的手在痒。」</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「它会怎么样？」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「我给你讲个事。」</div>
+      <div class="say">「十年前我见过一次。它从 1% 涨到 5%，用了三秒。」</div>
+      <div class="say">「然后它停下来了。」</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「停下来是好事？」</div>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「不是。」</div>
+      <div class="say">「停下来，意味着它<span class="hl">不转了</span>。」</div>
+      <div class="say">「一个不转的磁岛，会把整团等离子体拖进一个很糟糕的结局。」</div>
+      <div class="act">停了一下。</div>
+      <div class="say">「书上管这个叫<span class="hl">锁定模</span>。」</div>
+      <div class="say">「它是破裂的强前兆——大概一半以上的大破裂，前面都有它。」</div>
+    </div>
+    <div class="narr fade">
+      你把时间轴往回拖了一点，又往前推。
+      那个峰，确实在长。
+    </div>
+
+    <div class="panel fade">
+      <div class="panel-head">
+        <span class="lbl">Mirnov 频谱 · 时间演化</span>
+        <span class="st" id="spec-st">拖动时间轴观察</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <span class="ctrl-name">平顶段内的时间</span>
+            <span class="ctrl-val" id="stime-val">0.00 s</span>
+          </div>
+          <input type="range" id="stime" min="0" max="100" step="0.5" value="0">
+          <div class="ctrl-hint">往回拖可以看到它是从什么时候开始长的</div>
+        </div>
+        <canvas id="cv-spec" height="250"></canvas>
+        <div class="readout">
+          <div class="ro"><div class="ro-k">主峰频率</div><div class="ro-v" id="ro-freq" style="font-size:16px">—</div></div>
+          <div class="ro"><div class="ro-k">幅度</div><div class="ro-v" id="ro-amp">—</div></div>
+          <div class="ro"><div class="ro-k">状态</div><div class="ro-v" id="ro-mode" style="font-size:15px">—</div></div>
+        </div>
+        <div class="cq" id="spec-cq" style="margin-bottom:0">
+          <div class="cq-h"><span class="t">判断</span><span class="s" id="spec-cq-s">—</span></div>
+          <div class="cq-t" id="spec-cq-t">拖动时间轴看看。</div>
+        </div>
+        <div id="spec-actions" style="display:none;margin-top:18px">
+          <p class="hint" style="color:var(--rust);margin-bottom:12px">
+            <strong>必须做决定了。</strong>它已经开始锁定。
+          </p>
+          <div class="choices" style="margin-top:0">
+            <button class="choice" id="act-mitigate">启动破裂缓解：注入杂质气体
+              <span class="sub">把能量摊到壁上，保护机器，但这次放电到此结束</span>
+            </button>
+            <button class="choice" id="act-ecrh">用射频波压制它
+              <span class="sub">如果成功，还能再多拿一段数据；失败了就一样崩</span>
+            </button>
+            <button class="choice" id="act-nothing">什么都不做，继续采集
+              <span class="sub">赌它能自己稳下来</span>
+            </button>
+          </div>
+        </div>
+        <div id="spec-result" style="display:none"></div>
+      </div>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（锁定模与破裂）</summary>
+      <div class="deep-body">
+        <h4>什么是锁定模</h4>
+        <p>撕裂模形成的磁岛最初会随等离子体一起旋转。当岛宽增大到一定程度，
+           与壁面或误差场的作用增强，转速会迅速降到零——这就是<b>锁定</b>。</p>
+        <div class="eq"><span class="cm">// 岛宽的演化（Rutherford 方程，简化）</span>
+dw/dt ∝ Δ'          <span class="cm">(小岛，线性增长)</span>
+dw/dt ∝ (Δ' − α·w)  <span class="cm">(大岛，非线性饱和)</span>
+
+<span class="cm">// 锁定判据：电磁力矩 &gt; 旋转力矩</span>
+m_lock ≈ (岛宽)² / (旋转频率)</div>
+
+        <h4>为什么锁定模危险</h4>
+        <p>锁定之后，磁岛的 O 点会停在固定位置，热量持续集中在同一处。
+           如果岛继续增长并触及边界，就会触发<b>破裂</b>——
+           等离子体电流在毫秒内崩塌，储存在里面的能量（数十到数百兆焦）
+           会在极短时间内打到壁上。</p>
+        <div class="eq"><span class="cm">// 破裂时序（典型量级）</span>
+前置信号 → 锁定 → 热淬灭 (~1 ms) → 电流淬灭 (~10–100 ms)
+能量沉积：数十至数百 MJ / 数 m²</div>
+
+        <h4>缓解手段</h4>
+        <p><b>大规模气体注入（MGI）</b>：瞬间打入大量杂质气体，
+           让等离子体通过辐射把能量均匀摊开，避免局部烧蚀。</p>
+        <p><b>散裂弹丸（SPI）</b>：把杂质气体冻成小弹丸高速打入，穿透更深。</p>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag tool">缓解</span><b>Lehnen, M., et al. (2015).</b>
+          Disruption mitigation by massive gas injection in JET.
+          <i>Nucl. Fusion</i> 55(12), 123027.
+        </div>
+        <div class="ref">
+          <span class="tag tool">缓解</span><b>Commaux, N., et al. (2010).</b>
+          Novel rapid shutdown strategies for runaway electron suppression.
+          <i>Rev. Sci. Instrum.</i> 81, 10E319.
+        </div>
+        <div class="ref">
+          <span class="tag cls">经典</span><b>Wesson, J. (2011).</b>
+          <i>Tokamaks</i>, 4th ed., Ch. 7（破裂与锁定模）
+        </div>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act5" disabled>继续</button></div>
+  `,
+  after: 'setupSpectrum',
+  next: 'act6'
+},
+
+/* ───────────── 六幕 · 数据回来了 ───────────── */
+act6: {
+  n: '六幕', t: '数据回来了',
+  render: () => `
+    <div class="narr fade">
+      放电结束。真空室里重新变回空的。
+    </div>
+    <div class="narr fade">
+      你靠在椅子上，看着屏幕上的曲线慢慢归零。
+      三百多毫秒——从升流到结束，不到十分钟。
+    </div>
+    <div class="narr fade">
+      你以为可以下班了。然后手机响了。
+    </div>
+    <div class="dlg me fade">
+      <div class="who">小林</div>
+      <div class="act">数据组的同事。凌晨四点半被叫醒，语气不太好。</div>
+      <div class="say">「你那一炮的数据，我拉下来了。」</div>
+      <div class="say">「1.2 兆字节，磁探针 M1 通道，1 MHz 采样。」</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「……然后呢？」</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">小林</div>
+      <div class="say">「然后你要告诉我，」</div>
+      <div class="say">「这个数是多少。」</div>
+      <div class="act">他停了一下。</div>
+      <div class="say">「别给我电压。我要的是磁场。」</div>
+    </div>
+    <div class="narr fade">
+      你打开分析界面。屏幕上是一片密密麻麻的采样点——
+      一条上下抖动的电压波形，1.2 MB。
+    </div>
+    <div class="narr fade">
+      <span class="warn">它不是物理量。</span>电压不知道自己是磁场。
+    </div>
+    <div class="sys fade">
+      原始数据 · M1 通道
+      ────────────────────────
+      采样率      <b>1 MHz</b>
+      时长        <b>1.20 s</b>
+      单位        <span class="bad">volts</span>
+      已标定      <span class="bad">否</span>
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="act">电话还没挂。</div>
+      <div class="say">「跑完了？」</div>
+      <div class="say">「那就开始吧。」</div>
+      <div class="say">「你现在手上是电压。一步一步来，别跳。」</div>
+      <div class="say">「我盯着呢。」</div>
+    </div>
+
+    <div class="panel fade">
+      <div class="panel-head">
+        <span class="lbl">数据处理流程</span>
+        <span class="st" id="dp-step">第 1 / 6 步</span>
+      </div>
+      <div class="panel-body">
+        <div id="dp-stage"></div>
+      </div>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（数据处理每一步在做什么）</summary>
+      <div class="deep-body">
+        <h4>六步流程</h4>
+        <div class="eq">1. 标定   电压 → 物理量（乘标定系数）
+2. 去噪   去掉拾取与高频噪声
+3. 选窗   取平顶段（避免上升段污染）
+4. 统计   均值 / 标准差 / 峰峰值 / RMS
+5. 频谱   FFT → 找出振荡模式
+6. 误差   传播不确定度 → 给出带误差的结论</div>
+
+        <h4>为什么每一步都不能跳</h4>
+        <p><b>跳过标定</b>：你只有相对值，绝对幅度毫无意义。</p>
+        <p><b>跳过选窗</b>：上升段的巨大变化会把均值和标准差整个拉歪。</p>
+        <p><b>跳过误差</b>：你给出的数字没有可信度——审阅人一眼就能看出来。</p>
+
+        <h4>误差传播</h4>
+        <div class="eq"><span class="cm">// 相对误差的直接相加（简化）</span>
+(δB/B)² = (δk/k)² + (δV/V)² + (δwin/win)²
+
+<span class="cm">// 系统误差不可平均，随机误差可 ~1/√N</span></div>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag cls">经典</span><b>Lao, L. L., et al. (1985).</b>
+          Reconstruction of equilibrium flux surfaces from magnetic probe measurements.
+          <i>Nucl. Fusion</i> 25(11), 1611.
+        </div>
+        <div class="ref">
+          <span class="tag tool">教材</span><b>Hutchinson, I. H. (2002).</b>
+          <i>Principles of Plasma Diagnostics</i>, 2nd ed. Cambridge UP.
+        </div>
+        <div class="ref">
+          <span class="tag tool">标准</span><b>MDSplus 数据格式相关文献</b><br>
+          —— 托卡马克数据存储的通用标准
+        </div>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act6" disabled>继续</button></div>
+  `,
+  after: 'setupData',
+  next: 'act7'
+},
+
+/* ───────────── 七幕 · 交报告 ───────────── */
+act7: {
+  n: '七幕', t: '交报告',
+  render: () => {
+    const trust = S.trust;
+    const found = S.flags.foundPF4;
+    const grade = trust >= 75 ? 'A' : trust >= 50 ? 'B' : 'C';
+    const gradeCol = grade === 'A' ? 'var(--teal)'
+                   : grade === 'B' ? 'var(--amber)' : 'var(--rust)';
+
+    return `
+    <div class="narr fade">
+      早上六点四十。窗外开始亮了。
+    </div>
+    <div class="narr fade">
+      你把这一夜的报告整理好，点了提交。
+    </div>
+    <div class="sys fade">
+      实验数据库 · 第 64712 号放电
+      ────────────────────────
+      提交时间    <b>06:41</b>
+      数据质量    <span style="color:${gradeCol}">${grade} 级</span>
+      附件        M1 通道分析报告（含误差）
+      操作记录    <b>已归档</b>
+    </div>
+    <div class="narr fade">
+      五分钟之后，电话响了。是老陈。
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="say">「我看了。」</div>
+      <div class="act">他停了一下。你能听见他那边水壶烧开的声音。</div>
+      <div class="say">「你自己觉得怎么样？」</div>
+    </div>
+
+    ${found
+      ? `<div class="dlg chen fade">
+          <div class="who">老陈</div>
+          <div class="say">「PF4 那个，你找出来了。」</div>
+          <div class="say">「不错。很多人会直接跳过空载测试。」</div>
+          <div class="say">「他们后来都吃了亏。」</div>
+        </div>`
+      : `<div class="dlg chen fade">
+          <div class="who">老陈</div>
+          <div class="say">「PF4 那个，你没查出来。」</div>
+          <div class="say">「不是我挑刺——那一路偏了 6%，」</div>
+          <div class="say">「意味着你的位置重建里，一直带着一个系统误差。」</div>
+          <div class="say">「下次做空载测试。十分钟的事。」</div>
+        </div>`}
+
+    ${trust >= 75
+      ? `<div class="dlg chen fade">
+          <div class="who">老陈</div>
+          <div class="say">「最关键的那几秒，你手是稳的。」</div>
+          <div class="say">「这比什么都重要。」</div>
+        </div>`
+      : trust >= 50
+      ? `<div class="dlg chen fade">
+          <div class="who">老陈</div>
+          <div class="say">「有几步你犹豫了。正常，第一次都这样。」</div>
+          <div class="say">「但犹豫本身不致命——<span class="hl">乱动才致命</span>。」</div>
+        </div>`
+      : `<div class="dlg chen fade">
+          <div class="who">老陈</div>
+          <div class="say">「有一处你赌了。」</div>
+          <div class="act">他的语气没变，但你能听出来。</div>
+          <div class="say">「赌赢一次，你会记住那种爽。」</div>
+          <div class="say">「然后你会赌第二次。」</div>
+          <div class="say">「这台机器很贵。你的运气不值那么多钱。」</div>
+        </div>`}
+
+    <div class="narr fade">
+      你没说话。他说得对。
+    </div>
+    <div class="dlg chen fade">
+      <div class="who">老陈</div>
+      <div class="act">过了一会儿。</div>
+      <div class="say">「行了，去睡觉吧。」</div>
+      <div class="say">「下次你自己定目标，我不看了。」</div>
+    </div>
+
+    <div class="panel fade">
+      <div class="panel-head">
+        <span class="lbl">这一夜的记录</span>
+        <span class="st">第 64712 号</span>
+      </div>
+      <div class="panel-body">
+        <div class="readout" style="margin:0 0 16px">
+          <div class="ro"><div class="ro-k">数据质量</div>
+            <div class="ro-v" style="color:${gradeCol}">${grade} 级</div></div>
+          <div class="ro"><div class="ro-k">信任值</div>
+            <div class="ro-v">${trust}</div></div>
+          <div class="ro"><div class="ro-k">放电电流</div>
+            <div class="ro-v" style="font-size:16px">0.80 MA</div></div>
+          <div class="ro"><div class="ro-k">最终温度</div>
+            <div class="ro-v" style="font-size:16px">≥10 keV</div></div>
+        </div>
+        <div class="cq ${grade === 'A' ? 'good' : grade === 'B' ? 'warn' : 'bad'}"
+             style="margin:0">
+          <div class="cq-h">
+            <span class="t">评级说明</span>
+            <span class="s ${grade === 'A' ? 'good' : grade === 'B' ? 'warn' : 'bad'}">${grade}</span>
+          </div>
+          <div class="cq-t">
+            ${grade === 'A'
+              ? `标定完整、窗口选择正确、误差已传播、危机处理得当。<br>
+                 这份数据可以直接进数据库，供后续分析使用。`
+              : grade === 'B'
+              ? `流程基本完整，但在若干环节有回退或迟疑。<br>
+                 数据可用，但需要标注不确定性来源。`
+              : `存在跳过的步骤（或风险操作），数据可靠性存疑。<br>
+                 建议重跑一次，或在使用时大幅放大误差棒。`}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="narr fade" style="margin-top:36px">
+      你关掉屏幕的时候，天已经亮了。
+    </div>
+    <div class="narr fade">
+      走廊尽头有人在拖地。你突然觉得特别困。
+    </div>
+    <div class="narr fade">
+      但脑子里还转着一件事——
+    </div>
+    <div class="narr fade em" style="font-size:18px;color:var(--paper);margin-top:22px">
+      你操作了一整夜。<br>
+      每一个参数都是别人设计好的。<br>
+      每一条保护都是别人写在手册里的。
+    </div>
+    <div class="narr fade" style="margin-top:26px;font-size:19px">
+      <span style="color:var(--amber)">那如果让你从零开始，造一台呢？</span>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 总结：这一夜你做过的每一步</summary>
+      <div class="deep-body">
+        <h4>完整流程回顾</h4>
+        <div class="eq">① 空载测试   找出一路 5.9% 偏差 → 系统误差
+② 升流       权衡磁通消耗 vs 磁通跳跃风险
+③ q 剖面     峰化度 → q(0) → 锯齿
+④ 加热分配   欧姆（有天花板）+ 射频 + 中性束
+⑤ 频谱       250 kHz 旋转模 → 锁定 → 破裂
+⑥ 数据处理   标定 → 去噪 → 选窗 → 统计 → FFT → 误差
+⑦ 报告       不确定度 ≤1.6% → 数据可用</div>
+
+        <h4>每一步背后的物理</h4>
+        <div class="eq">标定       B = V × k，系统误差不可平均
+伏秒平衡   ΔΦ = L·I_p + V_loop·t_flat
+安全因子   q(r) = r·B_φ / (R·B_θ)，q &lt; 1 → 锯齿
+撕裂模     Δ' &gt; 0 → 岛增长；Rutherford 方程
+旋转 → 锁定  电磁力矩 &gt; 旋转力矩
+欧姆极限   η ∝ T^(−3/2) → 约 20–30 MK
+误差传播   δB/B = √(δk² + δV² + δwin²)</div>
+
+        <h4>全系列参考文献</h4>
+        <div class="ref">
+          <span class="tag cls">经典 · 1957</span><b>Lawson, J. D.</b>
+          Some Criteria for a Power Producing Thermonuclear Reactor.
+          <i>Proc. Phys. Soc. B</i> 70, 6.
+        </div>
+        <div class="ref">
+          <span class="tag cls">经典 · 1973</span><b>Furth, Killeen &amp; Rosenbluth.</b>
+          Finite-Resistivity Instabilities of a Sheet Pinch.
+          <i>Phys. Fluids</i> 16(7), 1054.
+        </div>
+        <div class="ref">
+          <span class="tag cls">经典 · 1982</span><b>Wagner, F., et al.</b>
+          Regime of Improved Confinement and High Beta in ASDEX.
+          <i>Phys. Rev. Lett.</i> 49(19), 1408.
+        </div>
+        <div class="ref">
+          <span class="tag tool">诊断 · 1985</span><b>Lao, L. L., et al.</b>
+          Reconstruction of equilibrium flux surfaces from magnetic probe measurements.
+          <i>Nucl. Fusion</i> 25(11), 1611.
+        </div>
+        <div class="ref">
+          <span class="tag tool">反应率 · 1992</span><b>Bosch &amp; Hale.</b>
+          Improved formulas for fusion cross-sections and thermal reactivities.
+          <i>Nucl. Fusion</i> 32, 611.
+        </div>
+        <div class="ref">
+          <span class="tag tool">基准 · 1999</span><b>ITER Physics Basis.</b>
+          <i>Nucl. Fusion</i> 39(12).
+        </div>
+        <div class="ref">
+          <span class="tag tool">缓解 · 2015</span><b>Lehnen, M., et al.</b>
+          Disruption mitigation by massive gas injection in JET.
+          <i>Nucl. Fusion</i> 55(12), 123027.
+        </div>
+        <div class="ref">
+          <span class="tag cls">教材</span><b>Wesson, J. (2011).</b>
+          <i>Tokamaks</i>, 4th ed. Oxford University Press.
+        </div>
+        <div class="ref">
+          <span class="tag tool">教材</span><b>Hutchinson, I. H. (2002).</b>
+          <i>Principles of Plasma Diagnostics</i>, 2nd ed. Cambridge UP.
+        </div>
+
+        <h4>说明</h4>
+        <p style="color:var(--dim);font-size:13px">
+          本作为虚构作品：装置名、人物、时间线均为虚构；
+          物理量级与公式依据公开发表的文献，供教学演示使用。
+          各交互模块采用简化模型（简化范围在对应幕次的附录中注明）。
+        </p>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act7">再来一次</button></div>
+  `;
+  },
+  after: () => {
+    const b = document.getElementById('go-act7');
+    if (b) b.onclick = () => {
+      S.trust = 50; S.flags = {}; S.ip = 0; S.q = null; S.t = 0;
+      renderScene('prologue');
+    };
+  },
+  next: null
+}
+
+};
+
+/* ══════════════════════════════════════════════════════════════
+   渲染引擎
+   ══════════════════════════════════════════════════════════════ */
+
+const page = document.getElementById('page');
+
+function renderScene(id) {
+  const sc = SCENES[id];
+  if (!sc) return;
+  if (sc.onEnter) sc.onEnter();
+
+  page.innerHTML = `
+    <div class="scene-head fade">
+      <span class="n">${sc.n}</span>
+      <span class="t">${sc.t}</span>
+    </div>
+    ${sc.render()}
+  `;
+  hud();
+  window.scrollTo({ top: 0, behavior: 'instant' });
+
+  // 统一绑定"继续"按钮（交互模块只负责启用/禁用，不覆盖 onclick）
+  const btn = page.querySelector('.go button');
+  if (btn && sc.next) {
+    btn.onclick = () => renderScene(sc.next);
+  }
+
+  // 交互钩子（支持函数或全局函数名）
+  if (typeof sc.after === 'function') {
+    sc.after(sc.next);
+  } else if (sc.after && typeof window[sc.after] === 'function') {
+    window[sc.after](sc.next);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   交互 1 · 线圈读回（找出坏通道）
+   ══════════════════════════════════════════════════════════════ */
+
+function setupCoils(nextId) {
+  const COILS = [
+    { id:'PF1',  v:10.02 }, { id:'PF2',  v:9.98 }, { id:'PF3', v:10.01 },
+    { id:'PF4',  v:9.41 },  // ★ 坏通道（-5.9%）
+    { id:'PF5',  v:10.03 }, { id:'PF6',  v:9.99 }, { id:'PF7', v:10.00 },
+    { id:'PF8',  v:10.02 }, { id:'CS1',  v:9.97 }, { id:'CS2', v:10.01 },
+    { id:'CS3',  v:10.00 }, { id:'CS4',  v:9.98 },
+  ];
+  const g = document.getElementById('coil-grid');
+  let found = false;
+  let tries = 0;
+
+  g.innerHTML = COILS.map((c,i) => {
+    const dev = ((c.v - 10) / 10 * 100);
+    return `<div class="coil" data-i="${i}">
+      <div class="id">${c.id}</div>
+      <div class="val">${c.v.toFixed(2)}</div>
+      <div class="dv">${dev >= 0 ? '+' : ''}${dev.toFixed(1)}%</div>
+    </div>`;
+  }).join('');
+
+  g.querySelectorAll('.coil').forEach(el => {
+    el.onclick = () => {
+      if (found) return;
+      tries++;
+      const i = parseInt(el.dataset.i, 10);
+      const c = COILS[i];
+      const dev = (c.v - 10) / 10 * 100;
+
+      if (c.id === 'PF4') {
+        found = true;
+        el.classList.add('picked');
+        document.getElementById('coil-st').textContent = '找到了';
+        const cq = document.getElementById('coil-cq');
+        cq.className = 'cq warn';
+        document.getElementById('coil-cq-s').className = 's warn';
+        document.getElementById('coil-cq-s').textContent = '确认偏差';
+        document.getElementById('coil-cq-t').innerHTML =
+          `PF4 读回 <b>${c.v.toFixed(2)} kA</b>，比设定值低了约 <b>5.9%</b>。<br><br>
+           其余 11 路偏差都在 ±0.3% 以内——<b>这是正常的噪声水平</b>。<br><br>
+           一个通道单独偏低 6%，这不是噪声。<b>这是标定问题。</b><br>
+           <span style="color:var(--dim)">（老陈上周说过：PF4 的探头换过。）</span>`;
+        document.getElementById('go-act1').disabled = false;
+        S.trust += 15; S.flags.foundPF4 = true;
+      } else {
+        el.classList.add('wrong');
+        const cqs = document.getElementById('coil-cq-s');
+        cqs.className = 's warn';
+        cqs.textContent = '再看一眼';
+        document.getElementById('coil-cq-t').innerHTML =
+          `${c.id} 偏差 <b>${dev.toFixed(1)}%</b>——这在正常范围内。` +
+          `<br>探头噪声一般就在 ±0.3% 上下。<br>` +
+          `<span style="color:var(--dim)">继续找。</span>`;
+        setTimeout(() => el.classList.remove('wrong'), 900);
+      }
+    };
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   交互 2 · 升流曲线
+   ══════════════════════════════════════════════════════════════ */
+
+function setupRamp(nextId) {
+  const sl = document.getElementById('ramp');
+  let cv = null;
+
+  function draw(tRamp) {
+    if (!cv) cv = setupCanvas('cv-ramp', 230);
+    const { ctx, w, h } = cv;
+    ctx.clearRect(0, 0, w, h);
+    grid(ctx, w, h, 8, 4);
+
+    const padL = 48, padR = 18, padT = 24, padB = 40;
+    const pw = w - padL - padR, ph = h - padT - padB;
+
+    const tMax = 100;               // 显示 0-100 s
+    const I = t => {                 // 电流轨迹
+      if (t >= tRamp) return 0.8;
+      const x = t / tRamp;
+      return 0.8 * (1 - Math.pow(1 - x, 2.2));   // 平滑 S 形
+    };
+    const X = t => padL + t / tMax * pw;
+    const Y = i => padT + (1 - i / 0.9) * ph;
+
+    // 轴
+    ctx.strokeStyle = AXIS; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT+ph);
+    ctx.lineTo(padL+pw, padT+ph); ctx.stroke();
+
+    // 刻度
+    ctx.font = '10px Consolas,monospace'; ctx.fillStyle = DIM;
+    ctx.textAlign = 'right';
+    [0, 0.2, 0.4, 0.6, 0.8].forEach(v => {
+      const y = Y(v);
+      ctx.fillText(v.toFixed(1), padL - 6, y + 3);
+    });
+    ctx.textAlign = 'center';
+    [0, 25, 50, 75, 100].forEach(t => ctx.fillText(t + 's', X(t), padT + ph + 18));
+
+    // 曲线
+    const col = tRamp < 40 ? RUST : tRamp <= 70 ? TEAL : AMBER;
+    ctx.beginPath(); ctx.lineWidth = 2.6; ctx.strokeStyle = col;
+    for (let t = 0; t <= tMax; t += 0.5) {
+      const x = X(t), y = Y(I(t));
+      if (t === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // 目标线
+    ctx.setLineDash([4,4]); ctx.strokeStyle = 'rgba(232,226,212,.28)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, Y(0.8)); ctx.lineTo(padL+pw, Y(0.8)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(232,226,212,.5)'; ctx.textAlign = 'left';
+    ctx.fillText('0.80 MA', padL + 5, Y(0.8) - 6);
+
+    // 标注
+    ctx.fillStyle = col; ctx.font = '600 11.5px Consolas,monospace';
+    ctx.fillText(tRamp + ' s 到目标', padL + 5, padT + 10);
+  }
+
+  function update() {
+    const tR = parseInt(sl.value, 10);
+    document.getElementById('ramp-val').textContent = tR + ' s';
+    draw(tR);
+
+    // 磁通消耗（相对值）
+    const flux = 100 * (0.55 + 0.45 * Math.exp(-tR / 55));
+    // 跳跃风险：越快越高（非线性）
+    const jump = Math.min(100, Math.pow(Math.max(0, 55 - tR) / 35, 1.6) * 100);
+    const left = Math.max(0, 100 - flux);
+
+    document.getElementById('ro-flux').textContent = flux.toFixed(0) + ' %';
+    const jEl = document.getElementById('ro-jump');
+    jEl.textContent = jump.toFixed(0) + ' %';
+    jEl.style.color = jump > 60 ? RUST : jump > 25 ? AMBER : TEAL;
+    document.getElementById('ro-left').textContent = left.toFixed(0) + ' %';
+
+    // 后果
+    const cq = document.getElementById('ramp-cq');
+    const cs = document.getElementById('ramp-cq-s');
+    const bar = document.getElementById('ramp-bar');
+    const txt = document.getElementById('ramp-cq-t');
+    cq.className = 'cq';
+
+    if (tR < 38) {
+      cq.classList.add('bad'); cs.className = 's bad'; cs.textContent = '风险很高';
+      bar.style.background = RUST;
+      bar.style.width = jump.toFixed(0) + '%';
+      txt.innerHTML = `升得太快了。<b>磁通跳跃风险 ${jump.toFixed(0)}%</b>。<br>
+        高电压在超导线圈里容易诱发热失控——那一小段失超之后，
+        磁通会"卡"住，等离子体位置就要开始漂。<br>
+        <span style="color:var(--dim)">老陈说过：撞一次，检修两周。</span>`;
+    } else if (tR <= 72) {
+      cq.classList.add('good'); cs.className = 's good'; cs.textContent = '稳';
+      bar.style.background = TEAL;
+      bar.style.width = Math.max(12, jump).toFixed(0) + '%';
+      txt.innerHTML = `这是一个稳妥的选择。<b>磁通跳跃风险降到 ${jump.toFixed(0)}%</b>。<br>
+        代价是磁通消耗略高（${flux.toFixed(0)}%），
+        但平顶段还有 ${left.toFixed(0)}% 的余量可用。
+        <span style="color:var(--dim)">稳，就是快。</span>`;
+    } else {
+      cq.classList.add('warn'); cs.className = 's warn'; cs.textContent = '过于保守';
+      bar.style.background = AMBER;
+      bar.style.width = '22%';
+      txt.innerHTML = `过分谨慎了。<b>${tR} 秒</b>爬升，虽然很安全，
+        但磁通消耗已经到 ${flux.toFixed(0)}%，平顶段只剩 ${left.toFixed(0)}%。<br>
+        你的 800 毫秒目标可能撑不到。<br>
+        <span style="color:var(--dim)">这是个时间与资源的取舍。</span>`;
+    }
+  }
+
+  sl.addEventListener('input', update);
+  update();
+
+  // 只负责"启用"按钮，onclick 由 renderScene 统一绑定
+  const btn = document.getElementById('go-act2');
+  if (btn) setTimeout(() => { btn.disabled = false; }, 800);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   交互 3 · q 剖面（电流峰化）
+   ══════════════════════════════════════════════════════════════ */
+
+function setupQ(nextId) {
+  const sl = document.getElementById('qpeak');
+  let cv = null;
+
+  const Q95 = 3.41;
+
+  function q0Of(p) {                       // 峰化 → q(0)
+    return Q95 / (1.1 + (p - 1) * 1.3);
+  }
+
+  function draw(p) {
+    if (!cv) cv = setupCanvas('cv-q', 270);
+    const { ctx, w, h } = cv;
+    ctx.clearRect(0, 0, w, h);
+    grid(ctx, w, h, 8, 4);
+
+    const q0 = q0Of(p);
+    const saw = q0 < 1;                    // 锯齿
+
+    // ── 左：q 剖面 ──
+    const LW = w * 0.46;
+    const padL = 44, padT = 26, padB = 34;
+    const pw = LW - padL - 12, ph = h - padT - padB;
+
+    const X = r => padL + r * pw;
+    const Y = q => padT + (1 - Math.min(q, 4.4) / 4.4) * ph;
+
+    ctx.strokeStyle = AXIS; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + ph);
+    ctx.lineTo(padL + pw, padT + ph); ctx.stroke();
+
+    ctx.font = '10px Consolas,monospace'; ctx.fillStyle = DIM;
+    ctx.textAlign = 'right';
+    [0, 1, 2, 3, 4].forEach(v => ctx.fillText(v, padL - 6, Y(v) + 3));
+
+    // q = 1 危险线
+    ctx.setLineDash([3, 4]);
+    ctx.strokeStyle = 'rgba(210,105,74,.55)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, Y(1)); ctx.lineTo(padL + pw, Y(1)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = RUST; ctx.textAlign = 'left';
+    ctx.fillText('q = 1', padL + 4, Y(1) - 4);
+
+    // q(r) 曲线（抛物线近似）
+    ctx.beginPath(); ctx.lineWidth = 2.6;
+    ctx.strokeStyle = saw ? RUST : TEAL;
+    for (let r = 0; r <= 1.001; r += 0.02) {
+      const q = q0 + (Q95 - q0) * r * r;
+      const x = X(r), y = Y(q);
+      if (r === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = DIM; ctx.font = '10px Consolas,monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('r / a', padL + pw / 2, padT + ph + 18);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = saw ? RUST : TEAL;
+    ctx.font = '600 11px Consolas,monospace';
+    ctx.fillText('q(r) 剖面', padL + 4, padT + 8);
+
+    // ── 右：温度波形（有无锯齿）──
+    const RX = LW + 16;
+    const rw = w - RX - 14;
+    const rh = ph;
+
+    ctx.strokeStyle = AXIS; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(RX, padT); ctx.lineTo(RX, padT + rh);
+    ctx.lineTo(RX + rw, padT + rh); ctx.stroke();
+
+    ctx.beginPath(); ctx.lineWidth = 2.2;
+    ctx.strokeStyle = saw ? RUST : TEAL;
+    const tmax = 10;
+    for (let t = 0; t <= tmax; t += 0.02) {
+      const base = 0.62;
+      let v = base;
+      if (saw) {
+        const per = 0.9 + 2.6 * q0;          // q0 越低，周期越短
+        const ph2 = (t % per) / per;
+        v = base + 0.20 * ph2 - (ph2 > 0.93 ? 0.30 : 0);
+      } else {
+        v = base + 0.02 * Math.sin(t * 3.1);
+      }
+      const x = RX + t / tmax * rw;
+      const y = padT + (1 - v / 0.95) * rh;
+      if (t === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = saw ? RUST : TEAL;
+    ctx.font = '600 11px Consolas,monospace'; ctx.textAlign = 'left';
+    ctx.fillText(saw ? '核心温度：锯齿' : '核心温度：平稳', RX + 4, padT + 8);
+
+    return { q0, saw };
+  }
+
+  function update() {
+    const p = parseFloat(sl.value);
+    document.getElementById('qpeak-val').textContent = p.toFixed(2);
+    const { q0, saw } = draw(p);
+
+    document.getElementById('ro-q0').textContent = q0.toFixed(2);
+    const st = document.getElementById('ro-qstate');
+    st.textContent = saw ? '锯齿' : (q0 < 1.15 ? '临界' : '稳定');
+    st.style.color = saw ? RUST : q0 < 1.15 ? AMBER : TEAL;
+    const cf = document.getElementById('ro-conf');
+    const confDelta = (p - 1) * 8;           // 峰化越高约束越好（简化）
+    cf.textContent = (confDelta >= 0 ? '+' : '') + confDelta.toFixed(0) + '%';
+    cf.style.color = confDelta > 4 ? TEAL : confDelta < -4 ? AMBER : PAPER;
+
+    // 后果
+    const cq = document.getElementById('q-cq');
+    const cs = document.getElementById('q-cq-s');
+    const tx = document.getElementById('q-cq-t');
+    cq.className = 'cq';
+
+    if (saw) {
+      cq.classList.add('bad'); cs.className = 's bad'; cs.textContent = '核心在抽搐';
+      tx.innerHTML = `<b>q(0) = ${q0.toFixed(2)}，低于 1。</b><br>
+        右边那条温度曲线开始周期性崩塌——每次崩塌，核心的一小块热量会被甩出去。<br>
+        不是致命的。但你的数据里从此多了一个周期性扰动，
+        均值和标准差都会被污染。<br>
+        <span style="color:var(--dim)">（把峰化度往左拖。）</span>`;
+    } else if (q0 < 1.15) {
+      cq.classList.add('warn'); cs.className = 's warn'; cs.textContent = '刚刚脱险';
+      tx.innerHTML = `<b>q(0) = ${q0.toFixed(2)}，勉强在 1 以上。</b><br>
+        现在没有锯齿了。但这个裕度很薄——只要电流剖面稍微动一下，
+        就会掉回危险区。<br>
+        <span style="color:var(--dim)">工程上一般会留更大的余量。</span>`;
+    } else {
+      const confPct = ((p - 1) * 8).toFixed(0);
+      cq.classList.add('good'); cs.className = 's good'; cs.textContent = '稳';
+      tx.innerHTML = `<b>q(0) = ${q0.toFixed(2)}，安全。</b><br>
+        核心平稳，没有锯齿。代价是约束稍微降了一点
+        （${confPct >= 0 ? '+' : ''}${confPct}%）。<br>
+        <span style="color:var(--dim)">老陈说过：你不是在赢，你是在换。</span>`;
+    }
+
+    // 稳定后启用按钮
+    const btn = document.getElementById('go-act3');
+    if (btn && !saw) setTimeout(() => { btn.disabled = false; }, 400);
+  }
+
+  sl.addEventListener('input', update);
+  update();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   交互 4 · 加热功率分配
+   ══════════════════════════════════════════════════════════════ */
+
+function setupHeat(nextId) {
+  const sO = document.getElementById('p-ohm');
+  const sR = document.getElementById('p-rf');
+  const sN = document.getElementById('p-nbi');
+  let cv = null, solved = false;
+
+  /** 求解平衡温度（简化迭代） */
+  function solveT(pO, pR, pN) {
+    let T = 1.2;
+    for (let i = 0; i < 60; i++) {
+      // 欧姆效率随温度下降（Spitzer: η ∝ T^-3/2）
+      const ohmEff = pO * Math.exp(-T / 7.5);
+      const P = ohmEff + pR + pN;
+      const Tn = 11.5 * Math.pow(Math.max(P, 0.1) / 26, 0.52);
+      T = T + 0.35 * (Tn - T);
+      if (Math.abs(Tn - T) < 0.002) break;
+    }
+    return T;
+  }
+
+  function draw(pO, pR, pN, T) {
+    if (!cv) cv = setupCanvas('cv-heat', 250);
+    const { ctx, w, h } = cv;
+    ctx.clearRect(0, 0, w, h);
+    grid(ctx, w, h, 8, 4);
+
+    const padL = 30, padR = 16, padT = 28, padB = 46;
+    const pw = w - padL - padR, ph = h - padT - padB;
+
+    // 温度柱（对比目标）
+    const frac = Math.min(T / 10, 1.35);
+    const col = T >= 10 ? TEAL : T >= 6 ? AMBER : RUST;
+
+    // 背景
+    ctx.fillStyle = '#131B24';
+    ctx.fillRect(padL, padT + ph * 0.4, pw, 26);
+    // 目标线
+    const tgtX = padL + pw * (1 / 1.35);
+    ctx.strokeStyle = PAPER; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(tgtX, padT + ph * 0.4 - 16);
+    ctx.lineTo(tgtX, padT + ph * 0.4 + 42); ctx.stroke();
+    ctx.fillStyle = PAPER; ctx.font = '10px Consolas,monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('目标 10 keV', tgtX, padT + ph * 0.4 - 22);
+
+    // 填充
+    ctx.fillStyle = col;
+    ctx.fillRect(padL, padT + ph * 0.4, Math.min(frac, 1.35) * pw, 26);
+
+    ctx.textAlign = 'left'; ctx.font = '600 13px Consolas,monospace';
+    ctx.fillStyle = col;
+    ctx.fillText(T.toFixed(2) + ' keV', padL + 6, padT + ph * 0.4 + 18);
+
+    // 三种加热的堆叠贡献（下方的条）
+    const ohmEff = pO * Math.exp(-T / 7.5);
+    const items = [
+      ['欧姆（有效）', ohmEff, RUST],
+      ['射频', pR, AMBER],
+      ['中性束', pN, TEAL],
+    ];
+    const maxP = Math.max(ohmEff + pR + pN, 30);
+    let acc = padL;
+    items.forEach(([label, val, c]) => {
+      const bw = val / maxP * pw;
+      ctx.fillStyle = c;
+      ctx.fillRect(acc, padT + ph * 0.4 + 52, bw, 12);
+      acc += bw;
+    });
+    // 注释
+    ctx.font = '10px Consolas,monospace'; ctx.textAlign = 'left';
+    const total = ohmEff + pR + pN;
+    let lx = padL;
+    items.forEach(([label, val, c]) => {
+      if (val > 0.5) {
+        ctx.fillStyle = c;
+        ctx.fillText(`${label.replace('（有效）','')} ${val.toFixed(1)}`, lx + 2, padT + ph * 0.4 + 80);
+        lx += pw / 3;
+      }
+    });
+    ctx.fillStyle = DIM;
+    ctx.fillText(`总有效加热 ${total.toFixed(1)} MW`, padL, padT + ph * 0.4 + 100);
+
+    // 顶部：欧姆效率提示
+    ctx.fillStyle = RUST; ctx.font = '600 11px Consolas,monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`欧姆效率 ${(Math.exp(-T / 7.5) * 100).toFixed(0)}%`, padL, padT + 8);
+  }
+
+  function update() {
+    const pO = parseInt(sO.value, 10);
+    const pR = parseInt(sR.value, 10);
+    const pN = parseInt(sN.value, 10);
+
+    document.getElementById('p-ohm-v').textContent = pO + ' MW';
+    document.getElementById('p-rf-v').textContent = pR + ' MW';
+    document.getElementById('p-nbi-v').textContent = pN + ' MW';
+
+    const T = solveT(pO, pR, pN);
+    draw(pO, pR, pN, T);
+
+    document.getElementById('ro-te').textContent = T.toFixed(2) + ' keV';
+    document.getElementById('ro-te').style.color = T >= 10 ? TEAL : T >= 6 ? AMBER : RUST;
+
+    const ohmEff = pO * Math.exp(-T / 7.5);
+    document.getElementById('ro-ohmeff').textContent =
+      `${ohmEff.toFixed(1)} / ${pO} MW`;
+
+    // 成本：射频和中性束都贵
+    const cost = pO * 0.05 + pR * 1.0 + pN * 1.6;
+    document.getElementById('ro-cost').textContent = cost.toFixed(1);
+
+    // 后果
+    const cq = document.getElementById('heat-cq');
+    const cs = document.getElementById('heat-cq-s');
+    const bar = document.getElementById('heat-bar');
+    const tx = document.getElementById('heat-cq-t');
+    cq.className = 'cq';
+    bar.style.width = Math.min(T / 10 * 100, 100).toFixed(0) + '%';
+
+    if (T >= 10) {
+      cq.classList.add('good'); cs.className = 's good'; cs.textContent = '达标';
+      bar.style.background = TEAL;
+      tx.innerHTML = `<b>电子温度 ${T.toFixed(2)} keV</b>——目标达成。<br>
+        注意欧姆那一项：它标称 ${pO} MW，实际只贡献了 <b>${ohmEff.toFixed(1)} MW</b>。
+        温度越高，它越没用。<br>
+        <span style="color:var(--dim)">这就是为什么必须上射频和中性束。</span>`;
+      if (!solved) {
+        solved = true;
+        const btn = document.getElementById('go-act4');
+        if (btn) setTimeout(() => { btn.disabled = false; }, 500);
+      }
+    } else if (T >= 6) {
+      cq.classList.add('warn'); cs.className = 's warn'; cs.textContent = '还差一点';
+      bar.style.background = AMBER;
+      tx.innerHTML = `温度 ${T.toFixed(2)} keV。方向对了，但还不够。<br>
+        <span style="color:var(--dim)">试试多加一点射频或中性束——纯靠欧姆是上不去的。</span>`;
+    } else {
+      cq.classList.add('bad'); cs.className = 's bad'; cs.textContent = '太低';
+      bar.style.background = RUST;
+      tx.innerHTML = `温度只有 ${T.toFixed(2)} keV。<br>
+        光靠欧姆加热，最多也就到 3 keV 左右——<b>它有个天花板</b>。<br>
+        <span style="color:var(--dim)">往上推射频和中性束。</span>`;
+    }
+  }
+
+  [sO, sR, sN].forEach(s => s.addEventListener('input', update));
+  update();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   交互 5 · Mirnov 频谱演化 + 锁定决策
+   ══════════════════════════════════════════════════════════════ */
+
+function setupSpectrum(nextId) {
+  const sl = document.getElementById('stime');
+  let cv = null, decided = false;
+
+  const LOCK_T = 0.70;                 // 超过这个时间比例 → 锁定
+  const ampOf = t => 0.8 + 4.8 * Math.pow(t, 2.8);
+
+  function draw(t) {
+    if (!cv) cv = setupCanvas('cv-spec', 250);
+    const { ctx, w, h } = cv;
+    ctx.clearRect(0, 0, w, h);
+    grid(ctx, w, h, 10, 4);
+
+    const padL = 46, padR = 16, padT = 26, padB = 36;
+    const pw = w - padL - padR, ph = h - padT - padB;
+
+    // 轴
+    ctx.strokeStyle = AXIS; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + ph);
+    ctx.lineTo(padL + pw, padT + ph); ctx.stroke();
+
+    const FMAX = 500;
+    const X = f => padL + f / FMAX * pw;
+    const Y = a => padT + (1 - Math.min(a, 6) / 6) * ph;
+
+    // 刻度
+    ctx.font = '10px Consolas,monospace'; ctx.fillStyle = DIM;
+    ctx.textAlign = 'right';
+    [0, 2, 4, 6].forEach(a => ctx.fillText(a + '%', padL - 6, Y(a) + 3));
+    ctx.textAlign = 'center';
+    [0, 100, 200, 300, 400, 500].forEach(f =>
+      ctx.fillText(f, X(f), padT + ph + 18));
+
+    const locked = t >= LOCK_T;
+    const amp = locked ? 4.8 : ampOf(t);
+    const f0 = locked ? 205 : 250;          // 锁定后频率下降
+
+    // 背景噪声
+    ctx.beginPath(); ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(90,100,114,.55)';
+    for (let f = 0; f <= FMAX; f += 2) {
+      const n = 0.28 + 0.16 * Math.sin(f * 0.17) + 0.12 * Math.sin(f * 0.41);
+      const x = X(f), y = Y(n);
+      if (f === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // 主峰（高斯）
+    const col = amp > 4 ? RUST : amp > 2.2 ? AMBER : TEAL;
+    ctx.beginPath(); ctx.lineWidth = 2.6; ctx.strokeStyle = col;
+    for (let f = 0; f <= FMAX; f += 1) {
+      const wide = locked ? 22 : 15;
+      const g = amp * Math.exp(-Math.pow((f - f0) / wide, 2));
+      const n = 0.28 + 0.16 * Math.sin(f * 0.17) + 0.12 * Math.sin(f * 0.41);
+      const x = X(f), y = Y(n + g);
+      if (f === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // 标注
+    ctx.textAlign = 'left'; ctx.font = '600 11px Consolas,monospace';
+    ctx.fillStyle = col;
+    ctx.fillText(locked ? `锁定 · ${f0} kHz` : `旋转模 · ${f0} kHz`,
+                 padL + 5, padT + 9);
+    ctx.fillStyle = DIM; ctx.font = '10px Consolas,monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('频率 (kHz)', padL + pw / 2, h - 8);
+
+    return { amp, f0, locked };
+  }
+
+  function update() {
+    const t = parseInt(sl.value, 10) / 100;
+    document.getElementById('stime-val').textContent = (t * 0.4).toFixed(2) + ' s';
+    const { amp, f0, locked } = draw(t);
+
+    document.getElementById('ro-freq').textContent = f0 + ' kHz';
+    document.getElementById('ro-amp').textContent = amp.toFixed(1) + '%';
+    const md = document.getElementById('ro-mode');
+    md.textContent = locked ? '已锁定' : (amp > 2.2 ? '快速增长' : '缓慢增长');
+    md.style.color = locked ? RUST : amp > 2.2 ? AMBER : TEAL;
+
+    const cq = document.getElementById('spec-cq');
+    const cs = document.getElementById('spec-cq-s');
+    const tx = document.getElementById('spec-cq-t');
+    cq.className = 'cq';
+
+    if (locked) {
+      cq.classList.add('bad'); cs.className = 's bad'; cs.textContent = '锁定模';
+      tx.innerHTML = `<b>它停下来了。</b>频率从 250 kHz 掉到 ${f0} kHz，
+        幅度停在 ${amp.toFixed(1)}%。<br>
+        这不是"稳住了"——是它<b>不转了</b>。<br>
+        锁定模是破裂的强前兆。你现在必须做点什么。`;
+    } else if (amp > 2.2) {
+      cq.classList.add('warn'); cs.className = 's warn'; cs.textContent = '在长';
+      tx.innerHTML = `幅度到了 <b>${amp.toFixed(1)}%</b>，还在长。<br>
+        注意频率还稳在 250 kHz——它还在转，那就还有机会。`;
+    } else {
+      cq.classList.add('good'); cs.className = 's good'; cs.textContent = '留意';
+      tx.innerHTML = `幅度 ${amp.toFixed(1)}%，暂时无害。<br>
+        但你盯着它是对的——<b>这种峰最麻烦的地方就是它一开始很客气。</b>`;
+    }
+
+    // 触发决策
+    if (locked && !decided) {
+      document.getElementById('spec-actions').style.display = 'block';
+    }
+  }
+
+  function settle(kind) {
+    if (decided) return;
+    decided = true;
+    document.getElementById('spec-actions').style.display = 'none';
+    const box = document.getElementById('spec-result');
+    box.style.display = 'block';
+
+    const data = {
+      mitigate: {
+        cls: 'good', s: '标准操作',
+        html: `<div class="cq good" style="margin:0">
+          <div class="cq-h"><span class="t">结果</span><span class="s good">已缓解</span></div>
+          <div class="cq-t">
+          氖气在 0.5 毫秒内注入。等离子体在一场可控的辐射崩塌中结束——
+          能量被均匀摊到真空室壁上，而不是集中打在一个点上。<br><br>
+          <b>偏滤器最高温度比上次低了 60%。</b><br><br>
+          <span style="color:var(--dim)">老陈说过：数据重要，机器更重要——
+          机器没了，以后什么都没了。</span>
+          </div></div>`,
+        trust: 15
+      },
+      ecrh: {
+        cls: 'warn', s: '部分成功',
+        html: `<div class="cq warn" style="margin:0">
+          <div class="cq-h"><span class="t">结果</span><span class="s warn">多拿了 80 毫秒</span></div>
+          <div class="cq-t">
+          电子回旋波瞄准磁岛位置，驱动了一小股电流。<br><br>
+          模的幅度<b>停止增长</b>了，但没有缩回去——
+          它卡在 3.5% 的位置，像一个临界的水滴。<br><br>
+          你又多拿到了 80 毫秒的数据，然后等离子体还是缓慢破裂了。<br>
+          <span style="color:var(--dim)">比直接放掉好，但不够干净。</span>
+          </div></div>`,
+        trust: 5
+      },
+      nothing: {
+        cls: 'bad', s: '赌输了',
+        html: `<div class="cq bad" style="margin:0">
+          <div class="cq-h"><span class="t">结果</span><span class="s bad">破裂</span></div>
+          <div class="cq-t">
+          磁岛继续长大。<br><br>
+          在它的边界触及某条磁面之后，整个约束结构在 <b>1.5 毫秒</b> 内崩塌。
+          14 兆焦的能量打进偏滤器。<br><br>
+          三处温度传感器报警。这次放电的数据，后半段基本不能用。<br><br>
+          <span style="color:var(--dim)">老陈没说话。过了很久他才开口：
+          "记录一下。这就是为什么手册里写着'不要赌'。"</span>
+          </div></div>`,
+        trust: -20
+      }
+    }[kind];
+
+    box.innerHTML = data.html;
+    S.trust += data.trust;
+    const btn = document.getElementById('go-act5');
+    if (btn) setTimeout(() => { btn.disabled = false; }, 700);
+  }
+
+  sl.addEventListener('input', update);
+  update();
+
+  document.getElementById('act-mitigate').onclick = () => settle('mitigate');
+  document.getElementById('act-ecrh').onclick = () => settle('ecrh');
+  document.getElementById('act-nothing').onclick = () => settle('nothing');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   交互 6 · 六步数据处理流程
+   ══════════════════════════════════════════════════════════════ */
+
+function setupData(nextId) {
+  let step = 0;
+  const stage = document.getElementById('dp-stage');
+  const stepLbl = document.getElementById('dp-step');
+
+  // 结果缓存
+  const R = {};
+
+  const STEPS = [
+    /* 1 标定 */
+    () => ({
+      title: '标定：把电压变成磁场',
+      body: `<p class="hint">
+        这一路探头上周刚换过，标定系数存在校准库里。
+        应用它——之后所有数字才有物理意义。
+      </p>
+      <div class="sys" style="margin-bottom:16px">校准库 · M1 通道
+────────────────────────
+标定系数   <b>0.943 V/T</b>
+线性度     R² = 0.9987
+标定日期   2026-10-10</div>`,
+      btn: '应用标定',
+      run: () => { R.cal = 0.943; }
+    }),
+    /* 2 去噪 */
+    () => ({
+      title: '去噪：把干净的部分留下来',
+      body: `<p class="hint">信号里混着 50 Hz 市电拾取和一些高频噪声。
+        选一种处理方式。</p>`,
+      choices: [
+        ['低通滤波 + 滑动平均', '推荐：去掉拾取，同时不改变低频物理', 'a'],
+        ['只做低通滤波', '够用，但随机噪声还在', 'b'],
+        ['不处理', '最快，但噪声会污染统计量', 'c'],
+      ],
+      run: (k) => { R.denoise = k; }
+    }),
+    /* 3 选窗 */
+    () => ({
+      title: '选窗：只分析平顶段',
+      body: `<p class="hint">
+        整条波形里，上升段的变化比平顶段大得多。
+        如果整段一起算，均值和标准差会被上升段整个拉歪。
+      </p>
+      <div class="sys" style="margin-bottom:16px">波形总长 1.20 s
+────────────────────────
+上升段   0.00 – 0.42 s
+平顶段   <b>0.42 – 0.78 s</b>
+下降段   0.78 – 1.20 s</div>`,
+      btn: '选择平顶段',
+      run: () => { R.win = [0.42, 0.78]; }
+    }),
+    /* 4 统计 */
+    () => ({
+      title: '统计量：在窗口上算',
+      body: `<p class="hint">
+        平顶段已经选好了（0.42–0.78 s）。
+        在这个窗口上计算统计量。
+      </p>`,
+      btn: '计算统计量',
+      run: () => {
+        R.mean = 0.284; R.sd = 0.0031;
+        R.min = 0.276; R.max = 0.295;
+      }
+    }),
+    /* 5 频谱 */
+    () => ({
+      title: '频谱：找出振荡模式',
+      body: `<p class="hint">
+        对同一段窗口做傅里叶变换。这会告诉你，
+        剩下的那些起伏到底是什么。
+      </p>`,
+      btn: '做 FFT',
+      run: () => { R.f0 = 247; R.mode = 'm=2 撕裂模'; }
+    }),
+    /* 6 误差 */
+    () => ({
+      title: '误差传播：给出可信的结论',
+      body: `<p class="hint">三个误差源，各自的量级已经算出来了。</p>
+      <div class="sys" style="margin-bottom:16px">误差来源
+────────────────────────
+标定系数     1.20%
+信号噪声     0.40%
+窗口选择     0.90%</div>`,
+      btn: '合成误差并给出结论',
+      run: () => {
+        R.err = Math.sqrt(1.20 ** 2 + 0.40 ** 2 + 0.90 ** 2);   // ≈1.56%
+      }
+    }),
+  ];
+
+  function render() {
+    stepLbl.textContent = `第 ${step + 1} / ${STEPS.length} 步`;
+    const s = STEPS[step]();
+
+    let html = `<h3 style="font-size:17px;margin-bottom:14px;color:var(--paper)">${s.title}</h3>`;
+    html += s.body;
+
+    if (s.choices) {
+      html += `<div class="choices" style="margin-top:16px">` +
+        s.choices.map(([t, sub, k]) =>
+          `<button class="choice" data-k="${k}">${t}<span class="sub">${sub}</span></button>`
+        ).join('') + `</div>`;
+    } else {
+      html += `<div style="margin-top:18px">
+        <button class="choice" id="dp-go" style="border-color:var(--amber);color:var(--amber)">
+          ${s.btn}</button></div>`;
+    }
+    html += `<div id="dp-out" style="margin-top:16px"></div>`;
+    stage.innerHTML = html;
+
+    if (s.choices) {
+      stage.querySelectorAll('[data-k]').forEach(b => {
+        b.onclick = () => {
+          const k = b.dataset.k;
+          s.run(k);
+          const msg = k === 'c'
+            ? { cls: 'bad', t: '噪声未处理', d: '随机误差会直接进到统计量里。后面误差棒会变宽。' }
+            : k === 'b'
+            ? { cls: 'warn', t: '基本可用', d: '拾取去掉了，但随机噪声还在。可以接受。' }
+            : { cls: 'good', t: '干净', d: '拾取和随机噪声都压下去了，低频物理没被动。' };
+          document.getElementById('dp-out').innerHTML =
+            `<div class="cq ${msg.cls}" style="margin:0">
+               <div class="cq-h"><span class="t">${msg.t}</span>
+                 <span class="s ${msg.cls}">${k === 'c' ? '不推荐' : '可以'}</span></div>
+               <div class="cq-t">${msg.d}</div></div>`;
+          stage.querySelectorAll('[data-k]').forEach(x => x.disabled = true);
+          nextBtn();
+        };
+      });
+    } else {
+      document.getElementById('dp-go').onclick = () => {
+        s.run();
+        showResult();
+      };
+    }
+  }
+
+  function showResult() {
+    const out = document.getElementById('dp-out');
+    const map = {
+      0: () => `<div class="cq good" style="margin:0">
+        <div class="cq-h"><span class="t">已标定</span><span class="s good">✓</span></div>
+        <div class="cq-t">电压 × 0.943 = 磁场。现在单位是 <b>特斯拉</b>。</div></div>`,
+      2: () => `<div class="cq good" style="margin:0">
+        <div class="cq-h"><span class="t">窗口已选</span><span class="s good">✓</span></div>
+        <div class="cq-t">只保留 0.42–0.78 s。上升段被排除在外。</div></div>`,
+      3: () => `<div class="readout" style="margin:0">
+        <div class="ro"><div class="ro-k">均值 B</div><div class="ro-v">${R.mean.toFixed(3)} T</div></div>
+        <div class="ro"><div class="ro-k">标准差</div><div class="ro-v">${R.sd.toFixed(4)} T</div></div>
+        <div class="ro"><div class="ro-k">最小</div><div class="ro-v" style="font-size:16px">${R.min.toFixed(3)} T</div></div>
+        <div class="ro"><div class="ro-k">最大</div><div class="ro-v" style="font-size:16px">${R.max.toFixed(3)} T</div></div>
+      </div>`,
+      4: () => `<div class="cq good" style="margin:0">
+        <div class="cq-h"><span class="t">主频 ${R.f0} kHz</span><span class="s good">${R.mode}</span></div>
+        <div class="cq-t">这个频率对应一个 2 阶撕裂模——和你第五幕看到的那个峰是同一个。</div></div>`,
+    };
+    out.innerHTML = map[step] ? map[step]() : '';
+    if (step === 5) {
+      out.innerHTML = `<div class="cq good" style="margin:0">
+        <div class="cq-h"><span class="t">最终结论</span><span class="s good">可以交</span></div>
+        <div class="cq-t">
+          <b>B_θ = ${R.mean.toFixed(3)} ± ${(R.mean * R.err / 100).toFixed(4)} T</b><br>
+          （相对误差 ±${R.err.toFixed(2)}%）<br><br>
+          主不稳定模：<b>${R.mode}</b>，频率 ${R.f0} kHz<br><br>
+          这份数据可以进数据库了。
+        </div></div>`;
+      const btn = document.getElementById('go-act6');
+      if (btn) setTimeout(() => { btn.disabled = false; }, 600);
+    } else {
+      nextBtn();
+    }
+  }
+
+  function nextBtn() {
+    const out = document.getElementById('dp-out');
+    const b = document.createElement('button');
+    b.className = 'choice';
+    b.style.marginTop = '16px';
+    b.style.borderColor = 'var(--amber)';
+    b.style.color = 'var(--amber)';
+    b.textContent = '下一步 →';
+    b.onclick = () => { step++; if (step < STEPS.length) render(); };
+    out.appendChild(b);
+  }
+
+  render();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   启动
+   ══════════════════════════════════════════════════════════════ */
+
+renderScene('prologue');
+</script>
+</body>
+</html>

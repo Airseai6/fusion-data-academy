@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>从零理解核聚变 · 交互实验室</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#080A0E; --panel:#0D1117; --amber:#FFB347; --teal:#4EC9B0;
+  --rust:#D2694A; --paper:#E8E2D4; --dim:#5A6472;
+  --grid:#141A22; --line:#1C2530;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg); color:var(--paper);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+  line-height:1.75; letter-spacing:.01em;
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:72px 72px;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+.wrap{max-width:860px;margin:0 auto;padding:70px 24px 90px}
+
+/* 头部 */
+header{text-align:center;margin-bottom:64px}
+.series{
+  font-size:12px;letter-spacing:.3em;color:var(--dim);
+  text-transform:uppercase;margin-bottom:22px;
+  font-family:Consolas,monospace
+}
+h1{
+  font-size:clamp(30px,5.5vw,46px);font-weight:700;line-height:1.28;
+  margin-bottom:22px
+}
+h1 em{color:var(--amber);font-style:normal}
+.lede{
+  font-size:clamp(15px,2vw,17px);color:#9AA5B1;max-width:600px;
+  margin:0 auto;line-height:1.9
+}
+
+/* 卡片 */
+.cards{display:grid;gap:16px}
+.card{
+  display:block;text-decoration:none;color:inherit;
+  background:var(--panel);border:1px solid var(--line);
+  border-left:3px solid var(--dim);
+  padding:26px 28px;border-radius:4px;
+  transition:.22s cubic-bezier(.2,.8,.3,1);
+  position:relative;overflow:hidden
+}
+.card:hover{
+  border-left-color:var(--amber);
+  transform:translateX(6px);
+  background:#0F141B
+}
+.card:hover .arrow{transform:translateX(4px);color:var(--amber)}
+.card-top{
+  display:flex;justify-content:space-between;align-items:baseline;
+  margin-bottom:12px;gap:12px
+}
+.card-kind{
+  font-family:Consolas,monospace;font-size:11px;
+  letter-spacing:.18em;color:var(--dim);text-transform:uppercase
+}
+.card-badge{
+  font-family:Consolas,monospace;font-size:11px;
+  padding:3px 9px;border-radius:2px;
+  background:#141C26;color:var(--dim);white-space:nowrap
+}
+.card h2{
+  font-size:clamp(19px,2.8vw,24px);font-weight:700;
+  margin-bottom:10px;line-height:1.4
+}
+.card p{font-size:15px;color:#9AA5B1;line-height:1.85;margin-bottom:14px}
+.card-meta{
+  display:flex;gap:20px;flex-wrap:wrap;
+  font-family:Consolas,monospace;font-size:12px;color:var(--dim)
+}
+.card-meta span{display:flex;align-items:center;gap:6px}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.arrow{
+  position:absolute;right:26px;bottom:24px;
+  font-size:20px;color:var(--dim);transition:.22s
+}
+
+/* 强调卡 */
+.card.hot{border-left-color:var(--amber)}
+.card.hot .card-kind{color:var(--amber)}
+
+/* 说明区 */
+.note{
+  margin-top:56px;padding:26px 28px;
+  background:#0A0E13;border:1px solid var(--line);border-radius:4px;
+  font-size:14px;color:#8A949F;line-height:1.95
+}
+.note h3{
+  font-size:13px;letter-spacing:.14em;color:var(--teal);
+  font-family:Consolas,monospace;margin-bottom:14px;text-transform:uppercase
+}
+.note b{color:var(--paper);font-weight:400}
+.note ul{margin:12px 0 0 20px}
+.note li{margin-bottom:8px}
+
+footer{
+  text-align:center;margin-top:60px;padding-top:28px;
+  border-top:1px solid var(--line);
+  font-family:Consolas,monospace;font-size:11.5px;color:#3A424E;
+  line-height:2
+}
+footer a{color:#4A5462;text-decoration:none;border-bottom:1px solid #232B35}
+footer a:hover{color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="series">Understanding Fusion</div>
+  <h1>从零理解<em>核聚变</em></h1>
+  <p class="lede">
+    不是课程，也不是动画。<br>
+    是几个能让你<strong style="color:var(--paper)">亲手搞砸</strong>的实验台。
+  </p>
+</header>
+
+<div class="cards">
+
+  <a class="card hot" href="./shot.html">
+    <div class="card-top">
+      <span class="card-kind">互动小说 · 操作员</span>
+      <span class="card-badge">7 幕 · 约 30 分钟</span>
+    </div>
+    <h2>第一次放电</h2>
+    <p>
+      凌晨三点十七分，控制室只剩你一个人。<br>
+      你要把等离子体升到 80 万安培，进入平顶段，维持 800 毫秒。
+      老陈在电话里陪着你——但他不会替你做决定。
+    </p>
+    <div class="card-meta">
+      <span><i class="dot" style="background:var(--amber)"></i>6 个可操作物理模块</span>
+      <span><i class="dot" style="background:var(--teal)"></i>动态评级 A / B / C</span>
+    </div>
+    <span class="arrow">→</span>
+  </a>
+
+  <a class="card hot" href="./design.html">
+    <div class="card-top">
+      <span class="card-kind">互动小说 · 设计者</span>
+      <span class="card-badge">9 幕 · 约 40 分钟</span>
+    </div>
+    <h2>造一台</h2>
+    <p>
+      三年后，你从夜班操作员做到了实验组负责人。<br>
+      上头批了预算——目标 Q &gt; 5。现在是设计的时间：
+      从一张白纸开始，定尺寸、磁场、形状、加热、材料、排气……
+      每一个选择都会绑死后面的选择。
+    </p>
+    <div class="card-meta">
+      <span><i class="dot" style="background:var(--amber)"></i>7 个设计交互</span>
+      <span><i class="dot" style="background:var(--rust)"></i>性能 vs 成本的取舍</span>
+    </div>
+    <span class="arrow">→</span>
+  </a>
+
+  <a class="card" href="./physics.html">
+    <div class="card-top">
+      <span class="card-kind">物理沙盒</span>
+      <span class="card-badge">2 个实验 · 约 5 分钟</span>
+    </div>
+    <h2>点亮一颗星星</h2>
+    <p>
+      顺序很短：先试试温度——你会看到"穿墙概率"以指数方式暴涨；<br>
+      然后调三个旋钮，看你能不能凑够点亮一颗星的条件。
+    </p>
+    <div class="card-meta">
+      <span><i class="dot" style="background:var(--teal)"></i>量子隧穿</span>
+      <span><i class="dot" style="background:var(--amber)"></i>劳森判据</span>
+    </div>
+    <span class="arrow">→</span>
+  </a>
+
+</div>
+
+<div class="note">
+  <h3>关于这些作品</h3>
+  <p>
+    <b>物理是真的。</b>反应率用 Bosch–Hale (1992) 参数化；
+    约束时间用 IPB98(y,2) 定标律；磁岛演化用 Rutherford 方程；
+    加热效率包含 Spitzer 电阻率；误差传播按标准方法合成。
+    <br><br>
+    <b>但模型是简化的。</b>所有交互模块都做了降阶处理，
+    只保证<b>趋势正确、量级合理</b>，<b>不适用于定量工程设计</b>。
+    每个交互模块下方都有"想深入一点"，写着公式、简化方式和原始文献。
+  </p>
+  <ul>
+    <li>装置、人物、时间线均为虚构</li>
+    <li>公式与量级依据公开发表文献（每幕附录中列出）</li>
+    <li>所有计算在你的浏览器里完成，不联网、不上传</li>
+  </ul>
+</div>
+
+<footer>
+  从零理解核聚变 · 交互实验室<br>
+  物理依据公开发表文献 · 反应率参数化采用 Bosch–Hale (1992)
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>点亮一颗星星 · 从温度到聚变</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#080A0E; --panel:#0D1117; --amber:#FFB347; --teal:#4EC9B0;
+  --rust:#D2694A; --paper:#E8E2D4; --dim:#5A6472;
+  --grid:#141A22; --line:#1C2530;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg); color:var(--paper);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+  line-height:1.75; letter-spacing:.01em;
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:64px 64px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:920px;margin:0 auto;padding:0 22px}
+
+/* ---------- 页头 ---------- */
+header{padding:70px 0 50px;text-align:center}
+.series{
+  font-size:12px;letter-spacing:.28em;color:var(--dim);
+  text-transform:uppercase;margin-bottom:20px
+}
+h1{
+  font-size:clamp(28px,5vw,44px);font-weight:700;line-height:1.3;
+  margin-bottom:22px
+}
+h1 em{color:var(--amber);font-style:normal}
+.lede{
+  font-size:clamp(15px,2vw,17px);color:#9AA5B1;max-width:620px;
+  margin:0 auto
+}
+
+/* ---------- 章节 ---------- */
+section{padding:56px 0}
+.scene-label{
+  display:inline-block;font-size:11px;letter-spacing:.22em;
+  color:var(--amber);border:1px solid #2A3542;padding:5px 12px;
+  border-radius:2px;margin-bottom:18px
+}
+h2{font-size:clamp(22px,3.4vw,30px);font-weight:700;margin-bottom:16px;line-height:1.35}
+.hook{
+  font-size:17px;color:#B8C2CC;border-left:2px solid var(--amber);
+  padding-left:18px;margin-bottom:28px
+}
+.hook strong{color:var(--paper)}
+
+/* ---------- 舞台 ---------- */
+.stage{
+  display:grid;grid-template-columns:minmax(240px,1fr) minmax(300px,1.5fr);
+  gap:22px;background:var(--panel);border:1px solid var(--line);
+  padding:22px;border-radius:4px;margin-bottom:18px
+}
+@media(max-width:720px){.stage{grid-template-columns:1fr}}
+
+.ctrl{margin-bottom:22px}
+.ctrl:last-child{margin-bottom:0}
+.ctrl-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+.ctrl-name{font-size:14px;color:#9AA5B1}
+.ctrl-val{font-size:17px;color:var(--amber);font-variant-numeric:tabular-nums;font-weight:600}
+input[type=range]{
+  width:100%;height:4px;-webkit-appearance:none;appearance:none;
+  background:#1E2733;border-radius:2px;outline:none;cursor:pointer
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+  background:var(--amber);cursor:grab;border:3px solid var(--panel);
+  box-shadow:0 0 0 1px var(--amber)
+}
+input[type=range]::-moz-range-thumb{
+  width:18px;height:18px;border-radius:50%;background:var(--amber);
+  cursor:grab;border:3px solid var(--panel);box-shadow:0 0 0 1px var(--amber)
+}
+.ctrl-hint{font-size:12px;color:var(--dim);margin-top:7px}
+
+canvas{width:100%;display:block;border-radius:3px}
+
+/* ---------- 读数 ---------- */
+.readout{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  gap:1px;background:var(--line);border:1px solid var(--line);
+  margin-bottom:18px
+}
+.ro{background:var(--panel);padding:15px 17px}
+.ro-k{font-size:12px;color:var(--dim);margin-bottom:5px}
+.ro-v{font-size:21px;font-variant-numeric:tabular-nums;color:var(--amber);font-weight:600}
+.ro-v.sm{font-size:16px}
+.ro-sub{font-size:11px;color:var(--dim);margin-top:3px}
+
+/* ---------- 后果面板 ★ 差异化 ---------- */
+.consequence{
+  border:1px solid var(--line);border-left:3px solid var(--dim);
+  background:var(--panel);padding:18px 20px;margin-bottom:18px;
+  transition:border-color .3s
+}
+.consequence.good{border-left-color:var(--teal)}
+.consequence.warn{border-left-color:var(--amber)}
+.consequence.bad{border-left-color:var(--rust)}
+.cq-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.cq-title{font-size:13px;letter-spacing:.14em;color:var(--dim)}
+.cq-status{font-size:14px;font-weight:600}
+.cq-status.good{color:var(--teal)}
+.cq-status.warn{color:var(--amber)}
+.cq-status.bad{color:var(--rust)}
+.bar{height:8px;background:#131B24;border-radius:4px;overflow:hidden;margin-bottom:12px}
+.bar span{display:block;height:100%;width:0;transition:width .25s ease,background .3s;border-radius:4px}
+.cq-text{font-size:14px;color:#9AA5B1;line-height:1.7}
+.cq-text b{color:var(--paper)}
+.cq-text .hint{color:var(--amber)}
+
+/* ---------- 附录 ---------- */
+details.deep{
+  border:1px solid var(--line);background:#0A0E13;border-radius:3px;
+  margin-bottom:16px
+}
+details.deep summary{
+  cursor:pointer;padding:15px 20px;font-size:14px;color:var(--dim);
+  list-style:none;display:flex;justify-content:space-between;align-items:center;
+  user-select:none
+}
+details.deep summary::-webkit-details-marker{display:none}
+details.deep summary:hover{color:var(--paper)}
+details.deep summary::after{content:"▾";transition:transform .2s;color:var(--dim)}
+details.deep[open] summary::after{transform:rotate(180deg)}
+.deep-body{padding:0 22px 22px;font-size:14px;color:#9AA5B1;border-top:1px solid var(--line)}
+.deep-body h4{
+  font-size:13px;letter-spacing:.1em;color:var(--teal);
+  margin:20px 0 10px;text-transform:uppercase
+}
+.deep-body h4:first-child{margin-top:20px}
+.eq{
+  background:#060A0F;border-left:2px solid var(--teal);padding:14px 18px;
+  margin:12px 0;font-family:"Consolas",monospace;font-size:13px;
+  color:var(--paper);overflow-x:auto;line-height:1.9
+}
+.eq .cm{color:var(--dim)}
+.ref{
+  font-size:13px;color:#7A8691;padding:9px 0 9px 16px;
+  border-left:1px solid #1E2733;margin-bottom:8px;line-height:1.6
+}
+.ref b{color:#9AA5B1;font-weight:500}
+.tag{
+  display:inline-block;font-size:11px;padding:2px 8px;border-radius:2px;
+  background:#141C26;color:var(--dim);margin-right:6px
+}
+.tag.cls{background:#1D2620;color:#7FA88E}
+.tag.new{background:#1F1A14;color:#B8925A}
+
+/* ---------- 结尾 ---------- */
+.next{
+  text-align:center;padding:56px 0 80px;border-top:1px solid var(--line);
+  margin-top:36px
+}
+.next p{font-size:17px;color:#9AA5B1;margin-bottom:14px}
+.next .big{
+  font-size:clamp(19px,3vw,24px);color:var(--paper);
+  font-weight:600;margin-bottom:20px
+}
+.next .big em{color:var(--amber);font-style:normal}
+footer{
+  text-align:center;padding:30px 0 50px;font-size:12px;color:#3D4552;
+  border-top:1px solid var(--line)
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header>
+  <div class="series">Understanding Fusion · 01</div>
+  <h1>怎样才能<em>点亮一颗星星</em>？</h1>
+  <p class="lede">
+    一百年前，有个物理学家算了一笔账，算完之后他慌了。<br>
+    因为按照当时的物理学——<strong style="color:var(--paper)">太阳根本不该亮这么久。</strong>
+  </p>
+</header>
+
+<!-- ═══════════════ 场景 1 · 温度的秘密 ═══════════════ -->
+<section>
+  <span class="scene-label">第一幕 · 温度的魔法</span>
+  <h2>温度不够，为什么还能烧起来？</h2>
+  <p class="hook">
+    两个原子核想靠在一起，但它们都带正电——<strong>同性相斥</strong>。
+    靠得越近，推得越狠。中间像有一堵"电墙"。<br><br>
+    按经典物理，力气不够翻过这堵墙，就<strong>永远过不去</strong>。<br>
+    但量子力学说：<strong>墙是可以穿过去的。</strong>
+  </p>
+
+  <div class="stage">
+    <div>
+      <div class="ctrl">
+        <div class="ctrl-head">
+          <span class="ctrl-name">温度</span>
+          <span class="ctrl-val" id="t-val">10 keV</span>
+        </div>
+        <input type="range" id="t-slider" min="1" max="100" step="0.5" value="10">
+        <div class="ctrl-hint">1 keV ≈ 1160 万度</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-head">
+          <span class="ctrl-name">粒子数（对比用）</span>
+          <span class="ctrl-val" id="n-val">1</span>
+        </div>
+        <input type="range" id="n-slider" min="0" max="3" step="1" value="1">
+        <div class="ctrl-hint">10 的几次方个粒子去撞</div>
+      </div>
+    </div>
+    <div>
+      <canvas id="cv-tunnel" height="300"></canvas>
+    </div>
+  </div>
+
+  <div class="readout">
+    <div class="ro">
+      <div class="ro-k">穿墙概率（相对）</div>
+      <div class="ro-v sm" id="ro-tunnel">—</div>
+      <div class="ro-sub" id="ro-tunnel-sub">指数级</div>
+    </div>
+    <div class="ro">
+      <div class="ro-k">每秒钟撞上的次数</div>
+      <div class="ro-v sm" id="ro-rate">—</div>
+      <div class="ro-sub">D-T 反应率</div>
+    </div>
+    <div class="ro">
+      <div class="ro-k">温度换算</div>
+      <div class="ro-v sm" id="ro-temp">—</div>
+      <div class="ro-sub">摄氏度</div>
+    </div>
+  </div>
+
+  <div class="consequence" id="cq-tunnel">
+    <div class="cq-head">
+      <span class="cq-title">这意味着什么</span>
+      <span class="cq-status" id="cq-tunnel-status">—</span>
+    </div>
+    <div class="bar"><span id="cq-tunnel-bar"></span></div>
+    <div class="cq-text" id="cq-tunnel-text">拖动温度滑块试试。</div>
+  </div>
+
+  <details class="deep">
+    <summary>▼ 想深入一点？（专业内容 · 公式 · 文献）</summary>
+    <div class="deep-body">
+      <h4>背后的物理</h4>
+      <p>两个轻核要发生聚变，必须克服库仑势垒。经典力学要求粒子动能超过势垒高度（D-T 约 0.4 MeV），
+         但恒星核心只有 keV 量级——远低于这个值。隧穿效应让反应在"能量不够"时仍以极低概率发生。</p>
+
+      <div class="eq">
+<span class="cm">// Gamow 因子：隧穿概率随能量的变化</span>
+P(E) ∝ exp(−√(E_G / E))
+
+<span class="cm">// Gamow 能量（D-T 情形，b ≈ 34.4 keV^½）</span>
+E_G = (π α Z₁Z₂)² · 2μc²
+      </div>
+
+      <p>关键性质：<b>温度每升高一点，概率不是线性增长，而是指数级增长。</b>
+         从 1 keV 到 100 keV，隧穿概率跨越约 13 个数量级。</p>
+
+      <h4>反应率参数化</h4>
+      <p>本页反应率采用 Bosch–Hale (1992) 的经典参数化，在 0.2–100 keV 区间精度优于 0.25%：</p>
+      <div class="eq">
+⟨σv⟩ = C₁θ √( ξ / (m_r c² T³) ) · exp(−3ξ)
+
+ξ = ( B_G² / (4θ) )^(1/3)
+θ = T / [ 1 − T(C₂ + T(C₄ + T·C₆)) / (1 + T(C₃ + T(C₅ + T·C₇))) ]
+      </div>
+      <p>D-T 系数：B_G = 34.3827 keV^½，m_r c² = 1124656 keV。<br>
+         参考值：T = 10 keV 时 ⟨σv⟩ ≈ 1.1×10⁻¹⁶ cm³/s。</p>
+
+      <h4>参考文献</h4>
+      <div class="ref">
+        <span class="tag cls">经典</span><b>Atkinson &amp; Houtermans (1929).</b>
+        Zur Frage der Möglichkeit einer Kernstruktur. <i>Z. Physik</i> 54, 656.<br>
+        —— 首次用量子隧穿解释恒星为何能发光
+      </div>
+      <div class="ref">
+        <span class="tag cls">经典</span><b>Bethe (1939).</b>
+        Energy Production in Stars. <i>Phys. Rev.</i> 55, 434.<br>
+        —— pp 链与 CNO 循环，1967 年诺贝尔物理学奖
+      </div>
+      <div class="ref">
+        <span class="tag">工具</span><b>Bosch &amp; Hale (1992).</b>
+        Improved formulas for fusion cross-sections and thermal reactivities.
+        <i>Nucl. Fusion</i> 32, 611.<br>
+        —— 本页反应率公式的来源
+      </div>
+    </div>
+  </details>
+</section>
+
+<!-- ═══════════════ 场景 2 · 三个旋钮 ═══════════════ -->
+<section>
+  <span class="scene-label">第二幕 · 算总账</span>
+  <h2>三个旋钮，决定你能不能点亮它</h2>
+  <p class="hook">
+    好，现在你知道温度越高越容易烧。<strong>但温度不是唯一的事。</strong><br><br>
+    1955 年，一个英国人把三件事写在了一张纸上：<br>
+    <strong>足够多的粒子、足够高的温度、足够长的时间。</strong><br>
+    三个一起达标，你才有净能量输出。<br><br>
+    问题是——<strong>它们仨总是在互相拆台。</strong>
+  </p>
+
+  <div class="stage">
+    <div>
+      <div class="ctrl">
+        <div class="ctrl-head">
+          <span class="ctrl-name">密度 n</span>
+          <span class="ctrl-val" id="n2-val">5.0×10¹⁹</span>
+        </div>
+        <input type="range" id="n2-slider" min="1" max="30" step="0.2" value="5">
+        <div class="ctrl-hint">每立方米多少个粒子（×10¹⁹）</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-head">
+          <span class="ctrl-name">温度 T</span>
+          <span class="ctrl-val" id="t2-val">10 keV</span>
+        </div>
+        <input type="range" id="t2-slider" min="2" max="40" step="0.5" value="10">
+        <div class="ctrl-hint">等离子体的温度</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-head">
+          <span class="ctrl-name">约束时间 τ</span>
+          <span class="ctrl-val" id="tau-val">1.0 s</span>
+        </div>
+        <input type="range" id="tau-slider" min="0.1" max="5" step="0.1" value="1">
+        <div class="ctrl-hint">热量能在里面待多久</div>
+      </div>
+    </div>
+    <div>
+      <canvas id="cv-lawson" height="300"></canvas>
+    </div>
+  </div>
+
+  <div class="readout">
+    <div class="ro">
+      <div class="ro-k">三重积 nTτ</div>
+      <div class="ro-v" id="ro-triple">—</div>
+      <div class="ro-sub">目标 ≥ 3×10²¹</div>
+    </div>
+    <div class="ro">
+      <div class="ro-k">还差多少</div>
+      <div class="ro-v" id="ro-gap">—</div>
+      <div class="ro-sub">倍数</div>
+    </div>
+    <div class="ro">
+      <div class="ro-k">聚变功率（相对）</div>
+      <div class="ro-v" id="ro-power">—</div>
+      <div class="ro-sub">∝ n²⟨σv⟩</div>
+    </div>
+  </div>
+
+  <div class="consequence" id="cq-lawson">
+    <div class="cq-head">
+      <span class="cq-title">达标了吗</span>
+      <span class="cq-status" id="cq-lawson-status">—</span>
+    </div>
+    <div class="bar"><span id="cq-lawson-bar"></span></div>
+    <div class="cq-text" id="cq-lawson-text">调三个旋钮试试。</div>
+  </div>
+
+  <details class="deep">
+    <summary>▼ 想深入一点？（专业内容 · 公式 · 文献）</summary>
+    <div class="deep-body">
+      <h4>劳森判据</h4>
+      <p>1955 年，J. D. Lawson 在 Harwell 写了一份报告，首次给出了"净能量输出需要什么条件"的定量答案。
+         今天的聚变装置设计，基本都在回答同一个问题。</p>
+
+      <div class="eq">
+<span class="cm">// 三重积判据（D-T，点火条件量级）</span>
+n · T · τ_E ≥ 3×10²¹  keV·s/m³
+
+<span class="cm">// 更严格地说，它来自功率平衡：</span>
+P_α + P_ext = P_loss
+P_fusion = ¼ n² ⟨σv⟩ E_fus V
+      </div>
+
+      <h4>为什么是"乘积"</h4>
+      <p>三个量各管一件事，缺一不可：</p>
+      <ul style="margin:10px 0 10px 20px;color:#8A949F">
+        <li><b>密度 n</b> — 决定粒子多久撞一次</p></li>
+        <li><b>温度 T</b> — 决定撞上之后能不能"穿墙"</li>
+        <li><b>约束时间 τ_E</b> — 决定这份热量能留住多久</li>
+      </ul>
+      <p>而实际装置里，这三个量会互相制约：密度推高，约束往往变差；
+         温度推高，辐射损失增长更快。<b>这正是设计的难点。</b></p>
+
+      <h4>参考值（D-T）</h4>
+      <div class="eq">
+最佳温度区间：10–20 keV
+三重积阈值：~3×10²¹ keV·s/m³
+对应 Q = 1（得失相当）
+      </div>
+
+      <h4>参考文献</h4>
+      <div class="ref">
+        <span class="tag cls">经典</span><b>Lawson, J. D. (1957).</b>
+        Some Criteria for a Power Producing Thermonuclear Reactor.
+        <i>Proc. Phys. Soc. B</i> 70, 6.<br>
+        —— 三重积判据的原始文献
+      </div>
+      <div class="ref">
+        <span class="tag">工具</span><b>Wesson, J. (2011).</b>
+        <i>Tokamaks</i> (4th ed.). Oxford University Press.<br>
+        —— 托卡马克物理的标准参考书
+      </div>
+      <div class="ref">
+        <span class="tag new">前沿</span><b>ITER Physics Basis (1999).</b>
+        <i>Nucl. Fusion</i> 39(12).<br>
+        —— 全球数据汇总而成的设计依据
+      </div>
+    </div>
+  </details>
+</section>
+
+<!-- ═══════════════ 结尾钩子 ═══════════════ -->
+<div class="next">
+  <p>你刚刚亲手验证了聚变的两条基本门槛。</p>
+  <p class="big">但这里有个问题——<br><em>你打算用什么把它装住？</em></p>
+  <p style="font-size:14px;color:var(--dim)">
+    没有材料能承受一亿度。<br>
+    所以下一幕，我们要想办法<strong style="color:var(--paper)">让它悬在空中</strong>。
+  </p>
+</div>
+
+<footer>
+  Understanding Fusion · 交互实验室<br>
+  物理公式依据公开发表文献 · 参数化采用 Bosch–Hale (1992)
+</footer>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   物理模块 M2 · 量子隧穿与反应率
+   ═══════════════════════════════════════════════════════ */
+
+const B_G = 34.3827;          // keV^0.5 (D-T)
+const M_RC2 = 1124656;        // keV
+const BH_C = [1.17302e-9, 1.51361e-2, 7.51886e-2,
+              4.60643e-3, 1.35000e-2, -1.06750e-4, 1.36600e-5];
+
+/** Gamow 隧穿因子（相对值） */
+function tunnelFactor(T_keV) {
+  return Math.exp(-B_G / Math.sqrt(Math.max(T_keV, 0.01)));
+}
+
+/** Bosch-Hale D-T 反应率 ⟨σv⟩ in cm³/s */
+function sigmaV_DT(T_keV) {
+  const T = Math.max(T_keV, 0.2);
+  const num = T * (BH_C[1] + T * (BH_C[3] + T * BH_C[5]));
+  const den = 1 + T * (BH_C[2] + T * (BH_C[4] + T * BH_C[6]));
+  const theta = T / (1 - num / den);
+  const xi = Math.cbrt(B_G * B_G / (4 * theta));
+  const sv = BH_C[0] * theta *
+             Math.sqrt(xi / (M_RC2 * T * T * T)) *
+             Math.exp(-3 * xi);
+  return sv;
+}
+
+/* ═══════════════════════════════════════════════════════
+   物理模块 M1 · 三重积（劳森判据）
+   ═══════════════════════════════════════════════════════ */
+
+const TRIPLE_TARGET = 3e21;   // keV·s/m³
+
+function tripleProduct(n19, T_keV, tau) {
+  const n = n19 * 1e19;              // -> m^-3
+  return n * T_keV * tau;            // keV·s/m³
+}
+
+/** 相对聚变功率 ∝ n²⟨σv⟩ */
+function fusionPower(n19, T_keV) {
+  const n = n19 * 1e19;
+  const sv = sigmaV_DT(T_keV);
+  return 0.25 * n * n * sv;
+}
+
+/* ═══════════════════════════════════════════════════════
+   渲染工具
+   ═══════════════════════════════════════════════════════ */
+
+function setupCanvas(id) {
+  const cv = document.getElementById(id);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const rect = cv.getBoundingClientRect();
+  const w = rect.width || 420;
+  const h = parseInt(cv.getAttribute('height'), 10) || 300;
+  cv.width = w * dpr;
+  cv.height = h * dpr;
+  cv.style.height = h + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { ctx, w, h };
+}
+
+const GRID_C = '#141A22', AXIS_C = '#28323E', DIM = '#5A6472';
+const AMBER = '#FFB347', TEAL = '#4EC9B0', RUST = '#D2694A', PAPER = '#E8E2D4';
+
+function drawGrid(ctx, w, h, cols = 6, rows = 4) {
+  ctx.strokeStyle = GRID_C; ctx.lineWidth = 1;
+  for (let i = 1; i < cols; i++) {
+    const x = (w / cols) * i;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for (let i = 1; i < rows; i++) {
+    const y = (h / rows) * i;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   场景 1 · 隧穿曲线
+   ═══════════════════════════════════════════════════════ */
+
+let cvT = null;
+
+function drawTunnel(T_keV) {
+  if (!cvT) cvT = setupCanvas('cv-tunnel');
+  const { ctx, w, h } = cvT;
+  ctx.clearRect(0, 0, w, h);
+  drawGrid(ctx, w, h);
+
+  const padL = 46, padR = 16, padT = 22, padB = 34;
+  const pw = w - padL - padR, ph = h - padT - padB;
+
+  // 对数纵轴：隧穿概率跨越约 31 个数量级（1 keV → 100 keV）
+  const lmin = -40, lmax = 0;
+  const X = t => padL + (t - 1) / 99 * pw;
+  const Y = lg => padT + (lmax - lg) / (lmax - lmin) * ph;
+
+  // 网格线（对数刻度）
+  ctx.font = '10px Consolas,monospace';
+  ctx.fillStyle = DIM; ctx.textAlign = 'right';
+  for (let e = 0; e >= -40; e -= 10) {
+    const y = Y(e);
+    ctx.strokeStyle = e === 0 ? AXIS_C : GRID_C;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+    ctx.fillText('1e' + e, padL - 6, y + 3);
+  }
+
+  // 曲线
+  ctx.beginPath();
+  ctx.lineWidth = 2.4; ctx.strokeStyle = AMBER;
+  let started = false;
+  for (let t = 1; t <= 100; t += 0.25) {
+    const lg = Math.log10(tunnelFactor(t));
+    const x = X(t), y = Y(Math.max(lg, lmin));
+    if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // 当前点
+  const lgNow = Math.log10(tunnelFactor(T_keV));
+  const px = X(T_keV), py = Y(Math.max(lgNow, lmin));
+  ctx.setLineDash([3, 4]);
+  ctx.strokeStyle = 'rgba(255,179,71,0.4)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + ph); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.beginPath(); ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+  ctx.fillStyle = AMBER; ctx.fill();
+  ctx.strokeStyle = '#080A0E'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 标注
+  ctx.fillStyle = AMBER; ctx.font = '600 12px Consolas,monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('P ∝ exp(−√(E_G/E))', padL + 6, padT + 2);
+
+  ctx.fillStyle = DIM; ctx.font = '10px Consolas,monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('温度 (keV)', padL + pw / 2, h - 8);
+}
+
+/* ═══════════════════════════════════════════════════════
+   场景 2 · 三重积
+   ═══════════════════════════════════════════════════════ */
+
+let cvL = null;
+
+function drawLawson(n19, T_keV, tau, triple) {
+  if (!cvL) cvL = setupCanvas('cv-lawson');
+  const { ctx, w, h } = cvL;
+  ctx.clearRect(0, 0, w, h);
+  drawGrid(ctx, w, h);
+
+  const padL = 16, padR = 16, padT = 30, padB = 40;
+  const pw = w - padL - padR;
+
+  // 三重积进度条
+  const frac = Math.min(triple / TRIPLE_TARGET, 1.6);
+  const barH = 34;
+  const barY = padT + 40;
+
+  ctx.fillStyle = '#131B24';
+  ctx.fillRect(padL, barY, pw, barH);
+
+  const fillW = Math.min(frac, 1) * pw;
+  const grad = ctx.createLinearGradient(padL, 0, padL + pw, 0);
+  const ok = triple >= TRIPLE_TARGET;
+  if (ok) { grad.addColorStop(0, '#2E7D68'); grad.addColorStop(1, TEAL); }
+  else    { grad.addColorStop(0, '#8A5A3A'); grad.addColorStop(1, AMBER); }
+  ctx.fillStyle = grad;
+  ctx.fillRect(padL, barY, fillW, barH);
+
+  // 阈值线
+  ctx.strokeStyle = PAPER; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(padL + pw, padT + 20);
+  ctx.lineTo(padL + pw, barY + barH + 8); ctx.stroke();
+
+  // 标签
+  ctx.font = '11px Consolas,monospace'; ctx.textAlign = 'left';
+  ctx.fillStyle = DIM;
+  ctx.fillText('三重积 nTτ', padL, padT - 8);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = ok ? TEAL : AMBER;
+  ctx.font = '600 13px Consolas,monospace';
+  ctx.fillText(fmtTriple(triple), padL + pw, padT - 8);
+
+  // 阈值标注
+  ctx.font = '10px Consolas,monospace';
+  ctx.fillStyle = PAPER; ctx.textAlign = 'right';
+  ctx.fillText('目标 3×10²¹', padL + pw - 4, barY + barH + 22);
+
+  // 三个旋钮的贡献（小条）
+  const items = [
+    ['密度 n', n19 / 30, TEAL],
+    ['温度 T', T_keV / 40, AMBER],
+    ['时间 τ', tau / 5, RUST],
+  ];
+  const cw = pw / 3 - 8;
+  items.forEach(([label, f, col], i) => {
+    const x = padL + i * (cw + 12);
+    const y = barY + barH + 48;
+    ctx.fillStyle = '#131B24';
+    ctx.fillRect(x, y, cw, 7);
+    ctx.fillStyle = col;
+    ctx.fillRect(x, y, Math.min(f, 1) * cw, 7);
+    ctx.fillStyle = DIM; ctx.font = '10px Consolas,monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, x, y + 22);
+  });
+}
+
+function fmtTriple(v) {
+  if (v >= 1e21) return (v / 1e21).toFixed(2) + '×10²¹';
+  if (v >= 1e20) return (v / 1e20).toFixed(1) + '×10²⁰';
+  if (v >= 1e19) return (v / 1e19).toFixed(1) + '×10¹⁹';
+  return v.toExponential(1);
+}
+
+/* ═══════════════════════════════════════════════════════
+   场景 1 交互
+   ═══════════════════════════════════════════════════════ */
+
+const tSlider = document.getElementById('t-slider');
+const nSlider = document.getElementById('n-slider');
+
+function updateTunnel() {
+  const T = parseFloat(tSlider.value);
+  const nlog = parseInt(nSlider.value, 10);
+
+  document.getElementById('t-val').textContent = T.toFixed(1) + ' keV';
+  document.getElementById('n-val').textContent = Math.pow(10, nlog).toLocaleString();
+
+  drawTunnel(T);
+
+  const tf = tunnelFactor(T);
+  document.getElementById('ro-tunnel').textContent = tf.toExponential(1);
+  document.getElementById('ro-tunnel-sub').textContent =
+    T < 5 ? '基本不可能' : T < 15 ? '有点机会' : '相当可观';
+
+  const sv = sigmaV_DT(T);
+  document.getElementById('ro-rate').textContent = sv.toExponential(2);
+  document.getElementById('ro-temp').textContent =
+    (T * 11.6).toFixed(0) + ' 百万度';
+
+  // 后果面板
+  const el = document.getElementById('cq-tunnel');
+  const st = document.getElementById('cq-tunnel-status');
+  const bar = document.getElementById('cq-tunnel-bar');
+  const tx = document.getElementById('cq-tunnel-text');
+
+  // 用 log10(P) 从 -30 到 0 映射到 0-100%
+  const frac = Math.max(0, Math.min(1, (Math.log10(tf) + 30) / 30));
+
+  el.className = 'consequence';
+  if (T < 3) {
+    el.classList.add('bad'); st.className = 'cq-status bad'; st.textContent = '几乎为零';
+    tx.innerHTML = '温度太低了。这个"穿墙"概率小到——<b>就算有一亿亿亿个粒子去撞，也撞不中几次</b>。<br><span class="hint">继续拖高温试试。</span>';
+  } else if (T < 10) {
+    el.classList.add('warn'); st.className = 'cq-status warn'; st.textContent = '有希望';
+    tx.innerHTML = '概率开始涨了。注意它是<b>指数级</b>增长的——你只调了一点点，它涨了好几个数量级。<br><span class="hint">这就是恒星能烧起来的原因。</span>';
+  } else if (T < 30) {
+    el.classList.add('good'); st.className = 'cq-status good'; st.textContent = '很合适';
+    tx.innerHTML = '这个区间是 D-T 反应的"甜点区"——<b>10 到 20 keV</b>。<br>有意思的是：再往上加，收益反而变小了。';
+  } else {
+    el.classList.add('good'); st.className = 'cq-status good'; st.textContent = '够用，但不划算';
+    tx.innerHTML = '概率还在涨，但已经很慢了。而<b>把等离子体加热到这么高，代价非常昂贵</b>。<br><span class="hint">工程上，够用就好。</span>';
+  }
+  bar.style.width = (frac * 100).toFixed(1) + '%';
+  bar.style.background = T < 3 ? RUST : T < 10 ? AMBER : TEAL;
+}
+
+tSlider.addEventListener('input', updateTunnel);
+nSlider.addEventListener('input', updateTunnel);
+
+/* ═══════════════════════════════════════════════════════
+   场景 2 交互
+   ═══════════════════════════════════════════════════════ */
+
+const n2 = document.getElementById('n2-slider');
+const t2 = document.getElementById('t2-slider');
+const tau = document.getElementById('tau-slider');
+
+function updateLawson() {
+  const n19 = parseFloat(n2.value);
+  const T = parseFloat(t2.value);
+  const ta = parseFloat(tau.value);
+
+  document.getElementById('n2-val').textContent = n19.toFixed(1) + '×10¹⁹';
+  document.getElementById('t2-val').textContent = T.toFixed(1) + ' keV';
+  document.getElementById('tau-val').textContent = ta.toFixed(1) + ' s';
+
+  const triple = tripleProduct(n19, T, ta);
+  drawLawson(n19, T, ta, triple);
+
+  document.getElementById('ro-triple').textContent = fmtTriple(triple);
+
+  const gap = triple / TRIPLE_TARGET;
+  document.getElementById('ro-gap').textContent =
+    gap >= 1 ? '已达标 ✓' : (1 / gap).toFixed(1) + ' 倍';
+
+  // 相对功率（以 n=10, T=15 为参考）
+  const ref = fusionPower(10, 15);
+  document.getElementById('ro-power').textContent =
+    (fusionPower(n19, T) / ref).toFixed(2) + '×';
+
+  // 后果
+  const el = document.getElementById('cq-lawson');
+  const st = document.getElementById('cq-lawson-status');
+  const bar = document.getElementById('cq-lawson-bar');
+  const tx = document.getElementById('cq-lawson-text');
+
+  el.className = 'consequence';
+  const frac = Math.min(gap, 1) * 100;
+  bar.style.width = frac.toFixed(1) + '%';
+
+  if (gap >= 1) {
+    el.classList.add('good'); st.className = 'cq-status good';
+    st.textContent = '达标了！';
+    bar.style.background = TEAL;
+    tx.innerHTML = `三重积 <b>${fmtTriple(triple)}</b>，超过了 3×10²¹ 的门槛。<br>
+      理论上，这套参数可以实现<b>净能量输出</b>。<br>
+      <span class="hint">但现实里还有一大堆问题等着——继续往下看。</span>`;
+  } else if (gap >= 0.3) {
+    el.classList.add('warn'); st.className = 'cq-status warn';
+    st.textContent = '就差一点';
+    bar.style.background = AMBER;
+    tx.innerHTML = `还差 <b>${(1 / gap).toFixed(1)} 倍</b>。<br>
+      注意它们仨会互相影响：把密度推上去，约束时间往往会掉下来。<br>
+      <span class="hint">试试别的组合——不一定非得靠温度和密度。</span>`;
+  } else {
+    el.classList.add('bad'); st.className = 'cq-status bad';
+    st.textContent = '差得还远';
+    bar.style.background = RUST;
+    tx.innerHTML = `只有目标的 ${(gap * 100).toFixed(0)}%。<br>
+      三个旋钮都得往上推——<b>尤其是约束时间</b>，它是最容易被忽略的那个。`;
+  }
+}
+
+[n2, t2, tau].forEach(s => s.addEventListener('input', updateLawson));
+
+/* ═══════════════════════════════════════════════════════
+   初始化 & 窗口尺寸变化
+   ═══════════════════════════════════════════════════════ */
+
+function redrawAll() {
+  cvT = null; cvL = null;
+  updateTunnel();
+  updateLawson();
+}
+
+updateTunnel();
+updateLawson();
+
+let rt = null;
+window.addEventListener('resize', () => {
+  clearTimeout(rt);
+  rt = setTimeout(redrawAll, 180);
+});
+
+/* 页面加载后立即显示，不做淡入（保证首屏立即可读） */
+</script>
+</body>
+</html>

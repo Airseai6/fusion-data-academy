@@ -1,0 +1,2436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>造一台 · 聚变装置设计手记</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#080A0E; --panel:#0D1117; --amber:#FFB347; --teal:#4EC9B0;
+  --rust:#D2694A; --paper:#E8E2D4; --dim:#5A6472;
+  --grid:#141A22; --line:#1C2530;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg); color:var(--paper);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",serif;
+  line-height:2.05; letter-spacing:.015em; font-size:16.5px;
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:72px 72px;
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:rgba(8,10,14,.94);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);padding:11px 0
+}
+.topbar-in{
+  max-width:680px;margin:0 auto;padding:0 24px;
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:Consolas,monospace;font-size:12px
+}
+.tb-title{color:var(--teal);letter-spacing:.05em}
+.tb-hud{color:var(--dim);display:flex;gap:14px}
+.tb-hud b{color:var(--amber);font-weight:400}
+.page{max-width:680px;margin:0 auto;padding:52px 24px 120px}
+.scene-head{
+  border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:34px;
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-family:Consolas,monospace;font-size:12px;color:var(--dim)
+}
+.scene-head .n{color:var(--amber);letter-spacing:.14em}
+.narr{margin-bottom:26px;color:#C5CEDA}
+.narr.em{color:var(--paper)}
+.narr .hl{color:var(--amber)}
+.narr .warn{color:var(--rust)}
+.dlg{margin:0 0 26px 0;padding-left:20px;border-left:2px solid #1E2733}
+.dlg.me{border-left-color:var(--teal)}
+.dlg.chen{border-left-color:var(--amber)}
+.dlg.zhou{border-left-color:#8B9DC3}
+.dlg .who{
+  font-family:Consolas,monospace;font-size:12px;letter-spacing:.1em;
+  margin-bottom:5px;color:var(--dim)
+}
+.dlg.chen .who{color:var(--amber)}
+.dlg.me .who{color:var(--teal)}
+.dlg.zhou .who{color:#8B9DC3}
+.dlg .say{color:var(--paper);font-size:16.5px}
+.dlg .act{font-size:15px;color:#7A8691;margin-top:8px}
+.sys{
+  background:#0A0E13;border:1px solid var(--line);border-left:2px solid var(--dim);
+  padding:14px 18px;margin:0 0 26px;font-family:Consolas,monospace;
+  font-size:13px;color:#8A949F;line-height:1.8;white-space:pre-wrap
+}
+.sys b{color:var(--amber);font-weight:400}
+.sys .ok{color:var(--teal)}
+.sys .bad{color:var(--rust)}
+.panel{
+  border:1px solid var(--line);background:var(--panel);
+  margin:32px 0;border-radius:3px;overflow:hidden
+}
+.panel-head{
+  padding:13px 20px;border-bottom:1px solid var(--line);
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:Consolas,monospace;font-size:12px
+}
+.panel-head .lbl{color:var(--teal);letter-spacing:.12em}
+.panel-head .st{color:var(--dim)}
+.panel-body{padding:20px}
+.panel-body p.hint{font-size:14.5px;color:#8A949F;margin-bottom:18px;line-height:1.85}
+canvas{width:100%;display:block;border-radius:2px}
+.ctrl{margin-bottom:20px}
+.ctrl:last-child{margin-bottom:0}
+.ctrl-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+.ctrl-name{font-size:14px;color:#9AA5B1}
+.ctrl-val{font-family:Consolas,monospace;font-size:16px;color:var(--amber)}
+input[type=range]{
+  width:100%;height:4px;-webkit-appearance:none;appearance:none;
+  background:#1E2733;border-radius:2px;outline:none;cursor:pointer
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+  background:var(--amber);cursor:grab;border:3px solid var(--panel);
+  box-shadow:0 0 0 1px var(--amber)
+}
+.readout{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+  gap:1px;background:var(--line);border:1px solid var(--line);margin:18px 0
+}
+.ro{background:var(--panel);padding:13px 15px}
+.ro-k{font-size:11.5px;color:var(--dim);font-family:Consolas,monospace;margin-bottom:5px}
+.ro-v{font-family:Consolas,monospace;font-size:18px;color:var(--amber)}
+.cq{
+  border:1px solid var(--line);border-left:3px solid var(--dim);
+  background:var(--panel);padding:16px 18px;margin:18px 0
+}
+.cq.good{border-left-color:var(--teal)}
+.cq.warn{border-left-color:var(--amber)}
+.cq.bad{border-left-color:var(--rust)}
+.cq-h{display:flex;justify-content:space-between;margin-bottom:10px;
+  font-family:Consolas,monospace;font-size:12.5px}
+.cq-h .t{color:var(--dim);letter-spacing:.1em}
+.cq-h .s.good{color:var(--teal)}.cq-h .s.warn{color:var(--amber)}.cq-h .s.bad{color:var(--rust)}
+.bar{height:7px;background:#131B24;border-radius:4px;overflow:hidden;margin-bottom:11px}
+.bar span{display:block;height:100%;width:0;transition:width .25s;border-radius:4px}
+.cq-t{font-size:14.5px;color:#9AA5B1;line-height:1.85}
+.cq-t b{color:var(--paper)}
+.choices{margin:34px 0 0;display:flex;flex-direction:column;gap:11px}
+.choice{
+  background:transparent;border:1px solid #22303D;color:var(--paper);
+  padding:16px 19px;text-align:left;cursor:pointer;font-family:inherit;
+  font-size:15.5px;line-height:1.7;transition:.15s;border-radius:2px
+}
+.choice:hover{border-color:var(--amber);color:var(--amber);padding-left:24px}
+.choice .sub{display:block;color:var(--dim);font-size:13.5px;margin-top:5px;font-family:Consolas,monospace}
+details.deep{
+  border:1px solid var(--line);background:#0A0E13;margin:30px 0;border-radius:2px
+}
+details.deep summary{
+  cursor:pointer;padding:14px 19px;font-size:13.5px;color:var(--dim);
+  list-style:none;user-select:none;display:flex;justify-content:space-between;
+  font-family:Consolas,monospace
+}
+details.deep summary::-webkit-details-marker{display:none}
+details.deep summary:hover{color:var(--paper)}
+details.deep summary::after{content:"▾";transition:.2s}
+details.deep[open] summary::after{transform:rotate(180deg)}
+.deep-body{padding:0 21px 21px;border-top:1px solid var(--line);
+  font-size:14px;color:#9AA5B1;line-height:1.9}
+.deep-body h4{font-family:Consolas,monospace;font-size:12px;letter-spacing:.12em;
+  color:var(--teal);margin:20px 0 10px;text-transform:uppercase}
+.deep-body h4:first-child{margin-top:20px}
+.eq{background:#060A0F;border-left:2px solid var(--teal);padding:13px 17px;
+  margin:12px 0;font-family:Consolas,monospace;font-size:12.5px;
+  color:var(--paper);overflow-x:auto;line-height:1.95;white-space:pre}
+.eq .cm{color:var(--dim)}
+.ref{font-size:13px;color:#7A8691;padding:8px 0 8px 15px;
+  border-left:1px solid #1E2733;margin-bottom:7px;line-height:1.7}
+.ref b{color:#9AA5B1;font-weight:400}
+.tag{display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:2px;
+  background:#141C26;color:var(--dim);margin-right:6px;font-family:Consolas,monospace}
+.tag.cls{background:#1D2620;color:#7FA88E}
+.tag.tool{background:#1A1F2B;color:#7C8FB5}
+.go{margin:44px 0 0;text-align:center}
+.go button{
+  background:transparent;border:1px solid var(--amber);color:var(--amber);
+  padding:14px 44px;font-family:Consolas,monospace;font-size:14px;
+  letter-spacing:.14em;cursor:pointer;transition:.15s;border-radius:2px
+}
+.go button:hover{background:var(--amber);color:#080A0E}
+.go button:disabled{opacity:.3;cursor:not-allowed;border-color:var(--dim);color:var(--dim)}
+footer{
+  max-width:680px;margin:0 auto;padding:0 24px 70px;
+  font-family:Consolas,monospace;font-size:11.5px;color:#3A424E;
+  border-top:1px solid var(--line);padding-top:22px;margin-top:40px
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <span class="tb-title">造一台 · 设计手记</span>
+    <span class="tb-hud">
+      R₀ <b id="h-r">—</b>
+      B <b id="h-b">—</b>
+      Q <b id="h-q">—</b>
+    </span>
+  </div>
+</div>
+
+<div class="page" id="page"></div>
+
+<footer>
+  物理依据公开发表文献 · 简化模型在对应幕次的附录中注明<br>
+  装置与人物为虚构，量级取自公开数据
+</footer>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   设计状态
+   ══════════════════════════════════════════════════════════════ */
+
+const D = {
+  R0: 3.0,          // 大半径 m
+  a: 1.0,           // 小半径 m
+  Bt: 5.3,          // 环向场 T
+  kappa: 1.7,       // 拉长比
+  delta: 0.4,       // 三角形变
+  Ip: 8.0,          // 电流 MA
+  Pheat: 50,        // 加热 MW
+  cost: 0,
+  trust: 50,
+  flags: {}
+};
+
+/* ══════════════════════════════════════════════════════════════
+   物理模型（简化但可追溯）
+   ══════════════════════════════════════════════════════════════ */
+
+/** 等离子体体积（椭圆截面近似） */
+function volume() {
+  return 2 * Math.PI * Math.PI * D.R0 * D.a * D.a * D.kappa;
+}
+
+/** 等离子体电流：固定 q95 时 I_p ∝ a²·B/R
+ *  归一化：R=3.0, a=1.0, B=5.3  →  I_p = 8 MA
+ */
+function Ip_auto() {
+  return 4.53 * (D.a * D.a * D.Bt) / D.R0;
+}
+
+/** 经验定标：约束时间（IPB98(y,2)）
+ *  τ_E = 0.0562 · I^0.93 · B^0.15 · P^-0.69 · n19^0.41 · M^0.19 · R^1.97 · ε^0.58 · κ^0.78
+ *  其中 ε = a/R（反环径比）。注意：没有独立的 a 项。
+ */
+function tauE() {
+  const n19 = 8;
+  const P = Math.max(D.Pheat, 5);
+  const Ip = Ip_auto();
+  const eps = D.a / D.R0;
+  return 0.0562
+    * Math.pow(Ip, 0.93)
+    * Math.pow(D.Bt, 0.15)
+    * Math.pow(P, -0.69)
+    * Math.pow(n19 / 10, 0.41)
+    * Math.pow(2.5, 0.19)              // 氘氚混合，M ≈ 2.5
+    * Math.pow(D.R0, 1.97)
+    * Math.pow(eps, 0.58)
+    * Math.pow(D.kappa, 0.78);
+}
+
+/** 三重积 n·T·τ（用简化温度模型） */
+function triple() {
+  const n = 8e19;
+  const T = Te();                        // keV
+  return n * T * tauE() / 1e21;          // 10^21 单位
+}
+
+/** 密度：受 Greenwald 极限约束，随磁场提升
+ *  n_G ∝ I_p / (π a²)，而 I_p ∝ a²B/R  →  简化：n ∝ B
+ */
+function density() {
+  return 8e19 * Math.pow(D.Bt / 5.3, 0.85);
+}
+
+/** 电子温度（0D 功率平衡，简化） */
+function Te() {
+  const P = Math.max(D.Pheat, 5);
+  const t = tauE();
+  const n = density();
+  // 温度随 P·τ/n 提升，但受到辐射损失压制（次线性）
+  return 2.0 + 16.0 * Math.pow(Math.max(P * t / (n / 8e19) * 1.0, 0.1) / 30, 0.40);
+}
+
+/** 聚变功率（MW）
+ *  单位统一：n[m^-3]、⟨σv⟩[m^3/s]、E[J]、V[m^3]  →  W
+ */
+const E_FUS_J = 17.6 * 1.602e-13;        // 17.6 MeV → 焦耳
+
+function Pfus() {
+  const T = Te();
+  const n = density();                   // m^-3
+  const sv = sigmaV_DT(T) * 1e-6;        // cm³/s → m³/s
+  const V = volume();                    // m³
+  const P_W = 0.25 * n * n * sv * E_FUS_J * V;
+  return P_W / 1e6;                      // W → MW
+}
+
+function sigmaV_DT(T) {
+  const BG = 34.3827, MRC2 = 1124656;
+  const C = [1.17302e-9, 1.51361e-2, 7.51886e-2, 4.60643e-3,
+             1.35e-2, -1.0675e-4, 1.366e-5];
+  const t = Math.max(T, 0.2);
+  const num = t * (C[1] + t * (C[3] + t * C[5]));
+  const den = 1 + t * (C[2] + t * (C[4] + t * C[6]));
+  const th = t / (1 - num / den);
+  const xi = Math.cbrt(BG * BG / (4 * th));
+  return C[0] * th * Math.sqrt(xi / (MRC2 * t * t * t)) * Math.exp(-3 * xi);
+}
+
+/** Q = P_fus / P_heat */
+function Qvalue() {
+  return Pfus() / Math.max(D.Pheat, 1);
+}
+
+/** 成本（相对值，非线性） */
+function costIndex() {
+  const magnet = Math.pow(D.Bt / 5.3, 2.2) * Math.pow(D.R0, 0.6) * 40;
+  const vessel = Math.pow(volume() / 800, 0.85) * 35;
+  const shield = Math.pow(D.a * D.kappa, 1.4) * 6;
+  const system = 18;                      // 系统集成（固定）
+  return magnet + vessel + shield + system;
+}
+
+/** 稳定性裕度（简化：κ 高了不稳，δ 高了改善） */
+function margin() {
+  return 100 - Math.max(0, (D.kappa - 1.2) * 55) + D.delta * 40;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   渲染工具
+   ══════════════════════════════════════════════════════════════ */
+
+const GRID='#141A22', AXIS='#28323E', DIM='#5A6472';
+const AMBER='#FFB347', TEAL='#4EC9B0', RUST='#D2694A', PAPER='#E8E2D4';
+
+function setupCanvas(id, h) {
+  const cv = document.getElementById(id);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = cv.getBoundingClientRect().width || 600;
+  cv.width = w * dpr; cv.height = h * dpr;
+  cv.style.height = h + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { ctx, w, h };
+}
+
+function grid(ctx, w, h, cols=8, rows=4) {
+  ctx.strokeStyle = GRID; ctx.lineWidth = 1;
+  for (let i=1;i<cols;i++){const x=w/cols*i;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  for (let i=1;i<rows;i++){const y=h/rows*i;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+}
+
+function hud() {
+  document.getElementById('h-r').textContent = D.R0.toFixed(1) + ' m';
+  document.getElementById('h-b').textContent = D.Bt.toFixed(1) + ' T';
+  const q = Qvalue();
+  document.getElementById('h-q').textContent = q.toFixed(2);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   场景
+   ══════════════════════════════════════════════════════════════ */
+
+const SCENES = {
+
+/* ───────────── 序 ───────────── */
+prologue: {
+  n: '序', t: '一张白纸',
+  render: () => `
+    <div class="narr">
+      三年后。
+    </div>
+    <div class="narr">
+      你从夜班操作员，做到了实验组的负责人。
+      现在你手上有两个博士生、一个真空组的老技工，和一份刚刚批下来的预算。
+    </div>
+    <div class="narr">
+      办公室的门被推开。周工走进来——她是这栋楼里少数几个能把平衡重建、
+      材料辐照和中子学一起讲明白的人。
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「上头批了。」</div>
+      <div class="act">她把一沓文件放在你桌上。</div>
+      <div class="say">「让我们做一台新装置。目标——」</div>
+      <div class="say">「<span class="hl">Q 大于 5</span>。」</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「……从零开始？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「从零开始。」</div>
+      <div class="say">「现有的那台，你已经玩得比谁都熟了。」</div>
+      <div class="say">「现在轮到你自己画。」</div>
+    </div>
+    <div class="narr">
+      你翻开那沓文件。第一页是空白的。
+      后面几页是参数表——大部分格子也是空的。
+    </div>
+    <div class="sys">
+      设计任务书 · 第 1 版
+      ────────────────────────
+      目标             <b>Q &gt; 5</b>
+      装置类型         托卡马克
+      预算             待定（越省越好）
+      截止             无明确日期
+      负责人           <b>你</b>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「从哪儿开始？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「从最大的那个数开始。」</div>
+      <div class="say">「你打算把它造多大。」</div>
+      <div class="act">她停了一下。</div>
+      <div class="say">「这个决定，会绑死后面所有的选择。」</div>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（设计一台装置要定哪些参数）</summary>
+      <div class="deep-body">
+        <h4>核心参数只有几个</h4>
+        <div class="eq">R₀   大半径（环的中心到等离子体中心的距离）
+a    小半径（等离子体截面半径）
+B_t  环向磁场强度
+I_p  等离子体电流
+κ    拉长比（截面"高/宽"）
+δ    三角形变（截面的"尖"程度）
+P    加热功率</div>
+        <p>这七个量，决定了装置的性能、成本和工程难度。
+           而它们之间<b>全是耦合的</b>——调一个，其他全部跟着变。</p>
+
+        <h4>为什么从尺寸开始</h4>
+        <p>约束时间的经验定标里，尺寸的指数最大：</p>
+        <div class="eq"><span class="cm">// IPB98(y,2) 定标律（简化）</span>
+τ_E ∝ R^1.97 · I^0.93 · B^0.15 · P^-0.69 · a^-0.58 · κ^0.78</div>
+        <p>R 的指数接近 2——<b>尺寸是最强的那根杠杆</b>，
+           也是最先该定下来的。</p>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag cls">定标</span><b>ITER Physics Basis (1999).</b>
+          Chapter 2: Plasma confinement and transport.
+          <i>Nucl. Fusion</i> 39(12), 2175.
+        </div>
+        <div class="ref">
+          <span class="tag cls">经典</span><b>Goldston, R. J. (1984).</b>
+          Energy confinement scaling on tokamaks.
+          <i>Plasma Phys. Control. Fusion</i> 26(1A), 87.
+        </div>
+      </div>
+    </details>
+
+    <div class="go"><button>继续</button></div>
+  `,
+  next: 'act1'
+},
+
+/* ───────────── 一幕 · 大小 ───────────── */
+act1: {
+  n: '一幕', t: '先定它多大',
+  render: () => `
+    <div class="narr">
+      你在白板上画了一个圈。然后在旁边写了三个数：1.5、2.5、3.5。
+    </div>
+    <div class="narr">
+      这三个数，是三种完全不同的人生。
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「你想清楚了再说。」</div>
+      <div class="say">「装置越大，约束越好——这个你已经知道。」</div>
+      <div class="say">「但你可能没算过另一笔账。」</div>
+    </div>
+    <div class="narr">
+      你打开参数扫描界面。三个滑块，两个输出：
+      一边是性能，一边是钱。
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="lbl">尺寸扫描</span>
+        <span class="st">目标 Q &gt; 5</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <span class="ctrl-name">大半径 R₀</span>
+            <span class="ctrl-val" id="r0-val">3.0 m</span>
+          </div>
+          <input type="range" id="r0" min="1.2" max="5" step="0.05" value="3.0">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <span class="ctrl-name">小半径 a</span>
+            <span class="ctrl-val" id="a-val">1.00 m</span>
+          </div>
+          <input type="range" id="a" min="0.3" max="2" step="0.02" value="1.0">
+        </div>
+        <canvas id="cv-size" height="280"></canvas>
+        <div class="readout">
+          <div class="ro"><div class="ro-k">Q 值</div><div class="ro-v" id="ro-Q">—</div></div>
+          <div class="ro"><div class="ro-k">约束时间</div><div class="ro-v" id="ro-tau" style="font-size:16px">—</div></div>
+          <div class="ro"><div class="ro-k">相对成本</div><div class="ro-v" id="ro-cost">—</div></div>
+          <div class="ro"><div class="ro-k">环径比 A</div><div class="ro-v" id="ro-A" style="font-size:16px">—</div></div>
+        </div>
+        <div class="cq" id="size-cq" style="margin-bottom:0">
+          <div class="cq-h"><span class="t">评估</span><span class="s" id="size-cq-s">—</span></div>
+          <div class="bar"><span id="size-bar"></span></div>
+          <div class="cq-t" id="size-cq-t">拖一下试试。</div>
+        </div>
+      </div>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（尺寸的两笔账）</summary>
+      <div class="deep-body">
+        <h4>第一笔账：性能</h4>
+        <p>约束时间随 R 接近平方增长。这不是线性的——R 翻一倍，
+           约束时间约涨四倍。</p>
+        <div class="eq">τ_E ∝ R^1.97
+
+R: 1.5 → 3.0 m  时，τ_E 大约涨 <span class="cm">3.9 倍</span></div>
+
+        <h4>第二笔账：成本</h4>
+        <p>装置的成本不是按体积线性增长，而是<b>超线性</b>：
+           磁体、真空室、屏蔽层、装配精度，全都随尺寸恶化。</p>
+        <div class="eq"><span class="cm">// 本页采用的简化成本模型</span>
+磁体   ∝ (B/5.3)^2.2 · R^0.6
+真空室 ∝ (V/800)^0.85
+屏蔽   ∝ (a·κ)^1.4
+系统   = 常数
+
+<span class="cm">// 关键：磁体成本对 B 是超线性的</span></div>
+
+        <h4>第三笔账：环径比</h4>
+        <p>A = R₀/a。A 小（环形"胖"）→ 同样的 B 能获得更高的电流密度，
+           但中心柱塞不下；A 大（环形"瘦"）→ 结构简单但性能低。</p>
+        <div class="eq">常规托卡马克  A ≈ 2.5 – 4
+球形托卡马克  A ≈ 1.2 – 2</div>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag tool">设计</span><b>ITER Physics Basis (1999).</b>
+          <i>Nucl. Fusion</i> 39(12).
+        </div>
+        <div class="ref">
+          <span class="tag cls">紧凑化</span><b>Sorbom, B. N., et al. (2015).</b>
+          ARC: A compact, high-field, fusion nuclear science facility.
+          <i>Fusion Eng. Des.</i> 100, 378.
+        </div>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act1" disabled>继续</button></div>
+  `,
+  after: 'setupSize',
+  next: 'act2'
+},
+
+/* ───────────── 二幕 · 磁场 ───────────── */
+act2: {
+  n: '二幕', t: '磁场的赌注',
+  render: () => `
+    <div class="narr">
+      尺寸定下来了。你在白板上把数字圈了起来。
+    </div>
+    <div class="narr">
+      周工看了一眼，没说话。然后她问了一个你没想到的问题。
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「磁场准备用多少？」</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「常规的 5 特斯拉左右？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「那你想过没有——」</div>
+      <div class="say">「<span class="hl">如果磁场能更高，装置就能更小。</span>」</div>
+      <div class="act">她拉开椅子坐下。</div>
+      <div class="say">「这是一笔典型的赌注。」</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「赌什么？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「赌你能不能把磁体造出来。」</div>
+      <div class="say">「常规超导，5 特斯拉是舒适的。」</div>
+      <div class="say">「往上走——低温超导会失超，得用高温超导带材。」</div>
+      <div class="say">「那玩意儿贵，而且绕制工艺完全不一样。」</div>
+    </div>
+    <div class="narr">
+      你在屏幕上打开磁场扫描。
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="lbl">磁场与尺寸的权衡</span>
+        <span class="st">固定 Q 目标，看成本</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <span class="ctrl-name">环向场 B_t</span>
+            <span class="ctrl-val" id="b-val">5.3 T</span>
+          </div>
+          <input type="range" id="b" min="2" max="12" step="0.1" value="5.3">
+        </div>
+        <canvas id="cv-b" height="270"></canvas>
+        <div class="readout">
+          <div class="ro"><div class="ro-k">Q 值</div><div class="ro-v" id="ro-Q2">—</div></div>
+          <div class="ro"><div class="ro-k">磁体成本</div><div class="ro-v" id="ro-mag" style="font-size:16px">—</div></div>
+          <div class="ro"><div class="ro-k">技术路线</div><div class="ro-v" id="ro-tech" style="font-size:15px">—</div></div>
+        </div>
+        <div class="cq" id="b-cq" style="margin-bottom:0">
+          <div class="cq-h"><span class="t">评估</span><span class="s" id="b-cq-s">—</span></div>
+          <div class="cq-t" id="b-cq-t">拖一下试试。</div>
+        </div>
+      </div>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（为什么高场能换小装置）</summary>
+      <div class="deep-body">
+        <h4>基本关系</h4>
+        <p>环向场与装置尺寸的关系，来自磁场压力的平衡：</p>
+        <div class="eq"><span class="cm">// 粗略的标度关系（固定等离子体压强）</span>
+β ∝ n·T / B²          <span class="cm">(等离子体压强 / 磁压)</span>
+
+<span class="cm">// 若保持 β 与其他参数不变：</span>
+B ↑  →  R ↓            <span class="cm">(强场允许小半径)</span></div>
+
+        <h4>超导材料的分界</h4>
+        <div class="eq">低温超导 (LTS, NbTi/Nb₃Sn)   实用上限 ~10 T @ 4.2 K
+高温超导 (HTS, REBCO)         可达 20 T+ @ 20 K
+
+<span class="cm">// HTS 的工程挑战：</span>
+· 带材成本高（每米数十至上百元）
+· 绕制工艺不同（不能简单的"绕线"）
+· 需要更高精度的失超保护</div>
+
+        <h4>为什么这是"赌注"</h4>
+        <p>高场路线把<b>物理难度换成了工程难度</b>：
+           物理上更容易（装置小、约束好），
+           工程上更难（磁体贵、工艺新、风险大）。</p>
+        <p>而且这笔赌注<b>无法中途反悔</b>——磁体绕完了，
+           就是这个场强，改不了。</p>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag tool">紧凑化</span><b>Creely, A. J., et al. (2020).</b>
+          Overview of the SPARC tokamak.
+          <i>J. Plasma Phys.</i> 86(5), 865860502.
+        </div>
+        <div class="ref">
+          <span class="tag tool">磁体工程</span><b>HTS 磁体相关文献</b><br>
+          —— REBCO 带材的工程化应用（近年发展迅速）
+        </div>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act2">继续</button></div>
+  `,
+  after: 'setupB',
+  next: 'act3'
+},
+
+/* ───────────── 三幕 · 形状 ───────────── */
+act3: {
+  n: '三幕', t: '它长什么样',
+  render: () => `
+    <div class="narr">
+      尺寸定了，磁场定了。你在白板上画了一个圆。
+    </div>
+    <div class="narr">
+      周工看了一眼，摇了摇头。
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「没有人的截面是圆的。」</div>
+      <div class="say">「你去看一眼现役装置——全都是压扁的、尖嘴的。」</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「为什么？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「因为圆是效率最低的形状。」</div>
+      <div class="act">她拿起笔，把你的圆改了一下——压扁，再拉出一个尖角。</div>
+      <div class="say">「压扁了，同样的磁场能装更多电流。」</div>
+      <div class="say">「尖了，边缘的剪切更强，稳定性更好。」</div>
+      <div class="say">「但压得太扁，它会<span class="hl">自己翻过来</span>。」</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「翻过来是什么意思？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「垂直位移不稳定。」</div>
+      <div class="say">「等离子体在竖直方向像一个倒立摆——」</div>
+      <div class="say">「稍微一推，就往一边倒，越倒越快，然后撞壁。」</div>
+      <div class="say">「你必须用反馈线圈实时扶住它。」</div>
+    </div>
+    <div class="narr">
+      你在屏幕上打开截面编辑器。
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="lbl">截面形状</span>
+        <span class="st">目标：裕度 &gt; 60%</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <span class="ctrl-name">拉长比 κ</span>
+            <span class="ctrl-val" id="k-val">1.70</span>
+          </div>
+          <input type="range" id="kp" min="1" max="2.4" step="0.02" value="1.7">
+          <div class="ctrl-hint">截面"高/宽"。越大性能越好，但越容易翻</div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <span class="ctrl-name">三角形变 δ</span>
+            <span class="ctrl-val" id="d-val">0.40</span>
+          </div>
+          <input type="range" id="dp" min="0" max="0.8" step="0.02" value="0.4">
+          <div class="ctrl-hint">截面"尖"的程度。能改善稳定性</div>
+        </div>
+        <canvas id="cv-shape" height="280"></canvas>
+        <div class="readout">
+          <div class="ro"><div class="ro-k">垂直裕度</div><div class="ro-v" id="ro-margin">—</div></div>
+          <div class="ro"><div class="ro-k">性能增益</div><div class="ro-v" id="ro-gain" style="font-size:16px">—</div></div>
+          <div class="ro"><div class="ro-k">所需反馈</div><div class="ro-v" id="ro-fb" style="font-size:15px">—</div></div>
+        </div>
+        <div class="cq" id="shape-cq" style="margin-bottom:0">
+          <div class="cq-h"><span class="t">评估</span><span class="s" id="shape-cq-s">—</span></div>
+          <div class="bar"><span id="shape-bar"></span></div>
+          <div class="cq-t" id="shape-cq-t">拖一下试试。</div>
+        </div>
+      </div>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（拉长比与垂直稳定性）</summary>
+      <div class="deep-body">
+        <h4>为什么要拉长</h4>
+        <p>在同样的环向磁场下，拉长截面可以承载更大的等离子体电流和压强：</p>
+        <div class="eq"><span class="cm">// 粗略关系</span>
+β_上限 ∝ I_p / (a·B)      <span class="cm">(归一化比压)</span>
+I_p ∝ κ·a²·B / R          <span class="cm">(固定 q 时)</span>
+
+<span class="cm">// 所以 κ 大 → 同样 B 下电流更大 → 性能更好</span></div>
+
+        <h4>代价：垂直不稳定性</h4>
+        <p>拉长的等离子体在垂直方向像一个倒立的单摆。扰动增长率约为：</p>
+        <div class="eq">γ ∝ (κ² − 1)^(1/2) / (真空室壁时间常数)
+
+κ = 1.0  → 天然稳定
+κ ≈ 1.5  → 边界，开始需要反馈
+κ &gt; 2.0  → 必须高速反馈（&lt;1 ms 响应）</div>
+
+        <h4>三角形变的作用</h4>
+        <p>把截面"尖端"拉出来（δ &gt; 0），可以：
+           改善边缘磁剪切、提高稳定边界、降低对反馈的依赖。</p>
+        <div class="eq">δ = 0    → 椭圆截面
+δ ≈ 0.4  → 典型现代装置
+δ &gt; 0.6  → 强整形（球形托卡马克常见）</div>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag cls">理论</span><b>垂直不稳定性与反馈控制</b>
+          见 <i>Tokamaks</i> (Wesson) 相关章节；
+          以及各类反馈线圈设计的经典文献。
+        </div>
+        <div class="ref">
+          <span class="tag tool">定标</span><b>ITER Physics Basis (1999).</b>
+          <i>Nucl. Fusion</i> 39(12).
+        </div>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act3" disabled>继续</button></div>
+  `,
+  after: 'setupShape',
+  next: 'act4'
+},
+
+/* ───────────── 四幕 · 火 ───────────── */
+act4: {
+  n: '四幕', t: '把火装进去',
+  render: () => `
+    <div class="narr">
+      截面定了。方案图贴在墙上，看起来已经像一台装置了。
+    </div>
+    <div class="narr">
+      但周工指着图上一个空白的地方。
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「这里，你打算装什么？」</div>
+      <div class="act">那是加热系统的位置。图上还是一片空白。</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「先算一下需要多少功率？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「不只是'多少'。」</div>
+      <div class="say">「你得决定<span class="hl">用哪种、装在哪</span>。」</div>
+      <div class="act">她拉过椅子坐下。</div>
+      <div class="say">「三种加热方式，各有脾气。」</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「欧姆加热不是免费的吗？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「免费，但有天花板。」</div>
+      <div class="say">「到三千万度左右就不管用了。」</div>
+      <div class="say">「所以你必须装另外两种——而它们很贵。」</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「贵多少？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「一兆瓦射频，大概是一兆瓦欧姆的二十倍造价。」</div>
+      <div class="say">「中性束更贵——而且它占地方。」</div>
+      <div class="act">她笑了一下。</div>
+      <div class="say">「欢迎来到设计。你要在性能、钱和空间之间找那个点。」</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="lbl">加热系统配置</span>
+        <span class="st">目标：T_e &gt; 12 keV</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="ctrl-head"><span class="ctrl-name">欧姆加热（几乎免费）</span>
+            <span class="ctrl-val" id="h-ohm-v">15 MW</span></div>
+          <input type="range" id="h-ohm" min="0" max="40" step="1" value="15">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><span class="ctrl-name">射频加热（贵 20×）</span>
+            <span class="ctrl-val" id="h-rf-v">20 MW</span></div>
+          <input type="range" id="h-rf" min="0" max="50" step="1" value="20">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><span class="ctrl-name">中性束（最贵 32×）</span>
+            <span class="ctrl-val" id="h-nbi-v">15 MW</span></div>
+          <input type="range" id="h-nbi" min="0" max="40" step="1" value="15">
+        </div>
+        <canvas id="cv-heat2" height="250"></canvas>
+        <div class="readout">
+          <div class="ro"><div class="ro-k">电子温度</div><div class="ro-v" id="ro-T2">—</div></div>
+          <div class="ro"><div class="ro-k">Q 值</div><div class="ro-v" id="ro-Q3">—</div></div>
+          <div class="ro"><div class="ro-k">加热系统造价</div><div class="ro-v" id="ro-hcost">—</div></div>
+        </div>
+        <div class="cq" id="heat2-cq" style="margin-bottom:0">
+          <div class="cq-h"><span class="t">评估</span><span class="s" id="heat2-cq-s">—</span></div>
+          <div class="cq-t" id="heat2-cq-t">分配一下功率试试。</div>
+        </div>
+      </div>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（为什么加热系统这么贵）</summary>
+      <div class="deep-body">
+        <h4>三种加热的性质</h4>
+        <div class="eq">欧姆加热    P = I²R，η ∝ T^(−3/2)  → 有天花板（~30 MK）
+           造价：几乎为 0（利用等离子体自身电阻）
+
+射频加热    共振吸收，可定位  → 精确但系统复杂
+           造价：约 20× 欧姆（每 MW）
+           器件：大功率速调管/回旋管（数十 GHz 级）
+
+中性束      中性化 + 电离 + 捕获  → 功率大但庞大
+           造价：约 30× 欧姆（每 MW）
+           器件：离子源 + 加速极 + 中性化室（十几米长）</div>
+
+        <h4>为什么中性束"占地方"</h4>
+        <p>束线要从装置外部一直插到等离子体附近，
+           中间要经过加速、聚焦、中性化—— 一条束线十几到几十米。
+           还要厚重的辐射屏蔽（因为加速电压高达几百 keV）。</p>
+
+        <h4>设计上的取舍</h4>
+        <p>射频可以"定点"加热（比如只在中心沉积），
+           中性束则更多用于<b>电流驱动</b>和<b>加料</b>。
+           所以现代装置通常是<b>三者组合</b>，而不是单选。</p>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag tool">工具</span><b>Pankin, A., et al. (2004).</b>
+          The tokamak Monte Carlo fast ion module NUBEAM.
+          <i>Comput. Phys. Commun.</i> 159(3), 157.
+        </div>
+        <div class="ref">
+          <span class="tag cls">基准</span><b>ITER Physics Basis (1999).</b>
+          Ch. 5: Heating and current drive. <i>Nucl. Fusion</i> 39(12).
+        </div>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act4" disabled>继续</button></div>
+  `,
+  after: 'setupHeat2',
+  next: 'act5'
+},
+
+/* ───────────── 五幕 · 墙 ───────────── */
+act5: {
+  n: '五幕', t: '那面墙',
+  render: () => `
+    <div class="narr">
+      加热系统定了。方案图上，装置已经完整了一圈——
+      除了最里面那一层。
+    </div>
+    <div class="narr">
+      周工把两种材料样品放在你桌上。一块灰黑、粗糙；另一块闪着金属光泽，很沉。
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「选一个。」</div>
+      <div class="say">「左边是碳，右边是钨。」</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「有什么区别？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「碳很轻，不怕热冲击，而且它是轻元素——」</div>
+      <div class="say">「就算被溅进等离子体，也不会造成太大损失。」</div>
+      <div class="say">「但它<span class="hl">留不住</span>。一年不到就得换一轮。」</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「钨呢？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「钨很硬，熔点三千四，能扛好几年。」</div>
+      <div class="say">「问题是它是重元素。一旦溅进等离子体，」</div>
+      <div class="say">「它会疯狂辐射——像往火里撒沙子。」</div>
+      <div class="act">她把两块样品并排放好。</div>
+      <div class="say">「所以真正的答案是：<span class="hl">哪里用哪个</span>。」</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「……这么说吧，」</div>
+      <div class="say">「如果只能选一个呢？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「那我劝你别问这个问题。」</div>
+      <div class="say">「你已经在设计一台机器了，不是在考试。」</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="lbl">第一壁材料配置</span>
+        <span class="st">目标：性能损失 &lt; 8% 且 寿命 &gt; 2 年</span>
+      </div>
+      <div class="panel-body">
+        <p class="hint">
+          用滑块决定"钨"的覆盖比例。剩下的是碳。
+        </p>
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <span class="ctrl-name">钨覆盖比例</span>
+            <span class="ctrl-val" id="w-val">40%</span>
+          </div>
+          <input type="range" id="wfrac" min="0" max="100" step="1" value="40">
+          <div class="ctrl-hint">钨越多越耐用，但溅射进等离子体的高 Z 杂质也越多</div>
+        </div>
+        <canvas id="cv-wall" height="270"></canvas>
+        <div class="readout">
+          <div class="ro"><div class="ro-k">性能损失</div><div class="ro-v" id="ro-perf">—</div></div>
+          <div class="ro"><div class="ro-k">预计寿命</div><div class="ro-v" id="ro-life">—</div></div>
+          <div class="ro"><div class="ro-k">年维护量</div><div class="ro-v" id="ro-maint" style="font-size:16px">—</div></div>
+        </div>
+        <div class="cq" id="wall-cq" style="margin-bottom:0">
+          <div class="cq-h"><span class="t">评估</span><span class="s" id="wall-cq-s">—</span></div>
+          <div class="cq-t" id="wall-cq-t">拖一下试试。</div>
+        </div>
+      </div>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（高 Z 与低 Z 的两难）</summary>
+      <div class="deep-body">
+        <h4>为什么杂质会"灭火"</h4>
+        <p>杂质离子的辐射功率随原子序数 Z 急剧增长。</p>
+        <div class="eq"><span class="cm">// 辐射损失（简化）</span>
+P_rad ∝ n_e · n_imp · L(Z, T)
+
+碳 (Z=6)：L 较小，辐射损失温和
+钨 (Z=74)：L 在 keV 区间极大 —— 少量就能把能量辐射光
+
+<span class="cm">// 经验：钨浓度超过 ~1e-5 就可能显著影响能量平衡</span></div>
+
+        <h4>为什么还是用钨</h4>
+        <p>因为<b>侵蚀率</b>。碳的溅射产额比钨高一个数量级以上，
+           而且碳会与氢形成化学溅射，寿命极短。</p>
+        <div class="eq">溅射产额 Y（典型值，D 轰击）
+碳    Y ~ 0.01 – 0.05
+钨    Y ~ 1e-4 – 1e-3   <span class="cm">(低两个数量级)</span>
+
+<span class="cm">// 所以钨墙能撑数年，碳墙可能几个月</span></div>
+
+        <h4>工程上的折中</h4>
+        <p>现代装置的趋势是<b>全金属壁</b>（钨为主流），
+           配合<b>偏滤器专门用钨</b>、其他区域用较温和的材料。
+           但早期很多装置用碳，因为<b>性能更容易达到</b>。</p>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag tool">经验</span><b>Matthews, G. F., et al. (2011).</b>
+          Plasma operation with an all metal first-wall.
+          <i>Phys. Scr.</i> T145, 014001.
+        </div>
+        <div class="ref">
+          <span class="tag cls">综述</span><b>第一壁材料综述</b><br>
+          —— 见 ITER Physics Basis 材料相关章节
+        </div>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act5" disabled>继续</button></div>
+  `,
+  after: 'setupWall',
+  next: 'act6'
+},
+
+/* ───────────── 六幕 · 排气 ───────────── */
+act6: {
+  n: '六幕', t: '怎么把灰倒出去',
+  render: () => `
+    <div class="narr">
+      材料定了。你在图上把最内层改成了两种颜色。
+    </div>
+    <div class="narr">
+      然后周工指着装置底部。
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「这里还没画。」</div>
+      <div class="say">「你打算怎么把废料排出去？」</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「排气……是偏滤器那部分？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「对。」</div>
+      <div class="say">「反应完的氦灰、没烧完的燃料、还有一堆热量，都得走这条路。」</div>
+      <div class="act">她在纸上画了一条线。</div>
+      <div class="say">「你把磁场在这里拉开，让磁力线<span class="hl">拐个弯</span>，」</div>
+      <div class="say">「把等离子体的边缘'引'到一个专门的地方去。」</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「引到哪儿？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「引到一块专门的靶板上。」</div>
+      <div class="say">「但问题是——那块地方的热流密度，</div>
+      <div class="say">可能比太阳表面还高。」</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「……那怎么办？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「两个办法。」</div>
+      <div class="say">「一是把它'摊开'——让热流分布在更大的面积上。」</div>
+      <div class="say">「二是让它'先凉一下'——在碰到靶板之前，把能量辐射掉。」</div>
+      <div class="act">她笑了一下。</div>
+      <div class="say">「后者有个好听的名字，叫<span class="hl">脱靶</span>。」</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="lbl">偏滤器几何与脱靶</span>
+        <span class="st">目标：靶板热流 &lt; 10 MW/m²</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <span class="ctrl-name">掠射角（靶板与磁力线的夹角）</span>
+            <span class="ctrl-val" id="ang-val">2.0°</span>
+          </div>
+          <input type="range" id="ang" min="0.5" max="12" step="0.5" value="2">
+          <div class="ctrl-hint">角度越小＝越"掠射"，热流被摊在更大面积上</div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <span class="ctrl-name">上游杂质注入（脱靶强度）</span>
+            <span class="ctrl-val" id="det-val">20%</span>
+          </div>
+          <input type="range" id="detach" min="0" max="100" step="1" value="20">
+          <div class="ctrl-hint">让等离子体在到达靶板前先辐射掉一部分能量</div>
+        </div>
+        <canvas id="cv-div" height="270"></canvas>
+        <div class="readout">
+          <div class="ro"><div class="ro-k">靶板峰值热流</div><div class="ro-v" id="ro-hf">—</div></div>
+          <div class="ro"><div class="ro-k">热流展宽</div><div class="ro-v" id="ro-lam" style="font-size:16px">—</div></div>
+          <div class="ro"><div class="ro-k">是否脱靶</div><div class="ro-v" id="ro-det" style="font-size:15px">—</div></div>
+        </div>
+        <div class="cq" id="div-cq" style="margin-bottom:0">
+          <div class="cq-h"><span class="t">评估</span><span class="s" id="div-cq-s">—</span></div>
+          <div class="cq-t" id="div-cq-t">调一下试试。</div>
+        </div>
+      </div>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（热流、展宽与脱靶）</summary>
+      <div class="deep-body">
+        <h4>靶板热流的量级</h4>
+        <p>刮削层（SOL）里，功率沿磁力线流到偏滤器。</p>
+        <div class="eq"><span class="cm">// 简化的一维热流模型</span>
+q_target ≈ P_SOL / (2π R · λ_q) · sin(α)
+
+P_SOL   排气功率（数十至上百 MW）
+λ_q     热流展宽（~1–5 mm，narrow）
+α       靶板与磁力线的夹角
+
+<span class="cm">// 典型量级：10 – 100 MW/m² —— 远超常规材料承受能力</span></div>
+
+        <h4>两种降热流的方法</h4>
+        <div class="eq">几何摊开  → 减小 α、增大 λ_q
+        简单可靠，但受工程空间限制
+
+脱靶      → 在到达靶板前辐射掉大部分能量
+        效果显著，但对控制精度要求高
+
+<span class="cm">// 脱靶状态：靶板处温度骤然降低，粒子压强下降</span></div>
+
+        <h4>为什么"脱靶"是好听的名字</h4>
+        <p>它描述的是一个物理状态：等离子体在离靶板还有一段距离的地方
+           <b>提前"熄火"</b>——能量以辐射形式散掉，
+           到达靶板时已经"温和"了。就像让一个高速球<i>提前减速</i>，
+           而不是硬撞上去。</p>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag cls">基准</span><b>Loarte, A., et al. (2007).</b>
+          Power and particle control. <i>Nucl. Fusion</i> 47, S203.
+        </div>
+        <div class="ref">
+          <span class="tag tool">模拟</span><b>SOLPS-ITER 相关文献</b><br>
+          —— 边界等离子体与偏滤器模拟的主流工具
+        </div>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act6" disabled>继续</button></div>
+  `,
+  after: 'setupDiv',
+  next: 'act7'
+},
+
+/* ───────────── 七幕 · 账本 ───────────── */
+act7: {
+  n: '七幕', t: '算账',
+  render: () => {
+    const c = costIndex();
+    const q = Qvalue();
+    const te = Te(), tau = tauE(), ip = Ip_auto();
+    const V = volume();
+    return `
+    <div class="narr">
+      所有子系统都定了。方案图贴满了整面墙。
+    </div>
+    <div class="narr">
+      周工把一张表放在你面前。
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「现在算总账。」</div>
+      <div class="say">「每一个选择，现在都变成钱和风险了。」</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="lbl">设计总览 · 第 1 版</span>
+        <span class="st">R₀ = ${D.R0.toFixed(2)} m</span>
+      </div>
+      <div class="panel-body">
+        <div class="readout" style="margin:0 0 16px">
+          <div class="ro"><div class="ro-k">大半径 R₀</div><div class="ro-v" style="font-size:16px">${D.R0.toFixed(2)} m</div></div>
+          <div class="ro"><div class="ro-k">小半径 a</div><div class="ro-v" style="font-size:16px">${D.a.toFixed(2)} m</div></div>
+          <div class="ro"><div class="ro-k">环径比 A</div><div class="ro-v" style="font-size:16px">${(D.R0/D.a).toFixed(2)}</div></div>
+          <div class="ro"><div class="ro-k">环向场</div><div class="ro-v" style="font-size:16px">${D.Bt.toFixed(1)} T</div></div>
+        </div>
+        <div class="readout" style="margin:0 0 16px">
+          <div class="ro"><div class="ro-k">拉长比 κ</div><div class="ro-v" style="font-size:16px">${D.kappa.toFixed(2)}</div></div>
+          <div class="ro"><div class="ro-k">三角形变 δ</div><div class="ro-v" style="font-size:16px">${D.delta.toFixed(2)}</div></div>
+          <div class="ro"><div class="ro-k">等离子体电流</div><div class="ro-v" style="font-size:16px">${ip.toFixed(1)} MA</div></div>
+          <div class="ro"><div class="ro-k">等离子体体积</div><div class="ro-v" style="font-size:16px">${V.toFixed(0)} m³</div></div>
+        </div>
+        <div class="readout" style="margin:0 0 16px">
+          <div class="ro"><div class="ro-k">约束时间 τ_E</div><div class="ro-v" style="font-size:16px">${tau.toFixed(3)} s</div></div>
+          <div class="ro"><div class="ro-k">电子温度</div><div class="ro-v" style="font-size:16px">${te.toFixed(1)} keV</div></div>
+          <div class="ro"><div class="ro-k">加热功率</div><div class="ro-v" style="font-size:16px">${D.Pheat} MW</div></div>
+          <div class="ro"><div class="ro-k">Q 值</div>
+            <div class="ro-v" style="color:${q >= 5 ? 'var(--teal)' : q >= 3 ? 'var(--amber)' : 'var(--rust)'}">
+              ${q.toFixed(2)}</div></div>
+        </div>
+
+        <canvas id="cv-budget" height="250"></canvas>
+
+        <div class="cq ${q >= 5 ? 'good' : q >= 3 ? 'warn' : 'bad'}" style="margin-bottom:0">
+          <div class="cq-h">
+            <span class="t">这一版设计</span>
+            <span class="s ${q >= 5 ? 'good' : q >= 3 ? 'warn' : 'bad'}">
+              ${q >= 5 ? '达标' : q >= 3 ? '接近' : '不够'}</span>
+          </div>
+          <div class="cq-t">
+            相对成本指数：<b>${c.toFixed(0)}</b><br>
+            ${q >= 5
+              ? `Q = ${q.toFixed(2)}，达到了目标。<br>
+                 但成本指数是 ${c.toFixed(0)}——<b>你要能说服别人为什么值这个钱。</b>`
+              : q >= 3
+              ? `Q = ${q.toFixed(2)}，还差一点。成本 ${c.toFixed(0)}。<br>
+                 <span style="color:var(--dim)">要么再投入一点，要么认了这个数。</span>`
+              : `Q = ${q.toFixed(2)}——离目标差得远。<br>
+                 <span style="color:var(--dim)">但成本只有 ${c.toFixed(0)}，你还有预算空间。</span>`}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 想深入一点？（设计账本的构成）</summary>
+      <div class="deep-body">
+        <h4>成本模型（简化）</h4>
+        <div class="eq">磁体   ∝ (B/5.3)^2.2 · R₀^0.6
+真空室 ∝ (V/800)^0.85
+屏蔽   ∝ (a·κ)^1.4
+系统集成 = 常数
+
+<span class="cm">// 关键：磁体对 B 是超线性的（^2.2）</span>
+<span class="cm">// 这是"高场路线"最贵的地方</span></div>
+
+        <h4>为什么"系统集成"也占大头</h4>
+        <p>真实装置的成本里，非核心系统的比例往往超过一半：
+           电源、真空、低温、控制、诊断、厂房、许可……
+           这也是为什么"造大一点"的边际成本，
+           比"磁场加一倍"要低得多。</p>
+
+        <h4>设计评审看什么</h4>
+        <div class="eq">1. 物理可行性   能否达到 Q 目标？
+2. 工程可行性   技术是否成熟？
+3. 成本          有没有更便宜的路？
+4. 风险          失败会怎样？
+5. 可维护性      坏了多久能修好？</div>
+
+        <h4>参考文献</h4>
+        <div class="ref">
+          <span class="tag tool">设计</span><b>ITER 设计综述</b><br>
+          —— 大型装置的集成设计方法
+        </div>
+        <div class="ref">
+          <span class="tag cls">紧凑化</span><b>Sorbom, B. N., et al. (2015).</b>
+          ARC: A compact, high-field, fusion nuclear science facility.
+          <i>Fusion Eng. Des.</i> 100, 378.
+        </div>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act7">提交设计</button></div>
+  `;
+  },
+  after: 'setupBudget',
+  next: 'act8'
+},
+
+/* ───────────── 八幕 · 评审 ───────────── */
+act8: {
+  n: '八幕', t: '评审',
+  render: () => {
+    const q = Qvalue();
+    const c = costIndex();
+    // 综合评分
+    let score = 0;
+    if (q >= 5) score += 45;
+    else if (q >= 3) score += 22 + (q - 3) * 11;
+    else score += q * 7;
+
+    // 成本分：越低越好
+    const costScore = Math.max(0, 35 - (c - 90) * 0.16);
+    score += costScore;
+
+    // 稳定性分
+    if (D.kappa <= 1.6) score += 10;
+    else if (D.kappa <= 2.0) score += 5;
+    if (D.delta >= 0.35) score += 5;
+
+    // 场强风险
+    if (D.Bt > 10) score -= 4;
+
+    score = Math.max(0, Math.min(95, score));
+    const grade = score >= 75 ? 'A' : score >= 55 ? 'B' : score >= 35 ? 'C' : 'D';
+    const gcol = grade === 'A' ? 'var(--teal)'
+               : grade === 'B' ? 'var(--amber)'
+               : 'var(--rust)';
+
+    return `
+    <div class="narr">
+      评审会开在下午两点。会议室里坐了七个人——
+      有磁体组的、真空组的、还有两个从外面请来的顾问。
+    </div>
+    <div class="narr">
+      你讲了四十分钟。他们听了四十分钟，问题不断。
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="act">最后是她发言。</div>
+      <div class="say">「我先说结论。」</div>
+      <div class="say">「这版设计的物理是站得住的。」</div>
+    </div>
+
+    ${D.Bt > 10
+      ? `<div class="dlg zhou">
+          <div class="who">周工</div>
+          <div class="say">「但磁体这一块，风险很大。」</div>
+          <div class="say">「${D.Bt.toFixed(1)} 特斯拉，全高温超导路线。」</div>
+          <div class="say">「你要在三年内把这种磁体绕出来——<span class="hl">工业界做过的最大的也只有你的一半。</span>」</div>
+        </div>`
+      : `<div class="dlg zhou">
+          <div class="who">周工</div>
+          <div class="say">「磁体这条路线是稳的。」</div>
+          <div class="say">「环向场 ${D.Bt.toFixed(1)} 特斯拉，低温超导技术成熟，</div>
+          <div class="say">国内有好几家能做。」</div>
+        </div>`}
+
+    ${q >= 5
+      ? `<div class="dlg zhou">
+          <div class="who">周工</div>
+          <div class="say">「Q = ${q.toFixed(2)}，目标达成了。」</div>
+          <div class="say">「代价是成本指数 ${c.toFixed(0)}。」</div>
+          <div class="say">「这不是问题——问题是你怎么跟上面解释这笔钱。」</div>
+        </div>`
+      : q >= 3
+      ? `<div class="dlg zhou">
+          <div class="who">周工</div>
+          <div class="say">「Q = ${q.toFixed(2)}，没到目标。」</div>
+          <div class="say">「但我看过预算表了——」</div>
+          <div class="say">「这一版省下来的钱，够你再加一轮加热系统。」</div>
+          <div class="say">「所以不算失败。<b>算第一稿。</b>」</div>
+        </div>`
+      : `<div class="dlg zhou">
+          <div class="who">周工</div>
+          <div class="say">「Q = ${q.toFixed(2)}。太低了。」</div>
+          <div class="say">「省钱不是这么省的。」</div>
+          <div class="act">她停了一下。</div>
+          <div class="say">「不过成本压得确实漂亮。」</div>
+          <div class="say">「重做一版吧——把省下来的钱花到该花的地方。」</div>
+        </div>`}
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="lbl">评审结论</span>
+        <span class="st">第 1 版设计</span>
+      </div>
+      <div class="panel-body">
+        <div class="readout" style="margin:0 0 16px">
+          <div class="ro"><div class="ro-k">综合评级</div>
+            <div class="ro-v" style="color:${gcol}">${grade} 级</div></div>
+          <div class="ro"><div class="ro-k">评分</div>
+            <div class="ro-v">${score.toFixed(0)} / 100</div></div>
+          <div class="ro"><div class="ro-k">Q 值</div>
+            <div class="ro-v" style="font-size:16px">${q.toFixed(2)}</div></div>
+          <div class="ro"><div class="ro-k">成本指数</div>
+            <div class="ro-v" style="font-size:16px">${c.toFixed(0)}</div></div>
+        </div>
+        <div class="cq ${grade === 'A' || grade === 'B' ? 'good' : grade === 'C' ? 'warn' : 'bad'}"
+             style="margin:0">
+          <div class="cq-h">
+            <span class="t">评审意见</span>
+            <span class="s ${grade === 'A' || grade === 'B' ? 'good' : grade === 'C' ? 'warn' : 'bad'}">${grade}</span>
+          </div>
+          <div class="cq-t">
+            ${grade === 'A'
+              ? `物理达标、成本合理、技术路线稳妥。<br>
+                 <b>建议进入初步设计阶段。</b>`
+              : grade === 'B'
+              ? `方向正确，个别环节需要再优化。<br>
+                 <b>建议修改后复审。</b>`
+              : grade === 'C'
+              ? `存在明显短板（Q 值或成本）。<br>
+                 <b>建议重新设计。</b>`
+              : `这一版不成立。<br>
+                 <b>回到第一步。</b>`}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="narr" style="margin-top:38px">
+      会议散了。你一个人留在会议室里收拾投影仪。
+    </div>
+    <div class="narr">
+      周工走回来，把一杯水放在桌上。
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「累吧。」</div>
+      <div class="act">她坐下来。</div>
+      <div class="say">「你知道最麻烦的是什么吗？」</div>
+      <div class="say">「不是物理，也不是钱。」</div>
+      <div class="say">「是你现在<span class="hl">做的每一个决定，都会有人要为此干三年活</span>。」</div>
+      <div class="say">「绕那个磁体的人、焊那个真空室的人、」</div>
+      <div class="say">「还有最后会坐在控制室里值班的人。」</div>
+    </div>
+    <div class="dlg me">
+      <div class="who">你</div>
+      <div class="say">「……你以前也是这样？」</div>
+    </div>
+    <div class="dlg zhou">
+      <div class="who">周工</div>
+      <div class="say">「第一次做的时候，我在图上改了一个数。」</div>
+      <div class="say">「后来那个数让磁体工期多了一年。」</div>
+      <div class="act">她笑了一下。</div>
+      <div class="say">「所以现在我看图的时候，会想那些人。」</div>
+    </div>
+
+    <div class="narr" style="margin-top:32px">
+      窗外的天已经暗了。白板上还留着今天早上你画的第一个圆。
+    </div>
+    <div class="narr em" style="font-size:18px;margin-top:24px">
+      从那个圆，到墙上那张图，中间隔着几百个决定。<br>
+      每一个都不是"对"或"错"，只是<b>你愿意承担的代价</b>。
+    </div>
+    <div class="narr" style="margin-top:26px;font-size:19px">
+      <span style="color:var(--amber)">而这一切，最终只为了一个目的——</span><br>
+      <span style="color:var(--amber)">让那团火，多烧一会儿。</span>
+    </div>
+
+    <details class="deep">
+      <summary>▾ 全系列参考文献（三部曲）</summary>
+      <div class="deep-body">
+        <h4>理论与定标</h4>
+        <div class="ref">
+          <span class="tag cls">1957</span><b>Lawson, J. D.</b> —
+          Some Criteria for a Power Producing Thermonuclear Reactor.
+          <i>Proc. Phys. Soc. B</i> 70, 6.
+        </div>
+        <div class="ref">
+          <span class="tag cls">1984</span><b>Goldston, R. J.</b> —
+          Energy confinement scaling on tokamaks.
+          <i>Plasma Phys. Control. Fusion</i> 26(1A), 87.
+        </div>
+        <div class="ref">
+          <span class="tag tool">1992</span><b>Bosch &amp; Hale</b> —
+          Improved formulas for fusion cross-sections and thermal reactivities.
+          <i>Nucl. Fusion</i> 32, 611.
+        </div>
+        <div class="ref">
+          <span class="tag tool">1999</span><b>ITER Physics Basis</b> —
+          <i>Nucl. Fusion</i> 39(12).（定标律、加热、诊断、破裂、材料）
+        </div>
+
+        <h4>不稳定与破裂</h4>
+        <div class="ref">
+          <span class="tag cls">1973</span><b>Furth, Killeen &amp; Rosenbluth</b> —
+          Finite-Resistivity Instabilities of a Sheet Pinch.
+          <i>Phys. Fluids</i> 16(7), 1054.
+        </div>
+        <div class="ref">
+          <span class="tag tool">2015</span><b>Lehnen, M., et al.</b> —
+          Disruption mitigation by massive gas injection in JET.
+          <i>Nucl. Fusion</i> 55(12), 123027.
+        </div>
+
+        <h4>边界与材料</h4>
+        <div class="ref">
+          <span class="tag tool">2007</span><b>Loarte, A., et al.</b> —
+          Power and particle control. <i>Nucl. Fusion</i> 47, S203.
+        </div>
+        <div class="ref">
+          <span class="tag tool">2011</span><b>Matthews, G. F., et al.</b> —
+          Plasma operation with an all metal first-wall.
+          <i>Phys. Scr.</i> T145, 014001.
+        </div>
+
+        <h4>紧凑化路线</h4>
+        <div class="ref">
+          <span class="tag tool">2015</span><b>Sorbom, B. N., et al.</b> —
+          ARC: A compact, high-field, fusion nuclear science facility.
+          <i>Fusion Eng. Des.</i> 100, 378.
+        </div>
+        <div class="ref">
+          <span class="tag tool">2020</span><b>Creely, A. J., et al.</b> —
+          Overview of the SPARC tokamak.
+          <i>J. Plasma Phys.</i> 86(5), 865860502.
+        </div>
+
+        <h4>教材</h4>
+        <div class="ref">
+          <span class="tag cls">Wesson</span><b>Wesson, J. (2011).</b> —
+          <i>Tokamaks</i>, 4th ed. Oxford University Press.
+        </div>
+        <div class="ref">
+          <span class="tag tool">Hutchinson</span><b>Hutchinson, I. H. (2002).</b> —
+          <i>Principles of Plasma Diagnostics</i>, 2nd ed. Cambridge UP.
+        </div>
+
+        <h4>说明</h4>
+        <p style="color:var(--dim);font-size:13px">
+          本作为虚构作品：装置、人物、时间线均为虚构。<br>
+          物理量级、公式与定标律依据公开发表文献，供教学演示使用。<br>
+          所有交互模块采用简化模型（简化方式在对应幕次的附录中注明），
+          <b>不适用于定量工程设计</b>。
+        </p>
+      </div>
+    </details>
+
+    <div class="go"><button id="go-act8">回到第一页，重新设计</button></div>
+  `;
+  },
+  after: () => {
+    const b = document.getElementById('go-act8');
+    if (b) b.onclick = () => {
+      Object.assign(D, {
+        R0: 3.0, a: 1.0, Bt: 5.3, kappa: 1.7, delta: 0.4,
+        Ip: 8.0, Pheat: 50, cost: 0, trust: 50, flags: {}
+      });
+      renderScene('prologue');
+    };
+  },
+  next: null
+}
+
+};
+
+/* ══════════════════════════════════════════════════════════════
+   渲染引擎
+   ══════════════════════════════════════════════════════════════ */
+
+const page = document.getElementById('page');
+
+function renderScene(id) {
+  const sc = SCENES[id];
+  if (!sc) return;
+  page.innerHTML = `
+    <div class="scene-head">
+      <span class="n">${sc.n}</span><span class="t">${sc.t}</span>
+    </div>
+    ${sc.render()}
+  `;
+  hud();
+  window.scrollTo({ top: 0, behavior: 'instant' });
+
+  const btn = page.querySelector('.go button');
+  if (btn && sc.next) btn.onclick = () => renderScene(sc.next);
+
+  if (typeof sc.after === 'function') sc.after(sc.next);
+  else if (sc.after && typeof window[sc.after] === 'function') window[sc.after](sc.next);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   交互 1 · 尺寸扫描
+   ══════════════════════════════════════════════════════════════ */
+
+function setupSize(nextId) {
+  const sr = document.getElementById('r0');
+  const sa = document.getElementById('a');
+  let cv = null;
+
+  function draw() {
+    if (!cv) cv = setupCanvas('cv-size', 280);
+    const { ctx, w, h } = cv;
+    ctx.clearRect(0, 0, w, h);
+    grid(ctx, w, h, 8, 4);
+
+    const padL = 44, padR = 16, padT = 26, padB = 34;
+    const pw = w - padL - padR, ph = h - padT - padB;
+
+    // 左：Q vs R₀  右：成本 vs R₀
+    const RX = padL + pw * 0.56;
+
+    ctx.strokeStyle = AXIS; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + ph);
+    ctx.lineTo(padL + pw * 0.44, padT + ph); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(RX, padT); ctx.lineTo(RX, padT + ph);
+    ctx.lineTo(RX + pw * 0.42, padT + ph); ctx.stroke();
+
+    // Q 曲线
+    const savedR = D.R0;
+    ctx.beginPath(); ctx.lineWidth = 2.6; ctx.strokeStyle = TEAL;
+    let maxQ = 1;
+    const qs = [];
+    for (let r = 1.2; r <= 5.001; r += 0.05) {
+      D.R0 = r;
+      const q = Qvalue();
+      qs.push([r, q]);
+      if (q > maxQ) maxQ = q;
+    }
+    D.R0 = savedR;
+    const QX = r => padL + (r - 1.2) / 3.8 * (pw * 0.44);
+    const QY = q => padT + (1 - Math.min(q, maxQ * 1.15) / (maxQ * 1.15)) * ph;
+    qs.forEach(([r, q], i) => {
+      const x = QX(r), y = QY(q);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // 当前点
+    const cq0 = Qvalue();
+    ctx.beginPath(); ctx.arc(QX(D.R0), QY(cq0), 5.5, 0, Math.PI * 2);
+    ctx.fillStyle = cq0 >= 5 ? TEAL : AMBER; ctx.fill();
+    ctx.strokeStyle = '#080A0E'; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.font = '600 11px Consolas,monospace'; ctx.textAlign = 'left';
+    ctx.fillStyle = TEAL; ctx.fillText('Q 值', padL + 4, padT + 9);
+    ctx.fillStyle = DIM; ctx.font = '10px Consolas,monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('R₀ (m)', padL + pw * 0.22, padT + ph + 18);
+
+    // 成本曲线
+    const cs = [];
+    let maxC = 1;
+    for (let r = 1.2; r <= 5.001; r += 0.05) {
+      D.R0 = r;
+      const c = costIndex();
+      cs.push([r, c]);
+      if (c > maxC) maxC = c;
+    }
+    D.R0 = savedR;
+    const CX = r => RX + (r - 1.2) / 3.8 * (pw * 0.42);
+    const CY = c => padT + (1 - Math.min(c, maxC * 1.15) / (maxC * 1.15)) * ph;
+    ctx.beginPath(); ctx.lineWidth = 2.6; ctx.strokeStyle = RUST;
+    cs.forEach(([r, c], i) => {
+      const x = CX(r), y = CY(c);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    const cc = costIndex();
+    ctx.beginPath(); ctx.arc(CX(D.R0), CY(cc), 5.5, 0, Math.PI * 2);
+    ctx.fillStyle = RUST; ctx.fill();
+    ctx.strokeStyle = '#080A0E'; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.font = '600 11px Consolas,monospace'; ctx.textAlign = 'left';
+    ctx.fillStyle = RUST; ctx.fillText('成本', RX + 4, padT + 9);
+    ctx.fillStyle = DIM; ctx.font = '10px Consolas,monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('R₀ (m)', RX + pw * 0.21, padT + ph + 18);
+  }
+
+  function update() {
+    D.R0 = parseFloat(sr.value);
+    D.a = parseFloat(sa.value);
+    document.getElementById('r0-val').textContent = D.R0.toFixed(2) + ' m';
+    document.getElementById('a-val').textContent = D.a.toFixed(2) + ' m';
+
+    draw();
+
+    const q = Qvalue(), t = tauE(), c = costIndex(), A = D.R0 / D.a;
+    document.getElementById('ro-Q').textContent = q.toFixed(2);
+    document.getElementById('ro-Q').style.color = q >= 5 ? TEAL : q >= 3 ? AMBER : RUST;
+    document.getElementById('ro-tau').textContent = t.toFixed(2) + ' s';
+    document.getElementById('ro-cost').textContent = c.toFixed(0);
+    document.getElementById('ro-A').textContent = A.toFixed(2);
+
+    const cq = document.getElementById('size-cq');
+    const cs = document.getElementById('size-cq-s');
+    const bar = document.getElementById('size-bar');
+    const tx = document.getElementById('size-cq-t');
+    cq.className = 'cq';
+    bar.style.width = Math.min(q / 5 * 100, 100).toFixed(0) + '%';
+
+    if (q >= 5) {
+      cq.classList.add('good'); cs.className = 's good'; cs.textContent = '达标';
+      bar.style.background = TEAL;
+      tx.innerHTML = `Q = <b>${q.toFixed(2)}</b>，目标达成。<br>
+        成本指数 <b>${c.toFixed(0)}</b>——记住这个数，后面每次改动都要跟它对比。`;
+      const b = document.getElementById('go-act1');
+      if (b) setTimeout(() => { b.disabled = false; }, 400);
+    } else if (q >= 3) {
+      cq.classList.add('warn'); cs.className = 's warn'; cs.textContent = '还差';
+      bar.style.background = AMBER;
+      tx.innerHTML = `Q = ${q.toFixed(2)}，不够。<br>
+        <span style="color:var(--dim)">装置再大一点——你有这个预算空间。</span>`;
+    } else {
+      cq.classList.add('bad'); cs.className = 's bad'; cs.textContent = '太小';
+      bar.style.background = RUST;
+      tx.innerHTML = `Q = ${q.toFixed(2)}。这个尺寸撑不起目标。<br>
+        <span style="color:var(--dim)">把 R₀ 往上推。</span>`;
+    }
+  }
+
+  sr.addEventListener('input', update);
+  sa.addEventListener('input', update);
+  update();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   交互 2 · 磁场权衡
+   ══════════════════════════════════════════════════════════════ */
+
+function setupB(nextId) {
+  const sb = document.getElementById('b');
+  let cv = null;
+
+  function draw() {
+    if (!cv) cv = setupCanvas('cv-b', 270);
+    const { ctx, w, h } = cv;
+    ctx.clearRect(0, 0, w, h);
+    grid(ctx, w, h, 8, 4);
+
+    const padL = 46, padR = 18, padT = 28, padB = 36;
+    const pw = w - padL - padR, ph = h - padT - padB;
+
+    ctx.strokeStyle = AXIS; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + ph);
+    ctx.lineTo(padL + pw, padT + ph); ctx.stroke();
+
+    // 磁体成本 vs B（超线性）
+    const savedB = D.Bt;
+    const pts = [];
+    let maxC = 1;
+    for (let b = 2; b <= 12.001; b += 0.1) {
+      D.Bt = b;
+      // 磁体成本单独算
+      const mc = Math.pow(b / 5.3, 2.2) * 40;
+      pts.push([b, mc]);
+      if (mc > maxC) maxC = mc;
+    }
+    D.Bt = savedB;
+
+    const X = b => padL + (b - 2) / 10 * pw;
+    const Y = c => padT + (1 - Math.min(c, maxC * 1.1) / (maxC * 1.1)) * ph;
+
+    ctx.beginPath(); ctx.lineWidth = 2.6; ctx.strokeStyle = RUST;
+    pts.forEach(([b, c], i) => {
+      const x = X(b), y = Y(c);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // LTS / HTS 分界
+    const bSplit = 10;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(232,226,212,.35)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(X(bSplit), padT); ctx.lineTo(X(bSplit), padT + ph);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(232,226,212,.55)';
+    ctx.font = '10px Consolas,monospace'; ctx.textAlign = 'center';
+    ctx.fillText('LTS 上限', X(bSplit) - 34, padT + 12);
+    ctx.fillText('HTS 区间', X(bSplit) + 40, padT + 12);
+
+    // 当前点
+    const mc = Math.pow(D.Bt / 5.3, 2.2) * 40;
+    ctx.beginPath(); ctx.arc(X(D.Bt), Y(mc), 5.5, 0, Math.PI * 2);
+    ctx.fillStyle = D.Bt > 10 ? AMBER : RUST; ctx.fill();
+    ctx.strokeStyle = '#080A0E'; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.fillStyle = RUST; ctx.font = '600 11px Consolas,monospace';
+    ctx.textAlign = 'left'; ctx.fillText('磁体成本', padL + 4, padT + 9);
+    ctx.fillStyle = DIM; ctx.font = '10px Consolas,monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('B_t (T)', padL + pw / 2, padT + ph + 18);
+  }
+
+  function update() {
+    D.Bt = parseFloat(sb.value);
+    document.getElementById('b-val').textContent = D.Bt.toFixed(1) + ' T';
+    draw();
+
+    const q = Qvalue();
+    const mc = Math.pow(D.Bt / 5.3, 2.2) * 40;
+    document.getElementById('ro-Q2').textContent = q.toFixed(2);
+    document.getElementById('ro-Q2').style.color = q >= 5 ? TEAL : AMBER;
+    document.getElementById('ro-mag').textContent = mc.toFixed(0);
+
+    const tech = document.getElementById('ro-tech');
+    if (D.Bt <= 10) {
+      tech.textContent = '低温超导';
+      tech.style.color = TEAL;
+    } else {
+      tech.textContent = '高温超导';
+      tech.style.color = AMBER;
+    }
+
+    const cq = document.getElementById('b-cq');
+    const cs = document.getElementById('b-cq-s');
+    const tx = document.getElementById('b-cq-t');
+    cq.className = 'cq';
+
+    if (D.Bt <= 6) {
+      cq.classList.add('good'); cs.className = 's good'; cs.textContent = '稳妥';
+      tx.innerHTML = `<b>${D.Bt.toFixed(1)} T</b>——成熟区间。<br>
+        低温超导绕制工艺成熟，供应链稳定。<br>
+        <span style="color:var(--dim)">代价是：装置得造大。</span>`;
+    } else if (D.Bt <= 10) {
+      cq.classList.add('warn'); cs.className = 's warn'; cs.textContent = '进取';
+      tx.innerHTML = `<b>${D.Bt.toFixed(1)} T</b>——接近低温超导的实用上限。<br>
+        磁体成本已经涨到 <b>${mc.toFixed(0)}</b>，绕制精度要求很高。<br>
+        <span style="color:var(--dim)">还在常规工艺范围内，但余量不多了。</span>`;
+    } else {
+      cq.classList.add('bad'); cs.className = 's bad'; cs.textContent = '赌注';
+      tx.innerHTML = `<b>${D.Bt.toFixed(1)} T</b>——必须用高温超导。<br>
+        好处：装置能显著缩小，性能提升。<br>
+        代价：磁体成本 <b>${mc.toFixed(0)}</b>，工艺全新，
+        而且<span style="color:var(--rust)">这笔赌注无法中途反悔</span>——
+        磁体绕完就是这个场强。<br>
+        <span style="color:var(--dim)">（这一条路，值得，但要想清楚。）</span>`;
+    }
+  }
+
+  sb.addEventListener('input', update);
+  update();
+  const b = document.getElementById('go-act2');
+  if (b) setTimeout(() => { b.disabled = false; }, 500);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   交互 3 · 截面形状（κ / δ）
+   ══════════════════════════════════════════════════════════════ */
+
+function setupShape(nextId) {
+  const sk = document.getElementById('kp');
+  const sd = document.getElementById('dp');
+  let cv = null;
+
+  function draw(k, d) {
+    if (!cv) cv = setupCanvas('cv-shape', 280);
+    const { ctx, w, h } = cv;
+    ctx.clearRect(0, 0, w, h);
+    grid(ctx, w, h, 8, 4);
+
+    const cx = w * 0.46, cy = h * 0.5;
+    const scale = Math.min(w * 0.30, h * 0.36) / 1.9;
+
+    // 中心柱位置（左）
+    ctx.fillStyle = '#1A2430';
+    ctx.fillRect(w * 0.06, cy - h * 0.32, 14, h * 0.64);
+    ctx.fillStyle = DIM; ctx.font = '10px Consolas,monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('中心柱', w * 0.06 + 7, cy + h * 0.40);
+
+    // 截面（Miller 参数化）
+    const R0p = 1.55, ap = 1.0;
+    const pts = [];
+    for (let th = 0; th <= Math.PI * 2 + 0.01; th += 0.03) {
+      const Rr = R0p + ap * Math.cos(th + Math.asin(d) * Math.sin(th));
+      const Zz = k * ap * Math.sin(th);
+      pts.push([Rr, Zz]);
+    }
+
+    // 填充
+    ctx.beginPath();
+    pts.forEach(([r, z], i) => {
+      const x = cx + (r - R0p) * scale * 1.6;
+      const y = cy - z * scale * 1.6;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(cx - 90, cy, cx + 90, cy);
+    grad.addColorStop(0, 'rgba(210,105,74,0.16)');
+    grad.addColorStop(1, 'rgba(78,201,176,0.14)');
+    ctx.fillStyle = grad; ctx.fill();
+    ctx.lineWidth = 2.6; ctx.strokeStyle = TEAL; ctx.stroke();
+
+    // 标注
+    ctx.textAlign = 'center'; ctx.font = '10px Consolas,monospace';
+    ctx.fillStyle = 'rgba(210,105,74,.75)';
+    ctx.fillText('内侧 高场', cx - 100, cy - h * 0.36);
+    ctx.fillStyle = 'rgba(78,201,176,.75)';
+    ctx.fillText('外侧 低场', cx + 100, cy - h * 0.36);
+
+    ctx.fillStyle = DIM;
+    ctx.fillText(`κ = ${k.toFixed(2)}   δ = ${d.toFixed(2)}`,
+                 cx, h - 12);
+  }
+
+  function update() {
+    const k = parseFloat(sk.value);
+    const d = parseFloat(sd.value);
+    D.kappa = k; D.delta = d;
+    document.getElementById('k-val').textContent = k.toFixed(2);
+    document.getElementById('d-val').textContent = d.toFixed(2);
+    draw(k, d);
+
+    // 垂直裕度：κ 高 → 低；δ 高 → 提升
+    let mg = 100 - Math.max(0, (k - 1.05) * 78) + d * 45;
+    mg = Math.max(0, Math.min(100, mg));
+
+    // 性能增益：κ 带来收益（次线性）
+    const gain = (Math.pow(k, 0.9) - 1) * 42 + d * 12;
+
+    document.getElementById('ro-margin').textContent = mg.toFixed(0) + '%';
+    document.getElementById('ro-margin').style.color =
+      mg >= 60 ? TEAL : mg >= 35 ? AMBER : RUST;
+    document.getElementById('ro-gain').textContent =
+      '+' + gain.toFixed(0) + '%';
+
+    const fb = document.getElementById('ro-fb');
+    if (k < 1.5) { fb.textContent = '可不装'; fb.style.color = TEAL; }
+    else if (k < 1.9) { fb.textContent = '标准反馈'; fb.style.color = AMBER; }
+    else { fb.textContent = '高速反馈 <1ms'; fb.style.color = RUST; }
+
+    const cq = document.getElementById('shape-cq');
+    const cs = document.getElementById('shape-cq-s');
+    const bar = document.getElementById('shape-bar');
+    const tx = document.getElementById('shape-cq-t');
+    cq.className = 'cq';
+    bar.style.width = mg.toFixed(0) + '%';
+
+    if (mg >= 60) {
+      cq.classList.add('good'); cs.className = 's good'; cs.textContent = '稳';
+      bar.style.background = TEAL;
+      tx.innerHTML = `裕度 <b>${mg.toFixed(0)}%</b>，性能增益 +${gain.toFixed(0)}%。<br>
+        这是一个健康的形状——反馈系统还能轻松扶住它。`;
+      const b = document.getElementById('go-act3');
+      if (b) setTimeout(() => { b.disabled = false; }, 400);
+    } else if (mg >= 35) {
+      cq.classList.add('warn'); cs.className = 's warn'; cs.textContent = '临界';
+      bar.style.background = AMBER;
+      tx.innerHTML = `裕度只剩 <b>${mg.toFixed(0)}%</b>。<br>
+        性能是拿到了（+${gain.toFixed(0)}%），但反馈系统必须足够快。<br>
+        <span style="color:var(--dim)">把 δ 加大一点，能把这个裕度换回来。</span>`;
+    } else {
+      cq.classList.add('bad'); cs.className = 's bad'; cs.textContent = '危险';
+      bar.style.background = RUST;
+      tx.innerHTML = `裕度 <b>${mg.toFixed(0)}%</b>——太扁了。<br>
+        它会自己翻过来。你需要毫秒级的反馈，而且一旦失败就是撞壁。<br>
+        <span style="color:var(--dim)">要么降 κ，要么加 δ。</span>`;
+    }
+  }
+
+  sk.addEventListener('input', update);
+  sd.addEventListener('input', update);
+  update();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   交互 4 · 加热系统配置
+   ══════════════════════════════════════════════════════════════ */
+
+function setupHeat2(nextId) {
+  const sO = document.getElementById('h-ohm');
+  const sR = document.getElementById('h-rf');
+  const sN = document.getElementById('h-nbi');
+  let cv = null, solved = false;
+
+  function solveT(pO, pR, pN) {
+    D.Pheat = Math.max(pO + pR + pN, 1);
+    let T = 5;
+    for (let i = 0; i < 80; i++) {
+      const ohmEff = pO * Math.exp(-T / 7.5);
+      const P = ohmEff + pR + pN;
+      const t = tauE();
+      const n = density();
+      const Tn = 2.0 + 16.0 * Math.pow(Math.max(P * t / (n / 8e19), 0.1) / 30, 0.40);
+      T = T + 0.3 * (Tn - T);
+      if (Math.abs(Tn - T) < 0.002) break;
+    }
+    return T;
+  }
+
+  function draw(pO, pR, pN, T) {
+    if (!cv) cv = setupCanvas('cv-heat2', 250);
+    const { ctx, w, h } = cv;
+    ctx.clearRect(0, 0, w, h);
+    grid(ctx, w, h, 8, 4);
+
+    const padL = 30, padR = 16, padT = 30, padB = 52;
+    const pw = w - padL - padR, ph = h - padT - padB;
+
+    // 温度柱
+    const frac = Math.min(T / 12, 1.3);
+    const col = T >= 12 ? TEAL : T >= 8 ? AMBER : RUST;
+    const barY = padT + ph * 0.22;
+
+    ctx.fillStyle = '#131B24';
+    ctx.fillRect(padL, barY, pw, 30);
+
+    // 目标线
+    const tgtX = padL + pw * (12 / 12 / 1.3);
+    ctx.strokeStyle = PAPER; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(tgtX, barY - 18);
+    ctx.lineTo(tgtX, barY + 46); ctx.stroke();
+    ctx.fillStyle = PAPER; ctx.font = '10px Consolas,monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('目标 12 keV', tgtX, barY - 24);
+
+    ctx.fillStyle = col;
+    ctx.fillRect(padL, barY, Math.min(frac, 1.3) * pw, 30);
+    ctx.textAlign = 'left'; ctx.font = '600 14px Consolas,monospace';
+    ctx.fillStyle = col;
+    ctx.fillText(T.toFixed(2) + ' keV', padL + 8, barY + 21);
+
+    // 三种加热的堆叠
+    const ohmEff = pO * Math.exp(-T / 7.5);
+    const items = [['欧姆', ohmEff, RUST], ['射频', pR, AMBER], ['中性束', pN, TEAL]];
+    const total = ohmEff + pR + pN;
+    const maxP = Math.max(total, 60);
+    let acc = padL;
+    items.forEach(([l, v, c]) => {
+      const bw = v / maxP * pw;
+      ctx.fillStyle = c; ctx.fillRect(acc, barY + 48, bw, 14);
+      acc += bw;
+    });
+    ctx.font = '10px Consolas,monospace'; ctx.textAlign = 'left';
+    let lx = padL;
+    items.forEach(([l, v, c]) => {
+      if (v > 0.5) {
+        ctx.fillStyle = c;
+        ctx.fillText(`${l} ${v.toFixed(1)}`, lx + 2, barY + 82);
+        lx += pw / 3;
+      }
+    });
+    ctx.fillStyle = DIM;
+    ctx.fillText(`有效总功率 ${total.toFixed(1)} MW`, padL, barY + 102);
+
+    ctx.fillStyle = RUST; ctx.font = '600 11px Consolas,monospace';
+    ctx.fillText(`欧姆效率 ${(Math.exp(-T / 7.5) * 100).toFixed(0)}%`, padL, padT + 8);
+  }
+
+  function hcost(pO, pR, pN) {
+    return pO * 1 + pR * 20 + pN * 32;      // 相对造价
+  }
+
+  function update() {
+    const pO = parseInt(sO.value, 10);
+    const pR = parseInt(sR.value, 10);
+    const pN = parseInt(sN.value, 10);
+
+    document.getElementById('h-ohm-v').textContent = pO + ' MW';
+    document.getElementById('h-rf-v').textContent = pR + ' MW';
+    document.getElementById('h-nbi-v').textContent = pN + ' MW';
+
+    const T = solveT(pO, pR, pN);
+    draw(pO, pR, pN, T);
+
+    const Q = Qvalue();
+    document.getElementById('ro-T2').textContent = T.toFixed(2) + ' keV';
+    document.getElementById('ro-T2').style.color = T >= 12 ? TEAL : T >= 8 ? AMBER : RUST;
+    document.getElementById('ro-Q3').textContent = Q.toFixed(2);
+    document.getElementById('ro-Q3').style.color = Q >= 5 ? TEAL : AMBER;
+
+    const hc = hcost(pO, pR, pN);
+    document.getElementById('ro-hcost').textContent = hc.toFixed(0);
+
+    const cq = document.getElementById('heat2-cq');
+    const cs = document.getElementById('heat2-cq-s');
+    const tx = document.getElementById('heat2-cq-t');
+    cq.className = 'cq';
+
+    if (T >= 12) {
+      cq.classList.add('good'); cs.className = 's good'; cs.textContent = '达标';
+      tx.innerHTML = `温度 <b>${T.toFixed(2)} keV</b>，Q = <b>${Q.toFixed(2)}</b>。<br>
+        加热系统相对造价 <b>${hc.toFixed(0)}</b>。<br>
+        <span style="color:var(--dim)">注意欧姆那一栏几乎不花钱——但它贡献有限。</span>`;
+      if (!solved) {
+        solved = true;
+        const b = document.getElementById('go-act4');
+        if (b) setTimeout(() => { b.disabled = false; }, 500);
+      }
+    } else if (T >= 8) {
+      cq.classList.add('warn'); cs.className = 's warn'; cs.textContent = '还不够';
+      tx.innerHTML = `温度 ${T.toFixed(2)} keV。方向对，但离目标还差。<br>
+        <span style="color:var(--dim)">注意：光靠欧姆是上不去的——它有天花板。</span>`;
+    } else {
+      cq.classList.add('bad'); cs.className = 's bad'; cs.textContent = '太低';
+      tx.innerHTML = `温度只有 ${T.toFixed(2)} keV。<br>
+        欧姆加热的效率已经掉到 ${(Math.exp(-T / 7.5) * 100).toFixed(0)}%。<br>
+        <span style="color:var(--dim)">把射频和中性束加上去。</span>`;
+    }
+  }
+
+  [sO, sR, sN].forEach(s => s.addEventListener('input', update));
+  update();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   交互 5 · 第一壁材料配置
+   ══════════════════════════════════════════════════════════════ */
+
+function setupWall(nextId) {
+  const sw = document.getElementById('wfrac');
+  let cv = null;
+
+  function calc(f) {                       // f: 钨比例 0–1
+    // 性能损失：钨溅射 → 高 Z 杂质 → 辐射损失（超线性）
+    const perf = 12.5 * Math.pow(f, 1.7);
+    // 寿命（年）：钨越多久用
+    const life = 0.6 + 4.2 * f;
+    // 年维护量（次/年）
+    const maint = 1 / life;
+    return { perf, life, maint };
+  }
+
+  function draw(f) {
+    if (!cv) cv = setupCanvas('cv-wall', 270);
+    const { ctx, w, h } = cv;
+    ctx.clearRect(0, 0, w, h);
+    grid(ctx, w, h, 8, 4);
+
+    const padL = 46, padR = 18, padT = 28, padB = 36;
+    const pw = w - padL - padR, ph = h - padT - padB;
+
+    ctx.strokeStyle = AXIS; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + ph);
+    ctx.lineTo(padL + pw, padT + ph); ctx.stroke();
+
+    const X = v => padL + v * pw;
+
+    // 下区：寿命（归一化到 0-5 年）
+    const LX = v => padL + v * pw * 0.48;
+    const LY = yr => padT + ph - Math.min(yr / 5, 1) * ph * 0.44;
+
+    // 上区：性能损失（0-15%）
+    const PX = v => padL + pw * 0.52 + v * pw * 0.48;
+    const PY = p => padT + ph * 0.42 - Math.min(p / 15, 1) * ph * 0.36;
+
+    // 寿命曲线
+    ctx.beginPath(); ctx.lineWidth = 2.6; ctx.strokeStyle = TEAL;
+    for (let i = 0; i <= 100; i++) {
+      const v = i / 100;
+      const { life } = calc(v);
+      const x = LX(v), y = LY(life);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.font = '600 11px Consolas,monospace'; ctx.textAlign = 'left';
+    ctx.fillStyle = TEAL; ctx.fillText('寿命（年）', padL + 4, padT + 9);
+
+    // 性能损失曲线
+    ctx.beginPath(); ctx.lineWidth = 2.6; ctx.strokeStyle = RUST;
+    for (let i = 0; i <= 100; i++) {
+      const v = i / 100;
+      const { perf } = calc(v);
+      const x = PX(v), y = PY(perf);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = RUST; ctx.fillText('性能损失（%）', padL + pw * 0.52 + 4, padT + 9);
+
+    // 当前点
+    const { perf, life } = calc(f);
+    ctx.beginPath(); ctx.arc(LX(f), LY(life), 5.5, 0, Math.PI * 2);
+    ctx.fillStyle = TEAL; ctx.fill();
+    ctx.strokeStyle = '#080A0E'; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.beginPath(); ctx.arc(PX(f), PY(perf), 5.5, 0, Math.PI * 2);
+    ctx.fillStyle = RUST; ctx.fill(); ctx.stroke();
+
+    // 目标线（性能损失 8%）
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(232,226,212,.30)'; ctx.lineWidth = 1;
+    const y8 = PY(8);
+    ctx.beginPath(); ctx.moveTo(padL + pw * 0.52, y8);
+    ctx.lineTo(padL + pw, y8); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(232,226,212,.55)';
+    ctx.font = '10px Consolas,monospace'; ctx.textAlign = 'right';
+    ctx.fillText('8% 上限', padL + pw - 2, y8 - 5);
+
+    ctx.fillStyle = DIM; ctx.textAlign = 'center';
+    ctx.fillText('钨比例 0% → 100%（碳 → 全钨）', padL + pw / 2, h - 10);
+  }
+
+  function update() {
+    const f = parseInt(sw.value, 10) / 100;
+    document.getElementById('w-val').textContent = (f * 100).toFixed(0) + '%';
+    draw(f);
+
+    const { perf, life, maint } = calc(f);
+    const pe = document.getElementById('ro-perf');
+    pe.textContent = '−' + perf.toFixed(1) + '%';
+    pe.style.color = perf <= 8 ? TEAL : perf <= 11 ? AMBER : RUST;
+
+    const le = document.getElementById('ro-life');
+    le.textContent = life.toFixed(1) + ' 年';
+    le.style.color = life >= 2 ? TEAL : AMBER;
+
+    document.getElementById('ro-maint').textContent = maint.toFixed(2) + ' 次/年';
+
+    const cq = document.getElementById('wall-cq');
+    const cs = document.getElementById('wall-cq-s');
+    const tx = document.getElementById('wall-cq-t');
+    cq.className = 'cq';
+
+    if (perf <= 8 && life >= 2) {
+      cq.classList.add('good'); cs.className = 's good'; cs.textContent = '平衡';
+      tx.innerHTML = `性能损失 <b>${perf.toFixed(1)}%</b>，寿命 <b>${life.toFixed(1)} 年</b>。<br>
+        两边都在可接受范围内——这是个工程上说得过去的选择。`;
+      const b = document.getElementById('go-act5');
+      if (b) setTimeout(() => { b.disabled = false; }, 400);
+    } else if (perf > 11) {
+      cq.classList.add('bad'); cs.className = 's bad'; cs.textContent = '太脏';
+      tx.innerHTML = `性能损失 <b>${perf.toFixed(1)}%</b>——钨太多了。<br>
+        溅射出来的高 Z 杂质在疯狂辐射，你辛苦加热的功率正在被它吃掉。<br>
+        <span style="color:var(--dim)">减一点钨，让碳分担一些。</span>`;
+    } else if (life < 2) {
+      cq.classList.add('warn'); cs.className = 's warn'; cs.textContent = '不耐用';
+      tx.innerHTML = `寿命只有 <b>${life.toFixed(1)} 年</b>，一年要换 <b>${maint.toFixed(2)}</b> 次。<br>
+        性能是保住了，但停机维护的时间成本很高——
+        而且换壁意味着<b>放射性环境下的遥操作</b>。`;
+    } else {
+      cq.classList.add('warn'); cs.className = 's warn'; cs.textContent = '接近上限';
+      tx.innerHTML = `性能损失 ${perf.toFixed(1)}%，寿命 ${life.toFixed(1)} 年。<br>
+        能过，但余量不大。<br>
+        <span style="color:var(--dim)">注意那条 8% 的红线。</span>`;
+    }
+  }
+
+  sw.addEventListener('input', update);
+  update();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   交互 6 · 偏滤器与脱靶
+   ══════════════════════════════════════════════════════════════ */
+
+function setupDiv(nextId) {
+  const sa = document.getElementById('ang');
+  const sd = document.getElementById('detach');
+  let cv = null, solved = false;
+
+  const P_SOL = 20;                        // 排气功率 MW
+
+  function calc(angDeg, detach) {
+    // 掠射角：靶板与磁力线的夹角。角度越小 → 投影面积越大 → 热流越低
+    const alpha = Math.max(angDeg, 0.3) * Math.PI / 180;
+    // 热流展宽随角度略增（掠射时更宽）
+    const lam = 0.0015 + 0.0055 * Math.sin(Math.min(alpha * 3.2, Math.PI / 2));
+    // 脱靶削减：辐射掉一部分能量
+    const fRad = 1 - 0.82 * Math.pow(detach / 100, 1.35);
+    // q = P/(2πR·λ) · sin(α)
+    const q = (P_SOL * fRad * 1e6) / (2 * Math.PI * D.R0 * lam) * Math.sin(alpha);
+    return { q: q / 1e6, lam, fRad, alpha };   // MW/m²
+  }
+
+  function draw(angDeg, detach) {
+    if (!cv) cv = setupCanvas('cv-div', 270);
+    const { ctx, w, h } = cv;
+    ctx.clearRect(0, 0, w, h);
+    grid(ctx, w, h, 8, 4);
+
+    const padL = 44, padR = 18, padT = 30, padB = 40;
+    const pw = w - padL - padR, ph = h - padT - padB;
+
+    ctx.strokeStyle = AXIS; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + ph);
+    ctx.lineTo(padL + pw, padT + ph); ctx.stroke();
+
+    const X = s => padL + s / 100 * pw;          // 到靶板的距离（任意单位）
+    const QMAX = 40;
+    const Y = q => padT + (1 - Math.min(q, QMAX) / QMAX) * ph;
+
+    const { q, lam, fRad } = calc(angDeg, detach);
+
+    // 热流剖面（高斯型，宽度随 λ 变化）
+    ctx.beginPath(); ctx.lineWidth = 2.6;
+    const col = q < 10 ? TEAL : q < 25 ? AMBER : RUST;
+    ctx.strokeStyle = col;
+    const sigma = 6 + lam * 2600;
+    for (let s = 0; s <= 100; s += 0.5) {
+      const val = q * Math.exp(-Math.pow((s - 58) / sigma, 2));
+      const x = X(s), y = Y(val);
+      if (s === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // 10 MW/m² 安全线
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(78,201,176,.45)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, Y(10)); ctx.lineTo(padL + pw, Y(10)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(78,201,176,.75)';
+    ctx.font = '10px Consolas,monospace'; ctx.textAlign = 'left';
+    ctx.fillText('10 MW/m² 材料上限', padL + 5, Y(10) - 5);
+
+    // 刻度
+    ctx.fillStyle = DIM; ctx.textAlign = 'right';
+    [0, 20, 40, 60].forEach(v => ctx.fillText(v, padL - 6, Y(v) + 3));
+    ctx.textAlign = 'center';
+    ctx.fillText('沿靶板的位置', padL + pw / 2, h - 10);
+
+    // 峰值标注
+    ctx.textAlign = 'left'; ctx.font = '600 11px Consolas,monospace';
+    ctx.fillStyle = col;
+    ctx.fillText(`峰值 ${q.toFixed(1)} MW/m²`, padL + 5, padT + 9);
+
+    ctx.fillStyle = DIM; ctx.font = '10px Consolas,monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(detach > 55 ? '已脱靶' : '未脱靶', padL + pw - 3, padT + 9);
+  }
+
+  function update() {
+    const ang = parseFloat(sa.value);
+    const det = parseInt(sd.value, 10);
+    document.getElementById('ang-val').textContent = ang.toFixed(1) + '°';
+    document.getElementById('det-val').textContent = det + '%';
+    draw(ang, det);
+
+    const { q, lam } = calc(ang, det);
+
+    const hf = document.getElementById('ro-hf');
+    hf.textContent = q.toFixed(1) + ' MW/m²';
+    hf.style.color = q < 10 ? TEAL : q < 25 ? AMBER : RUST;
+
+    document.getElementById('ro-lam').textContent = (lam * 1000).toFixed(1) + ' mm';
+
+    const dt = document.getElementById('ro-det');
+    if (det > 55) { dt.textContent = '已脱靶'; dt.style.color = TEAL; }
+    else if (det > 25) { dt.textContent = '部分脱靶'; dt.style.color = AMBER; }
+    else { dt.textContent = '未脱靶'; dt.style.color = RUST; }
+
+    const cq = document.getElementById('div-cq');
+    const cs = document.getElementById('div-cq-s');
+    const tx = document.getElementById('div-cq-t');
+    cq.className = 'cq';
+
+    if (q < 10) {
+      cq.classList.add('good'); cs.className = 's good'; cs.textContent = '安全';
+      tx.innerHTML = `峰值热流 <b>${q.toFixed(1)} MW/m²</b>——低于材料上限。<br>
+        展宽 <b>${(lam*1000).toFixed(1)} mm</b>，脱靶状态：${det > 55 ? '已进入' : '尚未进入'}。<br>
+        <span style="color:var(--dim)">这条路线可行。</span>`;
+      if (!solved) {
+        solved = true;
+        const b = document.getElementById('go-act6');
+        if (b) setTimeout(() => { b.disabled = false; }, 500);
+      }
+    } else if (q < 25) {
+      cq.classList.add('warn'); cs.className = 's warn'; cs.textContent = '偏高';
+      tx.innerHTML = `峰值热流 <b>${q.toFixed(1)} MW/m²</b>——还是太高。<br>
+        <span style="color:var(--dim)">把掠射角再压小一点（更斜），或者提高脱靶强度。</span>`;
+    } else {
+      cq.classList.add('bad'); cs.className = 's bad'; cs.textContent = '烧穿';
+      tx.innerHTML = `峰值热流 <b>${q.toFixed(1)} MW/m²</b>——远超材料上限。<br>
+        靶板上的那块钨会在几秒钟内被蒸发。<br>
+        <span style="color:var(--dim)">要么把热流摊开（减小掠射角），要么让它脱靶。</span>`;
+    }
+  }
+
+  sa.addEventListener('input', update);
+  sd.addEventListener('input', update);
+  update();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   交互 7 · 成本分解
+   ══════════════════════════════════════════════════════════════ */
+
+function setupBudget(nextId) {
+  let cv = null;
+
+  function parts() {
+    const magnet = Math.pow(D.Bt / 5.3, 2.2) * Math.pow(D.R0, 0.6) * 40;
+    const vessel = Math.pow(volume() / 800, 0.85) * 35;
+    const shield = Math.pow(D.a * D.kappa, 1.4) * 6;
+    const system = 18;
+    return [
+      ['磁体系统', magnet, '#D2694A'],
+      ['真空室', vessel, '#FFB347'],
+      ['屏蔽层', shield, '#8B9DC3'],
+      ['系统集成', system, '#4EC9B0'],
+    ];
+  }
+
+  function draw() {
+    if (!cv) cv = setupCanvas('cv-budget', 250);
+    const { ctx, w, h } = cv;
+    ctx.clearRect(0, 0, w, h);
+    grid(ctx, w, h, 8, 4);
+
+    const padL = 30, padR = 20, padT = 34, padB = 48;
+    const pw = w - padL - padR;
+
+    const ps = parts();
+    const total = ps.reduce((s, [, v]) => s + v, 0);
+
+    // 堆叠横条
+    const barY = padT + 20;
+    const barH = 36;
+    let acc = padL;
+    ps.forEach(([, v, c]) => {
+      const bw = v / total * pw;
+      ctx.fillStyle = c;
+      ctx.fillRect(acc, barY, bw, barH);
+      acc += bw;
+    });
+
+    // 总成本标注
+    ctx.fillStyle = PAPER;
+    ctx.font = '600 13px Consolas,monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`总成本指数 ${total.toFixed(0)}`, padL, padT);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = DIM;
+    ctx.font = '11px Consolas,monospace';
+    ctx.fillText('（相对值）', padL + pw, padT);
+
+    // 图例
+    ctx.font = '11px Consolas,monospace';
+    let ly = barY + barH + 34;
+    ps.forEach(([name, v, c], i) => {
+      const pct = (v / total * 100);
+      ctx.fillStyle = c;
+      ctx.fillRect(padL, ly - 9, 10, 10);
+      ctx.fillStyle = PAPER;
+      ctx.textAlign = 'left';
+      ctx.fillText(`${name}`, padL + 18, ly);
+      ctx.fillStyle = DIM;
+      ctx.fillText(`${v.toFixed(0)}  (${pct.toFixed(0)}%)`, padL + 130, ly);
+      if (i % 2 === 1) ly += 26;
+    });
+    // 第二列
+    ly = barY + barH + 34;
+    ps.forEach(([name, v, c], i) => {
+      if (i % 2 === 0) return;
+      // 已在上面处理
+    });
+  }
+
+  draw();
+  const b = document.getElementById('go-act7');
+  if (b) setTimeout(() => { b.disabled = false; }, 500);
+}
+
+renderScene('prologue');
+</script>
+</body>
+</html>
