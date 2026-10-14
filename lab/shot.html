@@ -7,15 +7,15 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#080A0E; --panel:#0D1117; --amber:#FFB347; --teal:#4EC9B0;
-  --rust:#D2694A; --paper:#E8E2D4; --dim:#5A6472;
-  --grid:#141A22; --line:#1C2530;
+  --bg:#0A0E14; --panel:#111720; --amber:#FFB347; --teal:#5BD9BE;
+  --rust:#E07A5A; --paper:#F2EDE0; --dim:#7C8798;
+  --grid:#1A212B; --line:#263141;
 }
 html{scroll-behavior:smooth}
 body{
   background:var(--bg); color:var(--paper);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",serif;
-  line-height:2.05; letter-spacing:.015em; font-size:16.5px;
+  line-height:2.05; letter-spacing:.015em; font-size:17px;
   background-image:
     linear-gradient(var(--grid) 1px,transparent 1px),
     linear-gradient(90deg,var(--grid) 1px,transparent 1px);
@@ -23,21 +23,34 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 
-/* ══════════ 顶部状态栏 ══════════ */
+/* ══════════ 顶部状态栏 + 进度 ══════════ */
 .topbar{
   position:sticky;top:0;z-index:100;
-  background:rgba(8,10,14,.94);backdrop-filter:blur(12px);
+  background:rgba(10,14,20,.96);backdrop-filter:blur(12px);
   border-bottom:1px solid var(--line);
   padding:11px 0
 }
 .topbar-in{
   max-width:680px;margin:0 auto;padding:0 24px;
   display:flex;justify-content:space-between;align-items:center;
-  font-family:"Consolas",monospace;font-size:12px
+  font-family:"Consolas",monospace;font-size:12px;gap:12px
 }
-.tb-title{color:var(--teal);letter-spacing:.05em}
-.tb-hud{color:var(--dim);display:flex;gap:14px}
+.tb-title{color:var(--teal);letter-spacing:.05em;white-space:nowrap}
+.tb-hud{color:var(--dim);display:flex;gap:14px;white-space:nowrap}
 .tb-hud b{color:var(--amber);font-weight:400}
+
+/* 进度条 */
+.tb-prog{
+  display:flex;align-items:center;gap:8px;color:var(--dim);
+  font-family:Consolas,monospace;font-size:11.5px;white-space:nowrap
+}
+.tb-prog .pips{display:flex;gap:3px}
+.tb-prog .pip{
+  width:9px;height:3px;border-radius:2px;background:#26303D;
+  transition:background .3s
+}
+.tb-prog .pip.done{background:var(--teal)}
+.tb-prog .pip.now{background:var(--amber);width:16px}
 
 /* ══════════ 正文容器 ══════════ */
 .page{max-width:680px;margin:0 auto;padding:52px 24px 120px}
@@ -52,30 +65,30 @@ body{
 .scene-head .t{color:var(--dim)}
 
 /* ══════════ 叙事段落 ══════════ */
-.narr{margin-bottom:26px;color:#C5CEDA}
+.narr{margin-bottom:26px;color:#DCE4F0}
 .narr.em{color:var(--paper)}
 .narr .hl{color:var(--amber)}
 .narr .warn{color:var(--rust)}
 
 /* ══════════ 对话 ══════════ */
-.dlg{margin:0 0 26px 0;padding-left:20px;border-left:2px solid #1E2733}
+.dlg{margin:0 0 26px 0;padding-left:20px;border-left:2px solid #2C3849}
 .dlg.me{border-left-color:var(--teal)}
 .dlg.chen{border-left-color:var(--amber)}
 .dlg .who{
   font-family:"Consolas",monospace;font-size:12px;letter-spacing:.1em;
-  margin-bottom:5px;color:var(--dim)
+  margin-bottom:5px;color:#8A96A8
 }
 .dlg.chen .who{color:var(--amber)}
 .dlg.me .who{color:var(--teal)}
-.dlg .say{color:var(--paper);font-size:16.5px}
-.dlg .say .quiet{color:#8A949F}
-.dlg .act{font-size:15px;color:#7A8691;font-style:normal;margin-top:8px}
+.dlg .say{color:var(--paper);font-size:17px}
+.dlg .say .quiet{color:#9AA5B5}
+.dlg .act{font-size:15px;color:#8A96A8;font-style:normal;margin-top:8px}
 
 /* ══════════ 系统 / 日志 ══════════ */
 .sys{
-  background:#0A0E13;border:1px solid var(--line);border-left:2px solid var(--dim);
+  background:#0F1520;border:1px solid var(--line);border-left:2px solid #3A4757;
   padding:14px 18px;margin:0 0 26px;font-family:"Consolas",monospace;
-  font-size:13px;color:#8A949F;line-height:1.8;white-space:pre-wrap
+  font-size:13px;color:#9AA5B5;line-height:1.85;white-space:pre-wrap
 }
 .sys b{color:var(--amber);font-weight:400}
 .sys .ok{color:var(--teal)}
@@ -83,92 +96,113 @@ body{
 
 /* ══════════ 交互面板 ★ ══════════ */
 .panel{
-  border:1px solid var(--line);background:var(--panel);
-  margin:32px 0;border-radius:3px;overflow:hidden
+  border:1px solid #2E3B4D;background:var(--panel);
+  margin:32px 0;border-radius:4px;overflow:hidden;
+  box-shadow:0 1px 0 rgba(255,255,255,.03) inset
 }
 .panel-head{
-  padding:13px 20px;border-bottom:1px solid var(--line);
+  padding:14px 20px;border-bottom:1px solid #2E3B4D;
+  background:#141C27;
   display:flex;justify-content:space-between;align-items:center;
-  font-family:"Consolas",monospace;font-size:12px
+  font-family:"Consolas",monospace;font-size:12.5px
 }
-.panel-head .lbl{color:var(--teal);letter-spacing:.12em}
-.panel-head .st{color:var(--dim)}
-.panel-body{padding:20px}
-.panel-body p.hint{font-size:14.5px;color:#8A949F;margin-bottom:18px;line-height:1.85}
-canvas{width:100%;display:block;border-radius:2px}
+.panel-head .lbl{color:var(--teal);letter-spacing:.12em;font-weight:600}
+.panel-head .st{color:#9AA5B5}
+.panel-body{padding:22px}
+.panel-body p.hint{font-size:15px;color:#B4BECD;margin-bottom:20px;line-height:1.85}
+canvas{width:100%;display:block;border-radius:3px}
 
 /* 通道网格（交互 1） */
 .coils{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
 .coil{
-  background:#0A0E13;border:1px solid #1A232E;border-radius:2px;
+  background:#0F1520;border:1px solid #2A3648;border-radius:3px;
   padding:12px 10px;text-align:center;cursor:pointer;transition:.15s
 }
-.coil:hover{border-color:var(--amber)}
-.coil.picked{border-color:var(--teal);background:#0D1A17}
-.coil.wrong{border-color:var(--rust);background:#1A0F0C}
-.coil .id{font-family:Consolas,monospace;font-size:11px;color:var(--dim);margin-bottom:5px}
+.coil:hover{border-color:var(--amber);background:#18202C}
+.coil.picked{border-color:var(--teal);background:#12251F}
+.coil.wrong{border-color:var(--rust);background:#26140F}
+.coil .id{font-family:Consolas,monospace;font-size:11px;color:#8A96A8;margin-bottom:5px}
 .coil .val{font-family:Consolas,monospace;font-size:15px;color:var(--paper)}
-.coil .dv{font-family:Consolas,monospace;font-size:11px;color:var(--dim);margin-top:3px}
+.coil .dv{font-family:Consolas,monospace;font-size:11px;color:#8A96A8;margin-top:3px}
 .coil.flagged .dv{color:var(--rust)}
 
-/* 滑块 */
-.ctrl{margin-bottom:20px}
+/* 滑块 —— 更醒目 */
+.ctrl{margin-bottom:24px}
 .ctrl:last-child{margin-bottom:0}
-.ctrl-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
-.ctrl-name{font-size:14px;color:#9AA5B1}
-.ctrl-val{font-family:Consolas,monospace;font-size:16px;color:var(--amber)}
+.ctrl-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:11px}
+.ctrl-name{font-size:15px;color:#DCE4F0;display:flex;align-items:center;gap:7px}
+.ctrl-name::before{
+  content:'◀';color:var(--amber);font-size:11px;
+  animation:nudge 1.7s ease-in-out infinite
+}
+@keyframes nudge{
+  0%,100%{transform:translateX(0);opacity:.55}
+  50%{transform:translateX(4px);opacity:1}
+}
+.ctrl-val{font-family:Consolas,monospace;font-size:17px;color:var(--amber);font-weight:600}
 input[type=range]{
-  width:100%;height:4px;-webkit-appearance:none;appearance:none;
-  background:#1E2733;border-radius:2px;outline:none;cursor:pointer
+  width:100%;height:6px;-webkit-appearance:none;appearance:none;
+  background:#2A3648;border-radius:3px;outline:none;cursor:grab;
+  border:1px solid #34425A
 }
+input[type=range]:active{cursor:grabbing}
 input[type=range]::-webkit-slider-thumb{
-  -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+  -webkit-appearance:none;width:22px;height:22px;border-radius:50%;
   background:var(--amber);cursor:grab;border:3px solid var(--panel);
-  box-shadow:0 0 0 1px var(--amber)
+  box-shadow:0 0 0 1px var(--amber),0 0 12px rgba(255,179,71,.35)
 }
+input[type=range]::-moz-range-thumb{
+  width:22px;height:22px;border-radius:50%;background:var(--amber);
+  cursor:grab;border:3px solid var(--panel);
+  box-shadow:0 0 0 1px var(--amber),0 0 12px rgba(255,179,71,.35)
+}
+.ctrl-hint{font-size:13px;color:#8A96A8;margin-top:8px;line-height:1.7}
 
 /* ══════════ 读数 ══════════ */
 .readout{
   display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
-  gap:1px;background:var(--line);border:1px solid var(--line);margin:18px 0
+  gap:1px;background:#2A3648;border:1px solid #2A3648;margin:18px 0;border-radius:3px;
+  overflow:hidden
 }
-.ro{background:var(--panel);padding:13px 15px}
-.ro-k{font-size:11.5px;color:var(--dim);font-family:Consolas,monospace;margin-bottom:5px}
-.ro-v{font-family:Consolas,monospace;font-size:18px;color:var(--amber)}
+.ro{background:#131A24;padding:14px 16px}
+.ro-k{font-size:11.5px;color:#8A96A8;font-family:Consolas,monospace;margin-bottom:6px}
+.ro-v{font-family:Consolas,monospace;font-size:19px;color:var(--amber);font-weight:600}
 
 /* ══════════ 后果条 ══════════ */
 .cq{
-  border:1px solid var(--line);border-left:3px solid var(--dim);
-  background:var(--panel);padding:16px 18px;margin:18px 0
+  border:1px solid #2A3648;border-left:3px solid #4A5768;
+  background:#131A24;padding:17px 19px;margin:18px 0;border-radius:3px
 }
-.cq.good{border-left-color:var(--teal)}
-.cq.warn{border-left-color:var(--amber)}
-.cq.bad{border-left-color:var(--rust)}
-.cq-h{display:flex;justify-content:space-between;margin-bottom:10px;
-  font-family:Consolas,monospace;font-size:12.5px}
-.cq-h .t{color:var(--dim);letter-spacing:.1em}
-.cq-h .s.good{color:var(--teal)}.cq-h .s.warn{color:var(--amber)}.cq-h .s.bad{color:var(--rust)}
-.bar{height:7px;background:#131B24;border-radius:4px;overflow:hidden;margin-bottom:11px}
+.cq.good{border-left-color:var(--teal);background:#111E1B}
+.cq.warn{border-left-color:var(--amber);background:#1E1A12}
+.cq.bad{border-left-color:var(--rust);background:#221512}
+.cq-h{display:flex;justify-content:space-between;margin-bottom:11px;
+  font-family:Consolas,monospace;font-size:13px}
+.cq-h .t{color:#9AA5B5;letter-spacing:.1em}
+.cq-h .s.good{color:var(--teal);font-weight:600}
+.cq-h .s.warn{color:var(--amber);font-weight:600}
+.cq-h .s.bad{color:var(--rust);font-weight:600}
+.bar{height:8px;background:#1E2733;border-radius:4px;overflow:hidden;margin-bottom:12px}
 .bar span{display:block;height:100%;width:0;transition:width .25s;border-radius:4px}
-.cq-t{font-size:14.5px;color:#9AA5B1;line-height:1.85}
-.cq-t b{color:var(--paper)}
+.cq-t{font-size:15px;color:#C0C9D6;line-height:1.9}
+.cq-t b{color:var(--paper);font-weight:600}
 
 /* ══════════ 选择 ══════════ */
 .choices{margin:34px 0 0;display:flex;flex-direction:column;gap:11px}
 .choice{
-  background:transparent;border:1px solid #22303D;color:var(--paper);
-  padding:16px 19px;text-align:left;cursor:pointer;font-family:inherit;
-  font-size:15.5px;line-height:1.7;transition:.15s;border-radius:2px
+  background:#131A24;border:1px solid #2E3B4D;color:var(--paper);
+  padding:17px 20px;text-align:left;cursor:pointer;font-family:inherit;
+  font-size:16px;line-height:1.7;transition:.15s;border-radius:3px
 }
-.choice:hover{border-color:var(--amber);color:var(--amber);padding-left:24px}
-.choice .sub{display:block;color:var(--dim);font-size:13.5px;margin-top:5px;font-family:Consolas,monospace}
+.choice:hover{border-color:var(--amber);color:var(--amber);padding-left:25px;background:#1A2230}
+.choice .sub{display:block;color:#8A96A8;font-size:13.5px;margin-top:6px;font-family:Consolas,monospace}
 
 /* ══════════ 附录 ══════════ */
 details.deep{
-  border:1px solid var(--line);background:#0A0E13;margin:30px 0;border-radius:2px
+  border:1px solid var(--line);background:#0F1520;margin:30px 0;border-radius:3px
 }
 details.deep summary{
-  cursor:pointer;padding:14px 19px;font-size:13.5px;color:var(--dim);
+  cursor:pointer;padding:15px 19px;font-size:14px;color:#9AA5B5;
   list-style:none;user-select:none;display:flex;justify-content:space-between;
   font-family:Consolas,monospace
 }
@@ -177,32 +211,34 @@ details.deep summary:hover{color:var(--paper)}
 details.deep summary::after{content:"▾";transition:.2s}
 details.deep[open] summary::after{transform:rotate(180deg)}
 .deep-body{padding:0 21px 21px;border-top:1px solid var(--line);
-  font-size:14px;color:#9AA5B1;line-height:1.9}
+  font-size:14.5px;color:#A8B2C0;line-height:1.95}
 .deep-body h4{font-family:Consolas,monospace;font-size:12px;letter-spacing:.12em;
   color:var(--teal);margin:20px 0 10px;text-transform:uppercase}
 .deep-body h4:first-child{margin-top:20px}
-.eq{background:#060A0F;border-left:2px solid var(--teal);padding:13px 17px;
+.deep-body p{margin-bottom:12px}
+.deep-body b{color:var(--paper);font-weight:600}
+.eq{background:#0A0F16;border-left:2px solid var(--teal);padding:14px 18px;
   margin:12px 0;font-family:Consolas,monospace;font-size:12.5px;
-  color:var(--paper);overflow-x:auto;line-height:1.95;white-space:pre}
-.eq .cm{color:var(--dim)}
-.ref{font-size:13px;color:#7A8691;padding:8px 0 8px 15px;
-  border-left:1px solid #1E2733;margin-bottom:7px;line-height:1.7}
-.ref b{color:#9AA5B1;font-weight:400}
+  color:#DCE4F0;overflow-x:auto;line-height:2;white-space:pre;border-radius:0 3px 3px 0}
+.eq .cm{color:#7C8798}
+.ref{font-size:13px;color:#98A2B0;padding:9px 0 9px 15px;
+  border-left:1px solid #2A3648;margin-bottom:8px;line-height:1.75}
+.ref b{color:#B4BECD;font-weight:400}
 .tag{display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:2px;
-  background:#141C26;color:var(--dim);margin-right:6px;font-family:Consolas,monospace}
-.tag.cls{background:#1D2620;color:#7FA88E}
-.tag.tool{background:#1A1F2B;color:#7C8FB5}
+  background:#1A212B;color:#8A96A8;margin-right:6px;font-family:Consolas,monospace}
+.tag.cls{background:#16221C;color:#7FA88E}
+.tag.tool{background:#161E2B;color:#7C8FB5}
 
 /* ══════════ 继续按钮 ══════════ */
 .go{margin:44px 0 0;text-align:center}
 .go button{
-  background:transparent;border:1px solid var(--amber);color:var(--amber);
-  padding:14px 44px;font-family:Consolas,monospace;font-size:14px;
-  letter-spacing:.14em;cursor:pointer;transition:.15s;border-radius:2px
+  background:#131A24;border:1px solid var(--amber);color:var(--amber);
+  padding:15px 46px;font-family:Consolas,monospace;font-size:14.5px;
+  letter-spacing:.14em;cursor:pointer;transition:.15s;border-radius:3px
 }
-.go button:hover{background:var(--amber);color:#080A0E}
-.go button:disabled{opacity:.3;cursor:not-allowed;border-color:var(--dim);color:var(--dim)}
-.go button:disabled:hover{background:transparent}
+.go button:hover{background:var(--amber);color:#0A0E14;box-shadow:0 0 20px rgba(255,179,71,.3)}
+.go button:disabled{opacity:.35;cursor:not-allowed;border-color:#4A5768;color:#7C8798}
+.go button:disabled:hover{background:#131A24;color:#7C8798;box-shadow:none}
 
 /* 内容立即可见（不做入场动画，保证任何环境下都可读） */
 .fade{}
@@ -218,7 +254,11 @@ footer{
 
 <div class="topbar">
   <div class="topbar-in">
-    <span class="tb-title">第一次放电 · 值班日志</span>
+    <span class="tb-title">第一次放电</span>
+    <span class="tb-prog">
+      <span class="pips" id="tb-pips"></span>
+      <span id="tb-step">序</span>
+    </span>
     <span class="tb-hud">
       I_p <b id="h-ip">0.00 MA</b>
       q <b id="h-q">—</b>
@@ -279,12 +319,30 @@ function grid(ctx, w, h, cols=8, rows=4) {
   for (let i=1;i<rows;i++){const y=h/rows*i;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
 }
 
-function hud() {
+/* 幕次顺序（用于进度显示） */
+const ORDER = ['prologue', 'act1', 'act2', 'act3', 'act4', 'act5', 'act6', 'act7'];
+
+function hud(currentId) {
   document.getElementById('h-ip').textContent = S.ip.toFixed(2) + ' MA';
   document.getElementById('h-q').textContent = S.q == null ? '—' : S.q.toFixed(2);
-  const m = String(Math.floor(S.t/60)).padStart(2,'0');
-  const s = String(Math.floor(S.t%60)).padStart(2,'0');
+  const m = String(Math.floor(S.t / 60)).padStart(2, '0');
+  const s = String(Math.floor(S.t % 60)).padStart(2, '0');
   document.getElementById('h-t').textContent = 'T+' + m + ':' + s;
+
+  // 进度
+  const pips = document.getElementById('tb-pips');
+  const step = document.getElementById('tb-step');
+  if (pips && currentId) {
+    const idx = ORDER.indexOf(currentId);
+    pips.innerHTML = ORDER.map((_, i) => {
+      if (i < idx) return '<i class="pip done"></i>';
+      if (i === idx) return '<i class="pip now"></i>';
+      return '<i class="pip"></i>';
+    }).join('');
+    const label = currentId === 'prologue' ? '序'
+                : '第 ' + currentId.replace('act', '') + ' 幕';
+    step.textContent = label + (idx >= 0 ? ' · ' + (idx + 1) + '/' + ORDER.length : '');
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -305,10 +363,23 @@ prologue: {
       空调声。很低，低到你已经听不见了。
     </div>
     <div class="narr fade">
-      控制室只剩你一个。三排屏幕，其中两排是黑的——那两台装置今晚不跑。
-      窗外是冷却塔的白雾，在路灯底下慢慢翻。
+      控制室里有六个人。
     </div>
     <div class="narr fade">
+      但主控台前只有一个位置。那个位置是你的。
+    </div>
+    <div class="narr fade">
+      后面是值班区。老周靠在椅子上打盹，小吴戴着耳机刷手机，
+      还有两个在低声聊昨天的球赛。角落里有人在泡面，
+      那股味道一飘过来，你就知道自己今晚大概睡不成了。
+    </div>
+    <div class="narr fade">
+      他们今晚的工作是「<span class="hl">在需要的时候出现</span>」。
+    </div>
+    <div class="narr fade em">
+      而"需要的时候"，通常意味着你已经把事情搞砸了。
+    </div>
+    <div class="narr fade" style="margin-top:32px">
       你面前的屏幕上，真空室已经抽到 <span class="hl">10⁻⁸ 毫巴</span>。
       磁场线圈全部就位，绿色指示灯一排排亮着，安静得像假的。
     </div>
@@ -335,13 +406,13 @@ prologue: {
     </div>
     <div class="dlg me fade">
       <div class="who">你</div>
-      <div class="say">「陈师傅，我今晚想做到 80 万安培。」</div>
+      <div class="say">「陈师傅，我今晚想做到 800 kA。」</div>
     </div>
     <div class="dlg chen fade">
       <div class="who">老陈</div>
       <div class="say">「……」</div>
       <div class="act">这回他真醒了。</div>
-      <div class="say">「第一次独立值班，就想上 80？」</div>
+      <div class="say">「第一次独立值班，就想上 800？」</div>
     </div>
     <div class="dlg me fade">
       <div class="who">你</div>
@@ -380,7 +451,7 @@ prologue: {
       你看了眼时间。凌晨三点十七分。
     </div>
     <div class="narr fade">
-      今晚的目标很清楚了：把等离子体升到 80 万安培，
+      今晚的目标很清楚了：把等离子体升到 800 kA，
       进入平顶段，维持 800 毫秒。
     </div>
     <div class="sys fade">
@@ -639,7 +710,7 @@ act3: {
   onEnter: () => { S.ip = 0.8; S.t = 90; },   // 升流已完成
   render: () => `
     <div class="narr fade">
-      电流平稳爬到 80 万安培。屏幕上的曲线干净得像教科书。
+      电流平稳爬到 800 kA。屏幕上的曲线干净得像教科书。
     </div>
     <div class="narr fade">
       磁诊断给出等离子体位置：中心在 R = 0.92 m，垂直位置稳得像钉住了一样。
@@ -1466,7 +1537,7 @@ function renderScene(id) {
     </div>
     ${sc.render()}
   `;
-  hud();
+  hud(id);
   window.scrollTo({ top: 0, behavior: 'instant' });
 
   // 统一绑定"继续"按钮（交互模块只负责启用/禁用，不覆盖 onclick）
