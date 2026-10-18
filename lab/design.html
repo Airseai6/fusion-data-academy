@@ -181,6 +181,41 @@ footer{
   font-family:Consolas,monospace;font-size:11.5px;color:#3A424E;
   border-top:1px solid var(--line);padding-top:22px;margin-top:40px
 }
+
+/* ══════════ 移动端适配 ══════════ */
+@media (max-width: 720px){
+  body{font-size:16px;line-height:1.95;overflow-x:hidden}
+  .page{max-width:100%;padding:34px 18px 100px}
+  .topbar{padding:9px 0}
+  .topbar-in{max-width:100%;padding:0 14px;gap:8px;flex-wrap:nowrap}
+  .tb-title{font-size:12.5px;white-space:nowrap}
+  .tb-prog{flex:1;min-width:0;justify-content:center}
+  .pips{gap:3px}
+  .pip{width:7px}
+  .tb-step{font-size:11.5px;white-space:nowrap}
+  .tb-hud{font-size:11px;gap:7px;white-space:nowrap}
+  .tb-hud b{font-size:12px}
+  .stage{grid-template-columns:1fr !important}
+  .stage canvas{max-width:100%}
+  .readout{grid-template-columns:repeat(2,1fr) !important}
+  .panel-head{flex-direction:column;align-items:flex-start;gap:6px}
+  .ctrl{flex-direction:column;align-items:stretch;gap:6px}
+  .ctrl-val{align-self:flex-end}
+  .dlg{padding-left:14px;border-left-width:2px}
+  .dlg .who{font-size:13px}
+  .dlg .say{font-size:15.5px}
+  .sys{font-size:12px}
+  .scene-head{font-size:11px}
+  .choice{padding:12px 14px}
+  .go button{padding:13px 28px;font-size:15px}
+}
+@media (max-width: 420px){
+  body{font-size:15.5px}
+  .page{padding:28px 14px 90px}
+  .tb-title{display:none}
+  .tb-step{font-size:11px}
+}
+
 </style>
 </head>
 <body>

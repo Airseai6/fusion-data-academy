@@ -12,6 +12,7 @@
   --grid:#1A212B; --line:#263141;
 }
 html{scroll-behavior:smooth}
+
 body{
   background:var(--bg); color:var(--paper);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",serif;
@@ -248,6 +249,46 @@ footer{
   font-family:Consolas,monospace;font-size:11.5px;color:#3A424E;
   border-top:1px solid var(--line);padding-top:22px;margin-top:40px
 }
+
+/* ══════════ 移动端适配 ══════════ */
+@media (max-width: 720px){
+  body{font-size:16px;line-height:1.95;overflow-x:hidden}
+  .page{max-width:100%;padding:34px 18px 100px}
+  .topbar{padding:9px 0}
+  .topbar-in{max-width:100%;padding:0 14px;gap:8px;flex-wrap:nowrap}
+  .tb-title{font-size:12.5px;white-space:nowrap}
+  .tb-prog{flex:1;min-width:0;justify-content:center}
+  .pips{gap:3px}
+  .pip{width:7px}
+  .tb-step{font-size:11.5px;white-space:nowrap}
+  .tb-hud{font-size:11px;gap:7px;white-space:nowrap}
+  .tb-hud b{font-size:12px}
+  /* 交互面板：两列改单列 */
+  .stage{grid-template-columns:1fr !important}
+  .stage canvas{max-width:100%}
+  .readout{grid-template-columns:repeat(2,1fr) !important}
+  .panel-head{flex-direction:column;align-items:flex-start;gap:6px}
+  .ctrl{flex-direction:column;align-items:stretch;gap:6px}
+  .ctrl-val{align-self:flex-end}
+  /* 对话 */
+  .dlg{padding-left:14px;border-left-width:2px}
+  .dlg .who{font-size:13px}
+  .dlg .say{font-size:15.5px}
+  /* 其他 */
+  .sys{font-size:12px}
+  .scene-head{font-size:11px}
+  .choice{padding:12px 14px}
+  .go button{padding:13px 28px;font-size:15px}
+}
+
+@media (max-width: 420px){
+  body{font-size:15.5px}
+  .page{padding:28px 14px 90px}
+  .tb-title{display:none}
+  .tb-step{font-size:11px}
+  .readout{grid-template-columns:1fr 1fr !important}
+}
+
 </style>
 </head>
 <body>
@@ -378,6 +419,11 @@ prologue: {
     </div>
     <div class="narr fade em">
       而"需要的时候"，通常意味着你已经把事情搞砸了。
+    </div>
+    <div class="narr fade" style="margin-top:32px">
+      白天这台装置要跑正式实验，一天几十炮，一分钟都不能耽误。
+      夜里的窗口留给你这种"想试新东西"的人——
+      成不成，天亮之前见分晓。
     </div>
     <div class="narr fade" style="margin-top:32px">
       你面前的屏幕上，真空室已经抽到 <span class="hl">10⁻⁸ 毫巴</span>。
@@ -528,13 +574,29 @@ act1: {
       </div>
     </div>
     <div class="narr fade">
-      你把线圈逐个通电，读回每一路的电流值。
-      屏幕上刷出一串数字——设定值，和实际读回值。
+      值班区那边，小吴摘了耳机走过来。他管线圈电源，
+      今晚的活儿是报数——给定值和读回值，他念，你核。
+    </div>
+    <div class="dlg me fade">
+      <div class="who">小吴</div>
+      <div class="say">「PF1，给定 10.00，读回 10.01。」</div>
+      <div class="say">「PF2，给定 10.00，读回 9.99。」</div>
+      <div class="say">「PF3，给定 10.00，读回 10.00。」</div>
+      <div class="act">他念到一半，你抬手让他停了一下。</div>
+    </div>
+    <div class="dlg me fade">
+      <div class="who">你</div>
+      <div class="say">「等等。刚才那一路，再念一遍。」</div>
+    </div>
+    <div class="narr fade">
+      程序上，他念一遍就够了。
+      但在这台装置上，「信别人的读数」和「自己核一遍」，是两回事。
     </div>
     <div class="sys fade">
       空载测试 · 逐路读回
       ────────────────────────
       设定：<b>全部 12 路，各 10.00 kA</b>
+      操作：核对每一路的给定值与读回值
     </div>
 
     <div class="panel fade">
@@ -610,7 +672,10 @@ act2: {
   onEnter: () => { S.t = 60; },
   render: () => `
     <div class="narr fade">
-      你回到主控屏。准备开始升流。
+      你回到主控屏。屏幕右上角写着：<span class="hl">今晚第 2 炮</span>。
+    </div>
+    <div class="narr fade">
+      第 1 炮是空载测试，没出等离子体。这一炮才是真正的开始。
     </div>
     <div class="dlg chen fade">
       <div class="who">老陈</div>
@@ -628,6 +693,10 @@ act2: {
     </div>
     <div class="narr fade">
       你打开升流控制界面。一条曲线，一个滑块。
+    </div>
+    <div class="narr fade">
+      后面传来小吴的声音：「磁通储备已确认，可用。」<br>
+      你应了一声。这一次，没人替你签字。
     </div>
 
     <div class="panel fade">
@@ -1023,6 +1092,10 @@ act5: {
   render: () => `
     <div class="narr fade">
       温度到位了。平顶段还剩四百毫秒。
+    </div>
+    <div class="narr fade">
+      值班区那边突然安静下来。刚才还在聊球赛的两个人不说话了——
+      他们也在看同一个屏。
     </div>
     <div class="narr fade">
       你把 Mirnov 线圈的频谱调出来——那是一圈小线圈，
