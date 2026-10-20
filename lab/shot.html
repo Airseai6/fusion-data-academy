@@ -251,6 +251,20 @@ footer{
 }
 
 /* ══════════ 移动端适配 ══════════ */
+/* ══════════ 结局：分享卡 + 重玩提示 ══════════ */
+.go{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn-share{
+  background:var(--teal);color:#08110E;border:1px solid var(--teal);
+  padding:13px 30px;font-size:15px;border-radius:3px;cursor:pointer;
+  font-family:inherit;transition:.18s;font-weight:600
+}
+.btn-share:hover{background:#7DE8CF;box-shadow:0 0 18px rgba(91,217,190,.35)}
+.replay-tip{
+  margin:30px auto 0;max-width:520px;padding:16px 20px;
+  background:var(--panel);border-left:3px solid var(--amber);
+  color:#B8C4D4;font-size:14px;line-height:1.85;border-radius:0 3px 3px 0
+}
+
 @media (max-width: 720px){
   body{font-size:16px;line-height:1.95;overflow-x:hidden}
   .page{max-width:100%;padding:34px 18px 100px}
@@ -1577,7 +1591,18 @@ act7: {
       </div>
     </details>
 
-    <div class="go"><button id="go-act7">再来一次</button></div>
+    <div class="go">
+      <button id="share-card" class="btn-share">保存成绩卡</button>
+      <button id="go-act7">再来一次</button>
+    </div>
+
+    <div class="replay-tip">
+      ${grade === 'A'
+        ? '你拿到了最高评级。换个升流策略试试，结局会不一样。'
+        : grade === 'B'
+          ? '距离 A 级只差一点 —— 关键是别跳过空载测试，危机时别赌。'
+          : 'C 级不是失败，是"数据里有坑"。重来一次，把每个检查做完整。'}
+    </div>
   `;
   },
   after: () => {
@@ -1586,6 +1611,8 @@ act7: {
       S.trust = 50; S.flags = {}; S.ip = 0; S.q = null; S.t = 0;
       renderScene('prologue');
     };
+    const s = document.getElementById('share-card');
+    if (s) s.onclick = () => makeShareCard();
   },
   next: null
 }
@@ -1595,6 +1622,117 @@ act7: {
 /* ══════════════════════════════════════════════════════════════
    渲染引擎
    ══════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════════════════
+   成绩卡生成（Canvas → PNG 下载/长按保存）
+   ══════════════════════════════════════════════════════════════ */
+function makeShareCard() {
+  const trust = S.trust;
+  const grade = trust >= 75 ? 'A' : trust >= 50 ? 'B' : 'C';
+  const gc = grade === 'A' ? '#5BD9BE' : grade === 'B' ? '#FFB347' : '#E07A5A';
+
+  const W = 1080, H = 1350;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+
+  // 背景渐变
+  const g = x.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#121A26');
+  g.addColorStop(1, '#080B11');
+  x.fillStyle = g;
+  x.fillRect(0, 0, W, H);
+
+  // 网格
+  x.strokeStyle = 'rgba(38,49,65,0.55)';
+  x.lineWidth = 1;
+  for (let i = 0; i < W; i += 72) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, H); x.stroke(); }
+  for (let i = 0; i < H; i += 72) { x.beginPath(); x.moveTo(0, i); x.lineTo(W, i); x.stroke(); }
+
+  // 顶部
+  x.fillStyle = '#7C8798';
+  x.font = '30px Consolas, monospace';
+  x.fillText('UNDERSTANDING FUSION', 76, 108);
+  x.fillStyle = gc;
+  x.font = 'bold 58px Consolas, monospace';
+  x.fillText('EP 01', 76, 178);
+  x.fillRect(80, 196, 130, 5);
+
+  x.fillStyle = '#F2EDE0';
+  x.font = 'bold 62px "Microsoft YaHei", sans-serif';
+  x.fillText('第一次放电', 76, 292);
+  x.fillStyle = '#7C8798';
+  x.font = '30px "Microsoft YaHei", sans-serif';
+  x.fillText('托卡马克值班日志 · 一局 30 分钟', 76, 344);
+
+  // 评级圆环
+  x.strokeStyle = gc;
+  x.lineWidth = 9;
+  x.beginPath();
+  x.arc(W / 2, 640, 186, 0, Math.PI * 2);
+  x.stroke();
+
+  // 内圈淡光
+  x.strokeStyle = gc + '33';
+  x.lineWidth = 26;
+  x.beginPath();
+  x.arc(W / 2, 640, 186, 0, Math.PI * 2);
+  x.stroke();
+
+  x.textAlign = 'center';
+  x.fillStyle = gc;
+  x.font = 'bold 230px Consolas, monospace';
+  x.fillText(grade, W / 2, 726);
+
+  x.fillStyle = '#7C8798';
+  x.font = '32px "Microsoft YaHei", sans-serif';
+  x.fillText('数据质量', W / 2, 890);
+
+  x.fillStyle = '#F2EDE0';
+  x.font = 'bold 46px Consolas, monospace';
+  x.fillText('信任值 ' + trust, W / 2, 962);
+
+  // 关键决策
+  x.textAlign = 'left';
+  x.font = '31px "Microsoft YaHei", sans-serif';
+  const items = [];
+  if (S.flags.foundPF4) items.push(['✓', '找出了 PF4 的 6% 偏差', '#5BD9BE']);
+  else items.push(['✗', '跳过了空载测试', '#E07A5A']);
+  if (trust >= 75) items.push(['✓', '危机处理果断，全程未赌', '#5BD9BE']);
+  else if (trust >= 50) items.push(['~', '有一处犹豫或跳步', '#FFB347']);
+  else items.push(['✗', '关键节点赌了一把', '#E07A5A']);
+
+  let y = 1062;
+  items.forEach(([mark, txt, col]) => {
+    x.fillStyle = col;
+    x.fillText(mark, 118, y);
+    x.fillStyle = '#B8C4D4';
+    x.fillText(txt, 168, y);
+    y += 56;
+  });
+
+  // 底部
+  x.fillStyle = '#263141';
+  x.fillRect(76, H - 112, W - 152, 2);
+  x.fillStyle = '#7C8798';
+  x.font = '26px "Microsoft YaHei", sans-serif';
+  x.fillText('从零理解核聚变 · 20 讲', 76, H - 56);
+  x.textAlign = 'right';
+  x.font = '25px Consolas, monospace';
+  x.fillText('airseai6.github.io', W - 76, H - 56);
+
+  // 下载
+  try {
+    const a = document.createElement('a');
+    a.download = `第一次放电-${grade}级.png`;
+    a.href = c.toDataURL('image/png');
+    a.click();
+  } catch (e) {
+    // 移动端兜底：新窗口显示，长按保存
+    const w = window.open('', '_blank');
+    if (w) w.document.write(`<img src="${c.toDataURL('image/png')}" style="width:100%">`);
+  }
+}
 
 const page = document.getElementById('page');
 
