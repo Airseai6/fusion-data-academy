@@ -182,6 +182,21 @@ footer{
   border-top:1px solid var(--line);padding-top:22px;margin-top:40px
 }
 
+/* ══════════ 结局：设计卡 + 重玩提示 ══════════ */
+.go{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.go .btn-share{
+  background:var(--teal) !important;color:#08110E !important;
+  border:1px solid var(--teal) !important;
+  padding:13px 30px;font-size:15px;border-radius:3px;cursor:pointer;
+  font-family:inherit;transition:.18s;font-weight:600;letter-spacing:.02em
+}
+.go .btn-share:hover{background:#7DE8CF !important;box-shadow:0 0 18px rgba(91,217,190,.35)}
+.replay-tip{
+  margin:30px auto 0;max-width:520px;padding:16px 20px;
+  background:var(--panel);border-left:3px solid var(--amber);
+  color:#B8C4D4;font-size:14px;line-height:1.85;border-radius:0 3px 3px 0
+}
+
 /* ══════════ 移动端适配 ══════════ */
 @media (max-width: 720px){
   body{font-size:16px;line-height:1.95;overflow-x:hidden}
@@ -1587,7 +1602,18 @@ act8: {
       </div>
     </details>
 
-    <div class="go"><button id="go-act8">回到第一页，重新设计</button></div>
+    <div class="go">
+      <button id="share-card2" class="btn-share">保存设计卡</button>
+      <button id="go-act8">重新设计</button>
+    </div>
+
+    <div class="replay-tip">
+      ${grade === 'A'
+        ? '优秀的设计。试试用更小的装置、更强的磁场达到同样的 Q —— 那是另一条路。'
+        : grade === 'B'
+          ? '方向对了。把 Q 推过 5，或者把成本再压 10%，就能到 A。'
+          : 'Q 不够，成本也不低。先解决 Q —— 尺寸和磁场是最有力的两个旋钮。'}
+    </div>
   `;
   },
   after: () => {
@@ -1599,6 +1625,8 @@ act8: {
       });
       renderScene('prologue');
     };
+    const s = document.getElementById('share-card2');
+    if (s) s.onclick = () => makeDesignCard();
   },
   next: null
 }
@@ -1608,6 +1636,127 @@ act8: {
 /* ══════════════════════════════════════════════════════════════
    渲染引擎
    ══════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════════════════
+   设计卡生成（Canvas → PNG）
+   ══════════════════════════════════════════════════════════════ */
+function makeDesignCard() {
+  const q = Qvalue();
+  const c = costIndex();
+
+  let score = 0;
+  if (q >= 5) score += 45;
+  else if (q >= 3) score += 22 + (q - 3) * 11;
+  else score += q * 7;
+  score += Math.max(0, 35 - (c - 90) * 0.16);
+  if (D.kappa <= 1.6) score += 10;
+  else if (D.kappa <= 2.0) score += 5;
+  if (D.delta >= 0.35) score += 5;
+  if (D.Bt > 10) score -= 4;
+  score = Math.max(0, Math.min(95, score));
+
+  const grade = score >= 75 ? 'A' : score >= 55 ? 'B' : score >= 35 ? 'C' : 'D';
+  const gc = grade === 'A' ? '#5BD9BE' : grade === 'B' ? '#FFB347' : '#E07A5A';
+
+  const W = 1080, H = 1350;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const x = cv.getContext('2d');
+
+  // 背景
+  const g = x.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#121A26');
+  g.addColorStop(1, '#080B11');
+  x.fillStyle = g;
+  x.fillRect(0, 0, W, H);
+
+  // 网格
+  x.strokeStyle = 'rgba(38,49,65,0.55)';
+  x.lineWidth = 1;
+  for (let i = 0; i < W; i += 72) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, H); x.stroke(); }
+  for (let i = 0; i < H; i += 72) { x.beginPath(); x.moveTo(0, i); x.lineTo(W, i); x.stroke(); }
+
+  // 顶部
+  x.fillStyle = '#7C8798';
+  x.font = '30px Consolas, monospace';
+  x.fillText('UNDERSTANDING FUSION', 76, 108);
+  x.fillStyle = gc;
+  x.font = 'bold 58px Consolas, monospace';
+  x.fillText('EP 02', 76, 178);
+  x.fillRect(80, 196, 130, 5);
+
+  x.fillStyle = '#F2EDE0';
+  x.font = 'bold 62px "Microsoft YaHei", sans-serif';
+  x.fillText('造一台', 76, 292);
+  x.fillStyle = '#7C8798';
+  x.font = '30px "Microsoft YaHei", sans-serif';
+  x.fillText('聚变装置设计手记 · 一局 40 分钟', 76, 344);
+
+  // 评级圆
+  x.strokeStyle = gc;
+  x.lineWidth = 9;
+  x.beginPath();
+  x.arc(W / 2, 630, 180, 0, Math.PI * 2);
+  x.stroke();
+  x.strokeStyle = gc + '33';
+  x.lineWidth = 26;
+  x.beginPath();
+  x.arc(W / 2, 630, 180, 0, Math.PI * 2);
+  x.stroke();
+
+  x.textAlign = 'center';
+  x.fillStyle = gc;
+  x.font = 'bold 220px Consolas, monospace';
+  x.fillText(grade, W / 2, 712);
+
+  x.fillStyle = '#7C8798';
+  x.font = '32px "Microsoft YaHei", sans-serif';
+  x.fillText('综合评分', W / 2, 874);
+  x.fillStyle = '#F2EDE0';
+  x.font = 'bold 46px Consolas, monospace';
+  x.fillText(Math.round(score) + ' / 100', W / 2, 938);
+
+  // 关键参数（两列）
+  x.textAlign = 'left';
+  const rows = [
+    ['Q 值', q.toFixed(2), q >= 5 ? '#5BD9BE' : q >= 3 ? '#FFB347' : '#E07A5A'],
+    ['成本指数', c.toFixed(0), '#B8C4D4'],
+    ['大半径 R0', D.R0.toFixed(1) + ' m', '#B8C4D4'],
+    ['环向场 B', D.Bt.toFixed(1) + ' T', D.Bt > 10 ? '#E07A5A' : '#B8C4D4'],
+  ];
+  let y = 1024;
+  x.font = '30px "Microsoft YaHei", sans-serif';
+  rows.forEach(([k, v, col]) => {
+    x.fillStyle = '#7C8798';
+    x.fillText(k, 118, y);
+    x.fillStyle = col;
+    x.font = 'bold 32px Consolas, monospace';
+    x.fillText(v, 380, y);
+    x.font = '30px "Microsoft YaHei", sans-serif';
+    y += 54;
+  });
+
+  // 底部
+  x.fillStyle = '#263141';
+  x.fillRect(76, H - 112, W - 152, 2);
+  x.fillStyle = '#7C8798';
+  x.font = '26px "Microsoft YaHei", sans-serif';
+  x.fillText('从零理解核聚变 · 20 讲', 76, H - 56);
+  x.textAlign = 'right';
+  x.font = '25px Consolas, monospace';
+  x.fillText('airseai6.github.io', W - 76, H - 56);
+
+  // 下载
+  try {
+    const a = document.createElement('a');
+    a.download = `造一台-${grade}级.png`;
+    a.href = cv.toDataURL('image/png');
+    a.click();
+  } catch (e) {
+    const w = window.open('', '_blank');
+    if (w) w.document.write(`<img src="${cv.toDataURL('image/png')}" style="width:100%">`);
+  }
+}
 
 const page = document.getElementById('page');
 
