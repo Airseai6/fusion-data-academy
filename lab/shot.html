@@ -250,6 +250,19 @@ footer{
   border-top:1px solid var(--line);padding-top:22px;margin-top:40px
 }
 
+/* ══════════ 开场引导 ══════════ */
+.intro-wrap{max-width:600px;margin:70px auto 0;text-align:center}
+.intro-eyebrow{font-family:Consolas,monospace;font-size:12px;letter-spacing:.22em;color:var(--dim);margin-bottom:22px}
+.intro-title{font-size:clamp(36px,7vw,54px);font-weight:700;color:var(--paper);letter-spacing:.06em;margin-bottom:12px;line-height:1.2}
+.intro-sub{font-size:15px;color:var(--teal);letter-spacing:.14em;margin-bottom:48px}
+.intro-lead{font-size:17px;line-height:2.25;color:#C8D2E0;margin-bottom:46px}
+.intro-lead .hl{color:var(--amber)}
+.intro-meta{display:flex;justify-content:center;gap:40px;margin-bottom:44px;flex-wrap:wrap}
+.meta-item{text-align:center;min-width:90px}
+.meta-item b{display:block;font-family:Consolas,monospace;font-size:21px;color:var(--amber);margin-bottom:6px;letter-spacing:.02em}
+.meta-item span{font-size:12px;color:var(--dim);letter-spacing:.08em}
+.intro-note{font-size:13.5px;line-height:2.1;color:#7C8798;margin-bottom:8px}
+
 /* ══════════ 存档恢复条 ══════════ */
 #resume-bar{
   position:fixed;top:0;left:0;right:0;z-index:200;
@@ -423,6 +436,11 @@ function hud(currentId) {
   const step = document.getElementById('tb-step');
   if (pips && currentId) {
     const idx = ORDER.indexOf(currentId);
+    if (idx < 0) {              // intro 等不在进度链里的场景
+      pips.innerHTML = '';
+      if (step) step.textContent = '';
+      return;
+    }
     pips.innerHTML = ORDER.map((_, i) => {
       if (i < idx) return '<i class="pip done"></i>';
       if (i === idx) return '<i class="pip now"></i>';
@@ -439,6 +457,42 @@ function hud(currentId) {
    ══════════════════════════════════════════════════════════════ */
 
 const SCENES = {
+
+/* ───────────── 开场引导 ───────────── */
+intro: {
+  n: '', t: '',
+  render: () => `
+    <div class="intro-wrap">
+      <div class="intro-eyebrow">UNDERSTANDING FUSION</div>
+      <h1 class="intro-title">第一次放电</h1>
+      <div class="intro-sub">托卡马克值班日志</div>
+
+      <div class="intro-lead">
+        凌晨三点十七分。<br>
+        控制室里有六个人，但主控台前只有一个位置。<br>
+        <span class="hl">那个位置是你的。</span>
+      </div>
+
+      <div class="intro-meta">
+        <div class="meta-item"><b>≈30 分钟</b><span>一局</span></div>
+        <div class="meta-item"><b>7 幕</b><span>6 个决策点</span></div>
+        <div class="meta-item"><b>A / B / C</b><span>结局评级</span></div>
+      </div>
+
+      <div class="intro-note">
+        不需要物理基础 · 术语第一次出现都有解释<br>
+        玩到一半可以关掉，下次接着来
+      </div>
+
+      <div class="go"><button id="start-btn">开始值班</button></div>
+    </div>
+  `,
+  after: () => {
+    const b = document.getElementById('start-btn');
+    if (b) b.onclick = () => renderScene('prologue');
+  },
+  next: 'prologue'
+},
 
 /* ───────────── 序 ───────────── */
 prologue: {
@@ -1779,7 +1833,7 @@ const SCENE_NAMES = {
 };
 
 function saveProgress(id) {
-  if (id === 'prologue' || id === 'act7') return;
+  if (id === 'prologue' || id === 'act7' || id === 'intro') return;
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       scene: id,
@@ -1795,7 +1849,7 @@ function loadProgress() {
     if (!raw) return null;
     const d = JSON.parse(raw);
     if (Date.now() - d.at > 7 * 864e5) { localStorage.removeItem(SAVE_KEY); return null; }
-    if (!d.scene || d.scene === 'prologue' || d.scene === 'act7') return null;
+    if (!d.scene || d.scene === 'prologue' || d.scene === 'act7' || d.scene === 'intro') return null;
     if (!SCENES[d.scene]) return null;
     return d;
   } catch (e) { return null; }
@@ -2732,7 +2786,7 @@ function setupData(nextId) {
    启动
    ══════════════════════════════════════════════════════════════ */
 
-renderScene('prologue');
+renderScene('intro');
 showResumeBar();
 </script>
 </body>

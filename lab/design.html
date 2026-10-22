@@ -231,6 +231,37 @@ footer{
   .tb-step{font-size:11px}
 }
 
+
+/* ══════════ 存档恢复条 ══════════ */
+#resume-bar{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  background:linear-gradient(90deg,#132430,#111A24);
+  border-bottom:1px solid var(--teal);
+  padding:12px 22px;
+  display:flex;align-items:center;gap:14px;
+  font-size:14px;
+  transform:translateY(-100%);
+  transition:transform .38s cubic-bezier(.2,.8,.2,1);
+  box-shadow:0 4px 22px rgba(0,0,0,.45)
+}
+#resume-bar.in{transform:translateY(0)}
+body.has-resume{padding-top:57px}
+@media (max-width:720px){body.has-resume{padding-top:92px}}
+.rb-txt{flex:1;color:#B8C4D4}
+.rb-txt b{color:var(--teal);font-weight:600}
+.rb-go{
+  background:var(--teal);color:#08110E;border:none;
+  padding:8px 22px;border-radius:3px;cursor:pointer;
+  font-weight:600;font-family:inherit;font-size:14px;transition:.15s
+}
+.rb-go:hover{background:#7DE8CF;box-shadow:0 0 14px rgba(91,217,190,.4)}
+.rb-no{
+  background:transparent;color:#7C8798;border:1px solid #303D4E;
+  padding:8px 16px;border-radius:3px;cursor:pointer;
+  font-family:inherit;font-size:13px;transition:.15s
+}
+.rb-no:hover{border-color:#4A5A6E;color:#B8C4D4}
+
 </style>
 </head>
 <body>
@@ -1758,6 +1789,76 @@ function makeDesignCard() {
   }
 }
 
+/* ══════════════════════════════════════════════════════════════
+   进度存档（第二部）
+   ══════════════════════════════════════════════════════════════ */
+const SAVE_KEY2 = 'fd-design-progress';
+const SCENE_NAMES2 = {
+  act1: '一幕 · 先定它多大', act2: '二幕 · 磁场', act3: '三幕 · 形状',
+  act4: '四幕 · 加热', act5: '五幕 · 第一壁', act6: '六幕 · 排气', act7: '七幕 · 算账'
+};
+
+function saveProgress(id) {
+  if (id === 'prologue' || id === 'act8') return;
+  try {
+    localStorage.setItem(SAVE_KEY2, JSON.stringify({
+      scene: id,
+      D: { R0: D.R0, a: D.a, Bt: D.Bt, kappa: D.kappa, delta: D.delta,
+           Ip: D.Ip, Pheat: D.Pheat, cost: D.cost, trust: D.trust, flags: D.flags },
+      at: Date.now()
+    }));
+  } catch (e) {}
+}
+
+function loadProgress() {
+  try {
+    var raw = localStorage.getItem(SAVE_KEY2);
+    if (!raw) return null;
+    var d = JSON.parse(raw);
+    if (Date.now() - d.at > 7 * 864e5) { localStorage.removeItem(SAVE_KEY2); return null; }
+    if (!d.scene || d.scene === 'prologue' || d.scene === 'act8') return null;
+    if (!SCENES[d.scene]) return null;
+    return d;
+  } catch (e) { return null; }
+}
+
+function clearProgress() {
+  try { localStorage.removeItem(SAVE_KEY2); } catch (e) {}
+}
+
+function resumeGame() {
+  var d = loadProgress();
+  if (!d) return;
+  Object.assign(D, d.D || {});
+  var box = document.getElementById('resume-bar');
+  if (box) box.remove();
+  document.body.classList.remove('has-resume');
+  renderScene(d.scene);
+}
+
+function dismissResume() {
+  clearProgress();
+  var box = document.getElementById('resume-bar');
+  if (box) box.remove();
+  document.body.classList.remove('has-resume');
+}
+
+function showResumeBar() {
+  var d = loadProgress();
+  if (!d) return;
+  var mins = Math.max(1, Math.round((Date.now() - d.at) / 60000));
+  var when = mins < 60 ? mins + ' 分钟前' : Math.round(mins / 60) + ' 小时前';
+  var bar = document.createElement('div');
+  bar.id = 'resume-bar';
+  bar.innerHTML =
+    '<span class="rb-txt">上次做到 <b>' + (SCENE_NAMES2[d.scene] || d.scene) + '</b> · ' + when + '</span>' +
+    '<button class="rb-go" onclick="resumeGame()">继续</button>' +
+    '<button class="rb-no" onclick="dismissResume()">从头开始</button>';
+  document.body.insertBefore(bar, document.body.firstChild);
+  document.body.classList.add('has-resume');
+  requestAnimationFrame(function(){ bar.classList.add('in'); });
+}
+
 const page = document.getElementById('page');
 
 function renderScene(id) {
@@ -1770,6 +1871,7 @@ function renderScene(id) {
     ${sc.render()}
   `;
   hud(id);
+  saveProgress(id);
   window.scrollTo({ top: 0, behavior: 'instant' });
 
   const btn = page.querySelector('.go button');
@@ -2646,6 +2748,7 @@ function setupBudget(nextId) {
 }
 
 renderScene('prologue');
+showResumeBar();
 </script>
 </body>
 </html>
