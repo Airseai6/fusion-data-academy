@@ -250,6 +250,36 @@ footer{
   border-top:1px solid var(--line);padding-top:22px;margin-top:40px
 }
 
+/* ══════════ 存档恢复条 ══════════ */
+#resume-bar{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  background:linear-gradient(90deg,#132430,#111A24);
+  border-bottom:1px solid var(--teal);
+  padding:12px 22px;
+  display:flex;align-items:center;gap:14px;
+  font-size:14px;
+  transform:translateY(-100%);
+  transition:transform .38s cubic-bezier(.2,.8,.2,1);
+  box-shadow:0 4px 22px rgba(0,0,0,.45)
+}
+#resume-bar.in{transform:translateY(0)}
+body.has-resume{padding-top:57px}
+@media (max-width:720px){body.has-resume{padding-top:92px}}
+.rb-txt{flex:1;color:#B8C4D4}
+.rb-txt b{color:var(--teal);font-weight:600}
+.rb-go{
+  background:var(--teal);color:#08110E;border:none;
+  padding:8px 22px;border-radius:3px;cursor:pointer;
+  font-weight:600;font-family:inherit;font-size:14px;transition:.15s
+}
+.rb-go:hover{background:#7DE8CF;box-shadow:0 0 14px rgba(91,217,190,.4)}
+.rb-no{
+  background:transparent;color:#7C8798;border:1px solid #303D4E;
+  padding:8px 16px;border-radius:3px;cursor:pointer;
+  font-family:inherit;font-size:13px;transition:.15s
+}
+.rb-no:hover{border-color:#4A5A6E;color:#B8C4D4}
+
 /* ══════════ 移动端适配 ══════════ */
 /* ══════════ 结局：分享卡 + 重玩提示 ══════════ */
 .go{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
@@ -295,6 +325,10 @@ footer{
   .go button{padding:13px 28px;font-size:15px}
 }
 
+  #resume-bar{padding:10px 14px;gap:9px;font-size:13px;flex-wrap:wrap}
+  .rb-txt{width:100%}
+  .rb-go,.rb-no{padding:7px 16px;font-size:13px}
+}
 @media (max-width: 420px){
   body{font-size:15.5px}
   .page{padding:28px 14px 90px}
@@ -1734,6 +1768,77 @@ function makeShareCard() {
   }
 }
 
+/* ══════════════════════════════════════════════════════════════
+   进度存档
+   ══════════════════════════════════════════════════════════════ */
+const SAVE_KEY = 'fd-shot-progress';
+const SCENE_NAMES = {
+  act1: '一幕 · 开工前十五分钟', act2: '二幕 · 升流',
+  act3: '三幕 · 平顶段', act4: '四幕 · 加热',
+  act5: '五幕 · 那个缓慢增长的峰', act6: '六幕 · 数据回来了'
+};
+
+function saveProgress(id) {
+  if (id === 'prologue' || id === 'act7') return;
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      scene: id,
+      S: { ip: S.ip, q: S.q, t: S.t, trust: S.trust, flags: S.flags },
+      at: Date.now()
+    }));
+  } catch (e) {}
+}
+
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (Date.now() - d.at > 7 * 864e5) { localStorage.removeItem(SAVE_KEY); return null; }
+    if (!d.scene || d.scene === 'prologue' || d.scene === 'act7') return null;
+    if (!SCENES[d.scene]) return null;
+    return d;
+  } catch (e) { return null; }
+}
+
+function clearProgress() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+}
+
+function resumeGame() {
+  const d = loadProgress();
+  if (!d) return;
+  Object.assign(S, d.S || {});
+  const box = document.getElementById('resume-bar');
+  if (box) box.remove();
+  document.body.classList.remove('has-resume');
+  renderScene(d.scene);
+}
+
+function dismissResume() {
+  clearProgress();
+  const box = document.getElementById('resume-bar');
+  if (box) box.remove();
+  document.body.classList.remove('has-resume');
+}
+
+function showResumeBar() {
+  const d = loadProgress();
+  if (!d) return;
+  const mins = Math.max(1, Math.round((Date.now() - d.at) / 60000));
+  const when = mins < 60 ? `${mins} 分钟前` : `${Math.round(mins / 60)} 小时前`;
+  const bar = document.createElement('div');
+  bar.id = 'resume-bar';
+  bar.innerHTML = `
+    <span class="rb-txt">上次玩到 <b>${SCENE_NAMES[d.scene] || d.scene}</b> · ${when}</span>
+    <button class="rb-go" onclick="resumeGame()">继续</button>
+    <button class="rb-no" onclick="dismissResume()">从头开始</button>`;
+  document.body.insertBefore(bar, document.body.firstChild);
+  document.body.classList.add('has-resume');
+  // 滑入动画
+  requestAnimationFrame(() => bar.classList.add('in'));
+}
+
 const page = document.getElementById('page');
 
 function renderScene(id) {
@@ -1749,6 +1854,7 @@ function renderScene(id) {
     ${sc.render()}
   `;
   hud(id);
+  saveProgress(id);
   window.scrollTo({ top: 0, behavior: 'instant' });
 
   // 统一绑定"继续"按钮（交互模块只负责启用/禁用，不覆盖 onclick）
@@ -2627,6 +2733,7 @@ function setupData(nextId) {
    ══════════════════════════════════════════════════════════════ */
 
 renderScene('prologue');
+showResumeBar();
 </script>
 </body>
 </html>
