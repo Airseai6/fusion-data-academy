@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>反直觉 · 抓狐狸</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0F14; --panel:#141A22; --line:#232C38;
+  --ink:#E8EDF4; --dim:#7A8798;
+  --fox:#FF8A4C; --fox-dim:rgba(255,138,76,.22);
+  --ok:#4ADE80; --bad:#F87171; --accent:#60A5FA;
+}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  min-height:100vh; display:flex; flex-direction:column;
+  align-items:center; padding:24px 16px 60px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{width:100%;max-width:760px}
+
+/* ── 顶栏 ── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:28px;
+}
+.ep{font-size:13px;color:#96A5B8;letter-spacing:.12em;font-family:Consolas,monospace}
+.ep b{color:var(--fox)}
+.day{font-size:13px;font-family:Consolas,monospace;color:#96A5B8}
+.day b{color:var(--ink);font-size:15px}
+.day.warn b{color:var(--bad)}
+
+/* ── 标题区 ── */
+.title{font-size:26px;font-weight:700;margin-bottom:10px;letter-spacing:.02em}
+.subtitle{font-size:14.5px;color:#A8B6C8;line-height:1.9;margin-bottom:26px}
+
+/* ── 规则卡 ── */
+.rules{
+  background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:18px 20px;margin-bottom:26px;font-size:14px;line-height:2;
+}
+.rules .r{display:flex;gap:10px;align-items:flex-start}
+.rules .n{
+  flex:0 0 20px;height:20px;border-radius:50%;
+  background:var(--line);color:var(--dim);
+  font-size:11px;display:flex;align-items:center;justify-content:center;
+  margin-top:4px;font-family:Consolas,monospace;
+}
+.rules b{color:var(--fox)}
+
+/* ── 洞区 ── */
+.stage{
+  display:flex;justify-content:center;align-items:center;gap:18px;
+  padding:56px 16px;margin-bottom:12px;flex-wrap:wrap;
+  position:relative;min-height:180px;
+}
+.stage.ring{position:relative;height:340px;padding:0;margin-bottom:24px}
+.hole{
+  width:86px;height:86px;border-radius:50%;
+  background:#1B2430;border:2px solid #3A4757;
+  box-shadow:inset 0 3px 14px rgba(0,0,0,.55);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:var(--dim);font-family:Consolas,monospace;
+  transition:transform .12s,border-color .15s,background .15s;
+  position:relative;flex:0 0 auto;
+  -webkit-tap-highlight-color:transparent;
+}
+.hole:hover:not(.disabled){border-color:var(--accent);transform:scale(1.06);box-shadow:inset 0 3px 14px rgba(0,0,0,.4),0 0 18px rgba(96,165,250,.25)}
+.hole:active:not(.disabled){transform:scale(.97)}
+.hole.checked{border-color:var(--bad);background:rgba(248,113,113,.08);color:var(--bad)}
+.hole.disabled{cursor:default;opacity:.55}
+.hole.has-fox{border-color:var(--fox);background:rgba(255,138,76,.10)}
+.hole .fox-ic{font-size:30px;line-height:1;animation:none}
+.hole .ghost{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:28px;opacity:.30;
+}
+.hole .num{position:absolute;bottom:-22px;font-size:12px;color:#8D9AAC;font-weight:600}
+
+/* ── 环布局（EP02）── */
+.ring .hole{position:absolute}
+.ring-center{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  font-size:12px;color:var(--dim);text-align:center;line-height:1.7;
+  font-family:Consolas,monospace;pointer-events:none;
+}
+
+/* ── 状态条 ── */
+.status{
+  min-height:52px;display:flex;align-items:center;justify-content:center;
+  text-align:center;font-size:15px;line-height:1.7;
+  padding:14px;margin-bottom:18px;border-radius:8px;
+  background:var(--panel);border:1px solid var(--line);
+}
+.status.ok{border-color:var(--ok);color:var(--ok);background:rgba(74,222,128,.07)}
+.status.bad{border-color:var(--bad);color:var(--bad);background:rgba(248,113,113,.07)}
+.status b{color:var(--fox)}
+
+/* ── 按钮 ── */
+.btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+button{
+  font-family:inherit;font-size:14px;padding:12px 28px;border-radius:6px;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);
+  cursor:pointer;transition:.15s;-webkit-tap-highlight-color:transparent;
+}
+button:hover{border-color:var(--accent)}
+button.primary{
+  background:var(--fox);border-color:var(--fox);color:#180D06;font-weight:600;
+}
+button.primary:hover{background:#FFA06E}
+button:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── 提示 ── */
+.hint{
+  margin-top:22px;padding:16px 18px;border-radius:8px;
+  background:rgba(96,165,250,.06);border-left:3px solid var(--accent);
+  font-size:13.5px;line-height:1.95;color:#B8C6D8;
+}
+.hint b{color:var(--accent)}
+
+/* ── 结局 ── */
+.ending{text-align:center;padding:20px 0}
+.ending h2{font-size:22px;margin-bottom:18px}
+.ending .big{font-size:44px;margin:10px 0 22px}
+.ending p{font-size:14.5px;line-height:2.1;color:#B8C6D8;margin-bottom:16px;text-align:left}
+.ending .hl{color:var(--fox);font-weight:600}
+.mathbox{
+  background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:18px 20px;margin:22px 0;text-align:left;
+  font-family:Consolas,monospace;font-size:13px;line-height:2;color:#9FB0C4;
+}
+.mathbox .k{color:var(--fox)}
+.mathbox .g{color:var(--ok)}
+
+/* ── 移动端 ── */
+@media (max-width:560px){
+  body{padding:16px 12px 50px}
+  .title{font-size:22px}
+  .stage{gap:8px;padding:34px 4px}
+  .hole{width:56px;height:56px}
+  .hole .fox-ic{font-size:22px}
+  .ring{height:280px}
+  .ring .hole{width:50px;height:50px}
+  .hole .num{font-size:10px;bottom:-16px}
+}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════
+   核心引擎：可能性集合的演化
+   ══════════════════════════════════════════════════════════ */
+
+function neighbors(i, n, cyclic) {
+  const out = [];
+  if (i > 0) out.push(i - 1);
+  if (i < n - 1) out.push(i + 1);
+  if (cyclic) {
+    if (i === 0) out.push(n - 1);
+    if (i === n - 1) out.push(0);
+  }
+  return [...new Set(out)];
+}
+
+function moveSet(set, n, cyclic) {
+  const out = new Set();
+  for (const p of set) for (const q of neighbors(p, n, cyclic)) out.add(q);
+  return out;
+}
+
+/* ══════════════════════════════════════════════════════════
+   状态
+   ══════════════════════════════════════════════════════════ */
+const G = {
+  level: 1,        // 1 = 路径, 2 = 环
+  n: 5,
+  cyclic: false,
+  day: 1,
+  maxDay: 12,
+  possible: new Set(),   // 逻辑上的可能位置
+  fox: 0,                // 狐狸真实位置
+  history: [],           // 每天查了哪
+  checked: new Set(),    // 已查过的洞（视觉标记）
+  phase: 'intro',        // intro | play | win | lose | reveal
+  attempts: 0,           // 第二关失败次数
+  showPossible: true,    // 是否显示可能性
+};
+
+function resetLevel(level) {
+  G.level = level;
+  G.cyclic = (level === 2);
+  G.n = 5;
+  G.day = 1;
+  G.maxDay = level === 1 ? 8 : 14;
+  G.possible = new Set([...Array(G.n).keys()]);
+  G.fox = Math.floor(Math.random() * G.n);
+  G.history = [];
+  G.checked = new Set();
+  G.phase = 'intro';
+  G.showPossible = (level === 1);
+}
+
+/* ══════════════════════════════════════════════════════════
+   渲染
+   ══════════════════════════════════════════════════════════ */
+const app = document.getElementById('app');
+
+function render() {
+  if (G.phase === 'intro') return renderIntro();
+  if (G.phase === 'play') return renderPlay();
+  if (G.phase === 'win') return renderWin();
+  if (G.phase === 'lose') return renderLose();
+  if (G.phase === 'reveal') return renderReveal();
+}
+
+function topbar() {
+  const left = G.level === 1
+    ? '<span class="ep">第一关 · <b>一条线</b></span>'
+    : '<span class="ep">第二关 · <b>一个环</b></span>';
+  const warn = G.day > G.maxDay - 3 ? ' warn' : '';
+  return `<div class="topbar">${left}<span class="day${warn}">第 <b>${G.day}</b> 天 / 上限 ${G.maxDay}</span></div>`;
+}
+
+function renderIntro() {
+  if (G.level === 1) {
+    app.innerHTML = `
+      ${topbar()}
+      <div class="title">五个洞，一只狐狸</div>
+      <div class="subtitle">它每天只能挪到相邻的洞。你每天能查一个洞。</div>
+      <div class="rules">
+        <div class="r"><span class="n">1</span><span>狐狸藏在 5 个洞中的某一个</span></div>
+        <div class="r"><span class="n">2</span><span>每天你点一个洞「查」——如果它在那，你就赢了</span></div>
+        <div class="r"><span class="n">3</span><span>没查中的话，当晚它<b>必须</b>挪到相邻的洞</span></div>
+        <div class="r"><span class="n">4</span><span>你要在 <b>8 天</b>内抓到她</span></div>
+      </div>
+      <div class="hint">
+        <b>提示</b>：这不是运气题。有一个策略能<b>保证</b>抓到 —— 不管她怎么躲。
+      </div>
+      <div class="btns"><button class="primary" onclick="startPlay()">开始</button></div>
+    `;
+  } else {
+    app.innerHTML = `
+      ${topbar()}
+      <div class="title">规则变了：五个洞连成一个环</div>
+      <div class="subtitle">1 号洞和 5 号洞现在是相邻的。</div>
+      <div class="rules">
+        <div class="r"><span class="n">1</span><span>狐狸还是每天挪到相邻的洞 —— 但现在 1 和 5 也相邻</span></div>
+        <div class="r"><span class="n">2</span><span>你每天还是查一个洞</span></div>
+        <div class="r"><span class="n">3</span><span>这次给你 <b>14 天</b></span></div>
+      </div>
+      <div class="hint">
+        试试看。如果抓不到，多试几次 —— <b>这个关卡可能有点不一样</b>。
+      </div>
+      <div class="btns"><button class="primary" onclick="startPlay()">开始</button></div>
+    `;
+  }
+}
+
+function startPlay() {
+  G.phase = 'play';
+  G.possible = new Set([...Array(G.n).keys()]);
+  G.fox = Math.floor(Math.random() * G.n);
+  G.day = 1;
+  G.checked = new Set();
+  G.history = [];
+  render();
+}
+
+function holeEl(i) {
+  const isChecked = G.checked.has(i);
+  const showFox = G.phase === 'win' && G.fox === i;
+  const ghost = G.showPossible && G.history.length > 0 && G.possible.has(i) && !G.checked.has(i);
+  const cls = ['hole'];
+  if (isChecked) cls.push('checked', 'disabled');
+  if (showFox) cls.push('has-fox');
+
+  let inner = '';
+  if (showFox) inner += '<span class="fox-ic">🦊</span>';
+  else if (ghost) inner += '<span class="ghost">🦊</span>';
+
+  return `<div class="${cls.join(' ')}" data-i="${i}" style="${
+    G.cyclic ? ringPos(i) : ''
+  }">${inner}<span class="num">${i + 1}</span></div>`;
+}
+
+function ringPos(i) {
+  // 用固定像素半径 —— 百分比会因容器宽高不同而变成椭圆
+  const R = 108;
+  const half = 43;                       // 洞半径 86/2
+  const ang = (Math.PI * 2 * i / G.n) - Math.PI / 2;
+  const x = Math.cos(ang) * R;
+  const y = Math.sin(ang) * R;
+  return `left:calc(50% + ${x.toFixed(1)}px - ${half}px);top:calc(50% + ${y.toFixed(1)}px - ${half}px)`;
+}
+
+function renderPlay() {
+  const holes = [...Array(G.n).keys()].map(holeEl).join('');
+  const stageCls = G.cyclic ? 'stage ring' : 'stage';
+  const center = G.cyclic ? `<div class="ring-center">1 ↔ 5<br>相连</div>` : '';
+
+  let status = '';
+  if (G.history.length === 0) {
+    status = G.showPossible
+      ? '点一个洞开始查。<b>还有 5 个洞，她可能在任何一个。</b>'
+      : '点一个洞开始查。';
+  } else {
+    const last = G.history[G.history.length - 1];
+    status = `第 ${G.day - 1} 天查了 <b>${last + 1} 号洞</b> —— 空的。她跑了。`;
+  }
+
+  app.innerHTML = `
+    ${topbar()}
+    <div class="${stageCls}">${holes}${center}</div>
+    <div class="status">${status}</div>
+    <div class="btns">
+      <button onclick="resetLevel(${G.level});render()">重来</button>
+    </div>
+  `;
+
+  // 绑定点击
+  app.querySelectorAll('.hole').forEach(el => {
+    el.onclick = () => onCheck(parseInt(el.dataset.i));
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
+   核心逻辑：查一个洞
+   ══════════════════════════════════════════════════════════ */
+function onCheck(i) {
+  if (G.phase !== 'play') return;
+  if (G.checked.has(i)) return;
+
+  G.history.push(i);
+
+  // ① 查中了吗？
+  if (G.fox === i) {
+    G.checked.add(i);
+    G.phase = 'win';
+    render();
+    return;
+  }
+
+  // ② 没中 → 狐狸逃跑（远离你刚查的位置，而不是随机乱走）
+  //    这是关键：数学上「保证抓到」是针对最坏情况的对手，
+  //    如果狐狸随机走，环上也可能靠运气抓到 —— 那「无解」就成了谎话。
+  const nbs = neighbors(G.fox, G.n, G.cyclic);
+  const dist = (a, b) => G.cyclic
+    ? Math.min(Math.abs(a - b), G.n - Math.abs(a - b))
+    : Math.abs(a - b);
+  nbs.sort((a, b) => dist(b, i) - dist(a, i));
+  // 前两名里随机，避免完全可预测
+  G.fox = nbs.length > 1 && Math.random() < 0.25
+    ? nbs[1]
+    : nbs[0];
+
+  // ③ 逻辑上的可能性集合演化
+  G.possible.delete(i);
+  G.possible = moveSet(G.possible, G.n, G.cyclic);
+
+  // ④ 集合空了 = 保证抓到了（但真实位置一定会被查到）
+  //    实际不会发生，因为真实狐狸在集合内
+  G.checked.add(i);
+  G.day++;
+
+  if (G.day > G.maxDay) {
+    G.phase = 'lose';
+    G.attempts++;
+    render();
+    return;
+  }
+
+  render();
+}
+
+/* ══════════════════════════════════════════════════════════
+   结局
+   ══════════════════════════════════════════════════════════ */
+function renderWin() {
+  const days = G.history.length;
+  if (G.level === 1) {
+    app.innerHTML = `
+      ${topbar()}
+      <div class="ending">
+        <div class="big">🦊</div>
+        <h2>抓到了 —— 用了 ${days} 天</h2>
+        <p>现在看你的顺序是不是：<span class="hl">2 → 3 → 4 → 2 → 3 → 4</span>？</p>
+        <p>如果是，你已经摸到了那个"保证"的策略。<br>如果不是，你也赢了 —— 但可能是运气。</p>
+        <div class="mathbox">
+          5 个洞的最优策略：<span class="k">2,3,4,2,3,4</span>（6 步，保证抓到）<br>
+          通式：n 个洞 → <span class="k">2n−4</span> 步<br>
+          原理：先从 2 号推到 4 号，再推回来 —— 像梳子一样梳两遍。
+        </div>
+        <p>那如果……<b>洞是首尾相连的呢？</b></p>
+      </div>
+      <div class="btns"><button class="primary" onclick="goLevel2()">进入第二关</button></div>
+    `;
+  } else {
+    app.innerHTML = `
+      ${topbar()}
+      <div class="ending">
+        <div class="big">🦊</div>
+        <h2>你居然抓到了 —— ${days} 天</h2>
+        <p>运气不错。或者你找到了一条我没预料到的路。</p>
+        <p>但再试一次呢？<span class="hl">她总能找到另一边。</span></p>
+      </div>
+      <div class="btns">
+        <button onclick="resetLevel(2);render()">再来一次</button>
+        <button class="primary" onclick="showReveal()">我想知道真相</button>
+      </div>
+    `;
+  }
+}
+
+function renderLose() {
+  if (G.level === 1) {
+    app.innerHTML = `
+      ${topbar()}
+      <div class="ending">
+        <h2>八天到了，她还在里面</h2>
+        <p>但这一关是<b>有解</b>的 —— 一定有个顺序能保证抓到。</p>
+        <div class="hint"><b>再想想</b>：如果你从 2 号开始，一路推到 4 号，会发生什么？</div>
+      </div>
+      <div class="btns"><button class="primary" onclick="resetLevel(1);render()">再试一次</button></div>
+    `;
+  } else {
+    const attempts = G.attempts;
+    if (attempts >= 3) {
+      G.phase = 'reveal';
+      return renderReveal();
+    }
+    app.innerHTML = `
+      ${topbar()}
+      <div class="ending">
+        <h2>十四天，她一次都没被查到</h2>
+        <p>这是第 <span class="hl">${attempts}</span> 次失败。</p>
+        <p>换个顺序再试试。<b>也许是你的扫法不对。</b></p>
+      </div>
+      <div class="btns">
+        <button class="primary" onclick="resetLevel(2);render()">再试一次</button>
+        <button onclick="showReveal()">直接看答案</button>
+      </div>
+    `;
+  }
+}
+
+function renderReveal() {
+  app.innerHTML = `
+    ${topbar()}
+    <div class="ending">
+      <h2>这道题，没有解</h2>
+      <div class="big">🚫</div>
+      <p>在环上，<span class="hl">不管你怎么查，都不可能保证抓到她</span>。</p>
+      <p>原因很简单：环上没有"端点"。</p>
+      <div class="mathbox">
+        一条线上，你可以从一端把狐狸<b>往另一端的死角挤</b>。<br>
+        ——所以她无处可躲。<br><br>
+        但在环上，<span class="k">她永远有"另一边"</span>。<br>
+        你从左边推，她往右边跑；你绕过去，她又绕回来。<br><br>
+        数学上：<span class="g">环 C_n（n ≥ 3）无必胜策略</span><br>
+        线上：<span class="g">路径 P_n 有必胜策略，2n−4 步</span>
+      </div>
+      <p><b>但如果你能堵住一个洞呢？</b><br>环就断成了一条线 —— 又回到第一关。</p>
+      <div class="btns">
+        <button onclick="resetLevel(2);render()">再试一次（明知无解）</button>
+        <button class="primary" onclick="showFinal()">继续</button>
+      </div>
+    </div>
+  `;
+}
+
+function showFinal() {
+  app.innerHTML = `
+    <div class="ending">
+      <div class="big">🧠</div>
+      <h2>你刚刚撞上的，是一堵数学的墙</h2>
+      <p>这不是设计缺陷，也不是你不够聪明。<br>
+         这是图论里一个真实存在的结论：</p>
+      <div class="mathbox">
+        <span class="k">Hunt the Rabbit</span> / <span class="k">Princess and Monster</span><br><br>
+        路径图 → 恒有必胜策略（2n−4 步）<br>
+        环  图 → n≥3 时，<span class="g">永远抓不到</span>
+      </div>
+      <p>下一集：如果给你<b>两个</b>猎人呢？</p>
+      <div class="btns">
+        <button class="primary" onclick="resetLevel(1);render()">从头再玩一次</button>
+      </div>
+    </div>
+  `;
+}
+
+function goLevel2() {
+  G.level = 2;
+  G.cyclic = true;
+  G.phase = 'intro';
+  G.attempts = 0;
+  render();
+}
+
+function showReveal() {
+  G.phase = 'reveal';
+  render();
+}
+
+/* ══════════════════════════════════════════════════════════
+   启动
+   ══════════════════════════════════════════════════════════ */
+resetLevel(1);
+render();
+</script>
+</body>
+</html>
