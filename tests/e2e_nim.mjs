@@ -37,7 +37,7 @@ try {
   await evalJs(page, "document.querySelector('.picker [data-count=\\\"1\\\"]').click()");
   await sleep(250);
   const win = await evalJs(page, "({phase:window.__nim.phase, winner:window.__nim.winner, result:!!document.querySelector('.result.win'), text:document.querySelector('.result h2')?.textContent})");
-  check('普通模式取最后一颗获胜', win.phase === 'result' && win.winner === 'player' && win.result, JSON.stringify(win));
+  check('普通模式取最后一颗获胜', win.phase === 'result' && win.winner === 'player' && win.result && win.text.includes('你拿走了最后一颗'), JSON.stringify(win));
   await shot(page, OUT + '\\g2-nim-win.png');
 
   // 取最后者输：同样取走最后一颗，玩家输
@@ -48,7 +48,17 @@ try {
   await evalJs(page, "document.querySelector('.picker [data-count=\\\"1\\\"]').click()");
   await sleep(250);
   const lose = await evalJs(page, "({phase:window.__nim.phase, winner:window.__nim.winner, result:!!document.querySelector('.result.lose'), text:document.querySelector('.result h2')?.textContent})");
-  check('取最后者输模式判定玩家失败', lose.phase === 'result' && lose.winner === 'ai' && lose.result, JSON.stringify(lose));
+  check('取最后者输模式判定玩家失败', lose.phase === 'result' && lose.winner === 'ai' && lose.result && lose.text.includes('你取走了最后一颗') && lose.text.includes('按规则你输了'), JSON.stringify(lose));
+
+  // 取最后者输：玩家留 1 颗给 AI，AI 被迫取最后一颗而输，玩家获胜
+  await evalJs(page, "newGame({piles:[1,1], mode:'misere', difficulty:'easy'})");
+  await sleep(120);
+  await evalJs(page, "document.querySelector('[data-pile=\\\"0\\\"]').click()");
+  await sleep(100);
+  await evalJs(page, "document.querySelector('.picker [data-count=\\\"1\\\"]').click()");
+  await sleep(1200);
+  const misereWin = await evalJs(page, "({phase:window.__nim.phase, winner:window.__nim.winner, result:!!document.querySelector('.result.win'), text:document.querySelector('.result h2')?.textContent})");
+  check('取最后者输模式玩家留下最后一颗获胜', misereWin.phase === 'result' && misereWin.winner === 'player' && misereWin.result && misereWin.text.includes('AI 取走了最后一颗'), JSON.stringify(misereWin));
 
   // 模式切换 + 提示 + 说明
   await evalJs(page, "newGame({piles:[3,4,5], mode:'normal', difficulty:'hard'})");

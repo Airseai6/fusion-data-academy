@@ -324,12 +324,15 @@ function renderHint() {
 
 function renderResult() {
   const won = G.winner === 'player';
+  const title = G.mode === 'normal'
+    ? (won ? '你拿走了最后一颗——按规则你赢了' : 'AI 拿走了最后一颗，你输了')
+    : (won ? 'AI 取走了最后一颗——按规则它输了，你赢了' : '你取走了最后一颗——按规则你输了');
   const explanation = G.mode === 'normal'
     ? '把每堆数量异或起来：异或和为 0 是留给对手的必败态；不为 0 时，总能把局面变回 0。'
     : '取最后者输的秘诀：先把局面变成「只剩 1 颗的堆有奇数个」；否则按普通异或策略把异或和变成 0。';
   const shareText = `我在《最后一颗》用「${DIFF_LABEL[G.difficulty]}」难度${G.mode === 'misere' ? '（取最后者输）' : ''}${won ? '赢' : '输'}了一局。\n三堆石子的二进制异或，决定了谁拿走最后一颗。\n来试：${location.origin}${location.pathname}`;
   return `<div class="result ${won ? 'win' : 'lose'}">
-    <h2>${won ? '你拿走了最后一颗——按规则你赢了' : 'AI 拿走了最后一颗，你输了'}</h2>
+    <h2>${title}</h2>
     <p>${G.mode === 'normal' ? '普通模式：取走最后一颗者胜。' : '取最后者输模式：取走最后一颗的人反而输。'}</p>
     <div class="math">${explanation}</div>
     <div class="sharebox">
