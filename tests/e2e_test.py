@@ -1,20 +1,27 @@
 """
-Playwright E2E · 5 个互动作品
+Playwright E2E · 6 个互动作品
 =============================
 目的：防止再拿 "HTTP 200" 当验证。
 
 跑法：
     python e2e_test.py --root <含 html 的目录> [--headed]
 
-检查项（对应试玩报告 P0-3）：
+检查项（对应试玩报告 P0-3 / GAME-BACKLOG G1 验收）：
   a) 每个页面的每个场景都有可用前进控件（专治序章卡死）
   b) 抓狐狸 L1：按最优策略必能通关；乱点必失败；失败页可达
   c) 抓狐狸 L2：任意序列都判定为"不能保证"；3 次后揭示页可达
   d) 第一次放电：开场 → 七幕 → 成绩卡
   e) 造一台：序章 → 八幕 → 设计卡
+  f) 数字侦探 G1：入口卡片 → 每日种子稳定 → 非法输入不扣次数 →
+     刷新恢复 → 赢一局 → 分享文案 → 输一局 → 埋点事件
 """
 import argparse
+import functools
+import http.server
+import json
+import socketserver
 import sys
+import threading
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
@@ -37,11 +44,25 @@ def run(root: Path, headed=False):
     shot = root / "lab" / "shot.html"
     design = root / "lab" / "design.html"
     physics = root / "lab" / "physics.html"
+    digits = root / "puzzle" / "digits" / "index.html"
 
-    for p, label in [(pz, "puzzle"), (shot, "shot"), (design, "design"), (physics, "physics")]:
+    for p, label in [(pz, "puzzle"), (shot, "shot"), (design, "design"),
+                     (physics, "physics"), (digits, "digits")]:
         if not p.exists():
             bad(f"缺文件 {label}", str(p))
             return
+
+    # 数字侦探的「刷新恢复」需要真实 localStorage 语义，用本地 HTTP 源跑；
+    # 其余旧用例仍用 file://（保持原行为）。A1 live 验收走 GitHub Pages。
+    class _Quiet(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+    handler = functools.partial(_Quiet, directory=str(root))
+    srv = socketserver.TCPServer(("127.0.0.1", 0), handler)
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    web = f"http://127.0.0.1:{port}"
 
     with sync_playwright() as pw:
         try:
@@ -269,7 +290,198 @@ def run(root: Path, headed=False):
         else:
             bad("physics 无滑块")
 
+        # ══════════════════════════════════════════════
+        # G. 数字侦探 · G1 Bulls & Cows
+        # ══════════════════════════════════════════════
+        print("\n[G] 数字侦探 · G1 Bulls & Cows")
+        game_url = web + "/puzzle/digits/"
+
+        # G1) 首页入口卡片可点进游戏
+        page.goto(web + "/index.html")
+        page.wait_for_timeout(200)
+        card = page.query_selector('a.card[href="./puzzle/digits/"]')
+        if card:
+            ok("首页有数字侦探入口卡片")
+            card.click()
+            page.wait_for_timeout(400)
+            if "数字侦探" in page.title():
+                ok("首页卡片可进入数字侦探")
+            else:
+                bad("首页卡片跳转标题不对", page.title())
+        else:
+            bad("首页缺数字侦探入口卡片")
+
+        # G2) 说明页 + 每日种子稳定
+        page.goto(game_url)
+        page.wait_for_timeout(300)
+        if page.evaluate("!!document.getElementById('btn-daily')"):
+            ok("数字侦探说明页有每日挑战入口")
+        else:
+            bad("数字侦探说明页缺每日挑战入口")
+
+        seed_stable = page.evaluate(
+            "JSON.stringify(__digits.dailySecret('2026-10-27')) === "
+            "JSON.stringify(__digits.dailySecret('2026-10-27'))"
+        )
+        seed_diff = page.evaluate(
+            "JSON.stringify(__digits.dailySecret('2026-10-27')) !== "
+            "JSON.stringify(__digits.dailySecret('2026-10-28'))"
+        )
+        if seed_stable and seed_diff:
+            ok("每日种子：同一天稳定、不同天不同")
+        else:
+            bad("每日种子不稳定", f"same={seed_stable} diff={seed_diff}")
+
+        # G3) 开始每日挑战：非法输入只提示、不扣次数
+        page.click("#btn-daily")
+        page.wait_for_timeout(250)
+        if page.evaluate("D.phase === 'play'"):
+            ok("每日挑战可开始")
+        else:
+            bad("每日挑战没有进入游戏", page.evaluate("D.phase"))
+
+        page.click('[data-digit="1"]')
+        page.click('[data-digit="2"]')
+        page.click('[data-digit="3"]')
+        page.click("#key-submit")
+        page.wait_for_timeout(150)
+        err_len = page.inner_text(".error")
+        if err_len.strip() and page.evaluate("D.guesses.length") == 0 \
+                and page.evaluate("D.attemptsLeft") == 6:
+            ok("3 位输入被拒且不扣次数", err_len.strip())
+        else:
+            bad("非法长度输入未正确处理", f"err={err_len!r}")
+
+        for _ in range(3):
+            page.click("#key-back")
+        for d in ["1", "1", "2", "3"]:
+            page.click(f'[data-digit="{d}"]')
+        page.click("#key-submit")
+        page.wait_for_timeout(150)
+        err_dup = page.inner_text(".error")
+        if "重复" in err_dup and page.evaluate("D.guesses.length") == 0 \
+                and page.evaluate("D.attemptsLeft") == 6:
+            ok("重复数字被拒且不扣次数", err_dup.strip())
+        else:
+            bad("重复数字未被正确处理", f"err={err_dup!r}")
+
+        # G4) 刷新恢复：一次合法错误猜测后刷新，历史与题面都还在
+        for _ in range(4):
+            page.click("#key-back")
+        secret = page.evaluate("[...D.secret].join('')")
+        wrong = secret[1:] + secret[0]
+        for ch in wrong:
+            page.click(f'[data-digit="{ch}"]')
+        page.click("#key-submit")
+        page.wait_for_timeout(200)
+        guesses_before = page.evaluate("D.guesses.length")
+        page.reload()
+        page.wait_for_timeout(400)
+        guesses_after = page.evaluate("D.guesses.length")
+        same_secret = page.evaluate("[...D.secret].join('')") == secret
+        if guesses_before == 1 and guesses_after == 1 and same_secret:
+            ok("刷新后恢复每日进度（猜测历史 + 同一题）")
+        else:
+            bad("刷新恢复失败",
+                f"before={guesses_before} after={guesses_after} same={same_secret}")
+
+        # G5) 赢一局 + 刷新保留结果 + 分享文案
+        for ch in secret:
+            page.click(f'[data-digit="{ch}"]')
+        page.click("#key-submit")
+        page.wait_for_timeout(250)
+        if page.evaluate("D.phase") == "win":
+            ok("输入答案后进入胜利结算")
+        else:
+            bad("未能进入胜利结算", page.evaluate("D.phase"))
+        answer_txt = page.inner_text("#answer").replace(" ", "")
+        if answer_txt == secret:
+            ok("结算页显示正确答案", answer_txt)
+        else:
+            bad("结算页答案不对", f"{answer_txt} vs {secret}")
+
+        page.reload()
+        page.wait_for_timeout(400)
+        if page.evaluate("D.phase") == "win" and page.query_selector("#btn-share"):
+            ok("刷新后保留当日获胜结果")
+        else:
+            bad("刷新后当日结果丢失", page.evaluate("D.phase"))
+
+        share_text = page.evaluate("buildShareText()")
+        today = page.evaluate("D.date")
+        spoiler_free = share_text.replace(today, "")
+        if "数字侦探" in share_text and "/puzzle/digits/" in share_text \
+                and secret not in spoiler_free and "猜中" in share_text:
+            ok("分享文案含成绩与站点链接、不含答案")
+        else:
+            bad("分享文案不合规", share_text.replace("\n", " | ")[:120])
+
+        page.click("#btn-share")
+        page.wait_for_timeout(300)
+        share_msg = page.evaluate("D.shareMsg")
+        if share_msg:
+            ok("分享按钮有反馈（复制成功 / 手动提示）", share_msg)
+        else:
+            bad("分享按钮无反馈")
+
+        # 埋点：game_start / game_win / share 都带 game + difficulty
+        raw = page.evaluate("window.counters ? counters.export() : '[]'")
+        try:
+            evs = json.loads(raw)
+        except Exception:
+            evs = []
+        names = {e.get("e") for e in evs}
+        digits_events = [e for e in evs if e.get("game") == "digits"]
+        for need in ["game_start", "game_win", "share"]:
+            if need in names:
+                ok(f"埋点事件 {need} 已记录")
+            else:
+                bad(f"缺埋点事件 {need}")
+        if digits_events and all("difficulty" in e for e in digits_events):
+            ok("埋点事件均带 game/difficulty", f"{len(digits_events)} 条")
+        else:
+            bad("埋点事件缺 difficulty")
+
+        # G6) 输一局：练习模式 6 次错误猜测 → 失败结算
+        page.goto(game_url + "?mode=practice&difficulty=normal")
+        page.wait_for_timeout(300)
+        secret2 = page.evaluate("[...D.secret].join('')")
+        trial = []
+        for start in range(10):
+            g = "".join(str((start + i) % 10) for i in range(4))
+            if g != secret2 and len(set(g)) == 4:
+                trial.append(g)
+            if len(trial) == 6:
+                break
+        if len(trial) < 6:
+            bad("无法构造 6 个合法错误猜测")
+        else:
+            for g in trial:
+                for ch in g:
+                    page.click(f'[data-digit="{ch}"]')
+                page.click("#key-submit")
+                page.wait_for_timeout(120)
+            if page.evaluate("D.phase") == "lose":
+                ok("6 次错误猜测后进入失败结算")
+            else:
+                bad("未进入失败结算", page.evaluate("D.phase"))
+            lose_answer = page.inner_text("#answer").replace(" ", "")
+            if lose_answer == secret2:
+                ok("失败结算揭晓正确答案", lose_answer)
+            else:
+                bad("失败结算答案不对", f"{lose_answer} vs {secret2}")
+
+        # 困难模式允许重复数字
+        page.goto(game_url + "?mode=practice&difficulty=hard")
+        page.wait_for_timeout(300)
+        if page.evaluate("__digits.validateGuess([1,1,2,3], 'hard').ok"):
+            ok("困难模式允许重复数字")
+        else:
+            bad("困难模式错误拒绝重复数字")
+
         browser.close()
+
+    srv.shutdown()
 
 
 def main():

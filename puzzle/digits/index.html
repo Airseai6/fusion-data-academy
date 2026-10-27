@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>反直觉 · 数字侦探 — Bulls &amp; Cows 每日数学小游戏</title>
+<meta name="description" content="4 位数字、6 次机会，用 A/B 反馈排除候选找出答案。每日一题同一天所有人同一题，也可以随机练习。信息论与排除法的 3 分钟小游戏，纯静态无后端。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0F14; --panel:#141A22; --panel2:#10161D; --line:#232C38; --line2:#3A4757;
+  --ink:#E8EDF4; --dim:#96A5B8; --dim2:#7A8798;
+  --mint:#5BD9BE; --amber:#F6C177; --bad:#F87171; --accent:#60A5FA;
+}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  min-height:100vh; display:flex; flex-direction:column; align-items:center;
+  padding:24px 16px 60px; -webkit-font-smoothing:antialiased;
+}
+.wrap{width:100%;max-width:560px}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:22px;
+}
+.ep{font-size:13px;color:var(--dim);letter-spacing:.08em;font-family:Consolas,monospace}
+.ep b{color:var(--mint)}
+.day{font-size:12.5px;font-family:Consolas,monospace;color:var(--dim)}
+.title{font-size:24px;font-weight:700;margin-bottom:10px;letter-spacing:.02em}
+.subtitle{font-size:14px;color:#A8B6C8;line-height:1.9;margin-bottom:22px}
+.subtitle b{color:var(--mint)}
+.rules{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:16px 18px;margin-bottom:20px;font-size:14px;line-height:1.9;color:#D6DEE8;
+}
+.rules .r{display:flex;gap:10px;align-items:flex-start;margin-bottom:6px}
+.rules .r:last-child{margin-bottom:0}
+.rules .n{
+  flex:0 0 20px;height:20px;border-radius:50%;background:var(--line);color:var(--dim);
+  font-size:11px;display:flex;align-items:center;justify-content:center;
+  margin-top:5px;font-family:Consolas,monospace;
+}
+.rules b{color:var(--amber)}
+.modecard{
+  display:block;width:100%;text-align:left;font-family:inherit;color:var(--ink);
+  background:var(--panel);border:1px solid var(--line2);border-radius:12px;
+  padding:18px 20px;margin-bottom:16px;cursor:pointer;transition:.15s;
+  -webkit-tap-highlight-color:transparent;
+}
+.modecard:hover{border-color:var(--mint)}
+.modecard.daily{
+  background:linear-gradient(135deg,rgba(91,217,190,.10),rgba(91,217,190,.02));
+  border-color:rgba(91,217,190,.45);
+}
+.mk{display:block;font-size:11px;letter-spacing:.14em;color:var(--mint);font-family:Consolas,monospace;margin-bottom:8px}
+.modecard .mt{display:block;font-size:16.5px;font-weight:600;margin-bottom:6px}
+.modecard .md{display:block;font-size:12.5px;color:var(--dim);line-height:1.7}
+.diffrow{display:flex;gap:8px;margin:14px 0 12px}
+.difftab{
+  flex:1;font-family:inherit;font-size:13px;padding:10px 8px;border-radius:8px;
+  background:var(--panel2);color:var(--dim);border:1px solid var(--line);
+  cursor:pointer;min-height:44px;-webkit-tap-highlight-color:transparent;
+}
+.difftab.active{color:var(--mint);border-color:var(--mint);background:rgba(91,217,190,.08)}
+.btn-practice{
+  width:100%;font-family:inherit;font-size:14px;padding:12px;border-radius:8px;
+  border:1px solid var(--line2);background:var(--panel2);color:var(--ink);
+  cursor:pointer;min-height:44px;
+}
+.btn-practice:hover{border-color:var(--mint)}
+.statusbar{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+  font-size:13px;color:var(--dim);font-family:Consolas,monospace;margin-bottom:14px;
+}
+.statusbar b{color:var(--ink);font-size:15px}
+.cand{color:var(--dim2)}
+.cand b{color:var(--amber);font-size:13.5px}
+.resume{
+  font-size:12.5px;color:var(--mint);background:rgba(91,217,190,.08);
+  border:1px solid rgba(91,217,190,.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;
+}
+.history{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:10px 12px;margin-bottom:16px;max-height:210px;overflow-y:auto;
+}
+.history.empty{background:transparent;border-style:dashed}
+.hist-empty{font-size:13px;color:var(--dim2);padding:10px;text-align:center}
+.hist-row{
+  display:flex;align-items:center;gap:10px;padding:7px 4px;
+  border-bottom:1px solid rgba(35,44,56,.6);font-family:Consolas,monospace;
+}
+.hist-row:last-child{border-bottom:none}
+.hist-no{flex:0 0 20px;font-size:11.5px;color:var(--dim2)}
+.hist-digits{flex:1;display:flex;gap:6px}
+.hd{
+  display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:30px;
+  background:var(--panel2);border:1px solid var(--line2);border-radius:5px;
+  font-size:15px;color:var(--ink);
+}
+.hist-fb{flex:0 0 auto;font-size:13px;display:flex;gap:6px}
+.fb-a{color:var(--mint);font-weight:700}
+.fb-b{color:var(--amber);font-weight:700}
+.fb-zero{color:var(--dim2);font-size:12px}
+.inputbox{
+  background:var(--panel);border:1px solid var(--line2);border-radius:12px;
+  padding:14px 16px;margin-bottom:8px;
+}
+.inputlabel{display:block;font-size:11.5px;color:var(--dim2);font-family:Consolas,monospace;letter-spacing:.1em;margin-bottom:10px}
+.slots{display:flex;gap:10px;justify-content:center}
+.slot{
+  width:52px;height:60px;border-radius:8px;background:var(--panel2);border:1px solid var(--line2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;font-family:Consolas,monospace;color:var(--dim2);
+}
+.slot.filled{color:var(--ink);border-color:var(--mint);background:rgba(91,217,190,.06)}
+.error{min-height:22px;font-size:12.5px;color:var(--bad);text-align:center;margin-bottom:8px;line-height:1.6}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+.key{
+  font-family:Consolas,monospace;font-size:20px;height:54px;border-radius:10px;
+  border:1px solid var(--line2);background:var(--panel);color:var(--ink);
+  cursor:pointer;transition:.12s;-webkit-tap-highlight-color:transparent;
+}
+.key:hover{border-color:var(--mint)}
+.key:active{transform:scale(.97)}
+.key-ghost{font-size:17px;color:var(--dim)}
+.key-go{font-family:inherit;font-size:15px;font-weight:600;background:var(--mint);border-color:var(--mint);color:#08120F}
+.key-go:hover{background:#74E7CE}
+.hint{
+  font-size:12.5px;color:var(--dim2);line-height:1.9;
+  background:rgba(96,165,250,.05);border-left:3px solid var(--accent);
+  border-radius:0 8px 8px 0;padding:12px 14px;margin-bottom:20px;
+}
+.footerlinks{display:flex;justify-content:space-between;gap:12px;font-size:13px;flex-wrap:wrap;margin-bottom:20px}
+.footerlinks a{color:var(--accent);text-decoration:none}
+.footerlinks a:hover{text-decoration:underline}
+.cta-line{text-align:center;font-size:12.5px;color:#8FA0B5;line-height:1.9;padding-top:6px}
+.cta-line b{color:var(--mint)}
+.ending{text-align:center}
+.big{font-size:44px;margin-bottom:6px}
+h2{font-size:22px;margin-bottom:12px}
+.sub2{font-size:14px;color:#B8C6D8;line-height:1.9;margin-bottom:16px}
+.sub2 b{color:var(--mint)}
+.answer-label{font-size:11.5px;color:var(--dim2);font-family:Consolas,monospace;letter-spacing:.1em;margin-bottom:8px}
+.answer{font-family:Consolas,monospace;font-size:34px;letter-spacing:.35em;color:var(--mint);margin-bottom:18px;padding-left:.35em}
+.history.summary{margin-top:0}
+.sharebox{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin:18px 0}
+.share-label{font-size:12px;color:var(--dim2);margin-bottom:10px}
+.sharepreview{
+  font-family:Consolas,"Microsoft YaHei",monospace;font-size:12.5px;line-height:1.8;
+  color:#C8D4E2;background:var(--panel2);border-radius:8px;padding:12px;
+  white-space:pre-wrap;word-break:break-all;text-align:left;margin-bottom:12px;user-select:text;
+}
+.btn-share{
+  width:100%;font-family:inherit;font-size:14px;padding:12px;border-radius:8px;
+  border:1px solid var(--mint);background:var(--mint);color:#08120F;font-weight:600;
+  cursor:pointer;min-height:44px;
+}
+.btn-share:hover{background:#74E7CE}
+.share-msg{font-size:12.5px;color:var(--mint);margin-top:10px;line-height:1.7}
+.mathbox{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:16px;margin:18px 0;text-align:left;font-size:13.5px;line-height:1.9;color:#C8D4E2;
+}
+.math-title{font-size:11.5px;letter-spacing:.12em;color:var(--mint);font-family:Consolas,monospace;margin-bottom:8px}
+.mathbox p{margin-bottom:6px}
+.mathbox .dim{color:var(--dim);font-size:12.5px}
+.mathbox b{color:var(--amber)}
+.strategy{color:var(--amber)!important}
+.btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:18px 0}
+.btns button,.btns a{
+  font-family:inherit;font-size:14px;padding:12px 26px;border-radius:8px;
+  border:1px solid var(--line2);background:var(--panel);color:var(--ink);
+  text-decoration:none;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;
+}
+.btns .primary{background:var(--mint);border-color:var(--mint);color:#08120F;font-weight:600}
+.btns .primary:hover{background:#74E7CE}
+@media(max-width:400px){
+  body{padding:16px 12px 44px}
+  .slot{width:44px;height:54px;font-size:22px}
+  .key{height:50px;font-size:18px}
+  .answer{font-size:28px}
+  .title{font-size:21px}
+}
+</style>
+<script src="../../analytics.js"></script>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   反直觉 · 数字侦探（Bulls & Cows）
+   - 4 位数字、6 次机会；反馈 A（数字位置都对）/ B（数字对位置错）
+   - 每日挑战：日期 hash 作种子，同一天所有人同一题
+   - 练习模式：普通（不重复）/ 困难（可重复）随机出题
+   - 每日进度与结果存 localStorage，刷新可恢复
+   纯前端单文件，无后端。
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var LEN = 4;
+  var MAX_TRIES = 6;
+  var SITE = 'https://airseai6.github.io/fusion-data-academy';
+  var GAME_URL = SITE + '/puzzle/digits/';
+  var KEY_DAILY = 'fd.digits.daily.v1';
+  var TOTAL = { normal: 5040, hard: 10000 };
+  var NL = String.fromCharCode(10);
+
+  /* ══════════ 纯逻辑（tests/digits_logic_test.mjs 会直接调用） ══════════ */
+  function hashStr(str) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h >>> 0;
+  }
+
+  function mulberry32(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+  function dateKey(d) {
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+
+  /* 每日种子：日期 → 固定 4 位不重复答案（同一天所有人同一题） */
+  function dailySecret(dateStr) {
+    var rnd = mulberry32(hashStr('digits|' + dateStr + '|normal'));
+    var pool = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    for (var i = pool.length - 1; i > 0; i--) {
+      var j = Math.floor(rnd() * (i + 1));
+      var t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+    }
+    return pool.slice(0, LEN);
+  }
+
+  function randomSecret(difficulty) {
+    var pool = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    for (var i = pool.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+    }
+    if (difficulty === 'hard') {
+      var out = [];
+      for (var k = 0; k < LEN; k++) out.push(Math.floor(Math.random() * 10));
+      return out;
+    }
+    return pool.slice(0, LEN);
+  }
+
+  /* A/B 反馈：A 位置对，B 数字对位置错（重复数字按多重集计数） */
+  function scoreGuess(secret, guess) {
+    var a = 0;
+    var sCount = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    var gCount = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    for (var i = 0; i < LEN; i++) {
+      if (secret[i] === guess[i]) a++;
+      else { sCount[secret[i]]++; gCount[guess[i]]++; }
+    }
+    var b = 0;
+    for (var d = 0; d < 10; d++) b += Math.min(sCount[d], gCount[d]);
+    return { a: a, b: b };
+  }
+
+  function validateGuess(digits, difficulty) {
+    if (!digits || digits.length !== LEN) return { ok: false, msg: '请输入完整的 4 位数字' };
+    for (var i = 0; i < digits.length; i++) {
+      var v = digits[i];
+      if (typeof v !== 'number' || v < 0 || v > 9 || v !== Math.floor(v)) {
+        return { ok: false, msg: '只能是 0–9 的数字' };
+      }
+    }
+    if (difficulty !== 'hard') {
+      var seen = {};
+      for (var j = 0; j < LEN; j++) {
+        if (seen[digits[j]]) return { ok: false, msg: '普通模式数字不能重复（想重复请切到困难模式）' };
+        seen[digits[j]] = true;
+      }
+    }
+    return { ok: true, msg: '' };
+  }
+
+  function eachSecret(difficulty, cb) {
+    if (difficulty === 'hard') {
+      for (var n = 0; n < 10000; n++) {
+        cb([Math.floor(n / 1000) % 10, Math.floor(n / 100) % 10, Math.floor(n / 10) % 10, n % 10]);
+      }
+      return;
+    }
+    for (var a = 0; a < 10; a++) {
+      for (var b = 0; b < 10; b++) {
+        if (b === a) continue;
+        for (var c = 0; c < 10; c++) {
+          if (c === a || c === b) continue;
+          for (var d = 0; d < 10; d++) {
+            if (d === a || d === b || d === c) continue;
+            cb([a, b, c, d]);
+          }
+        }
+      }
+    }
+  }
+
+  /* 按已有反馈统计仍可能的答案数量（候选集大小） */
+  function candidateCount(history, difficulty) {
+    var count = 0;
+    eachSecret(difficulty, function (s) {
+      for (var i = 0; i < history.length; i++) {
+        var g = history[i];
+        var sc = scoreGuess(s, g.digits);
+        if (sc.a !== g.a || sc.b !== g.b) return;
+      }
+      count++;
+    });
+    return count;
+  }
+
+  /* ══════════ 状态 ══════════ */
+  var D = {
+    phase: 'intro',
+    mode: 'daily',
+    difficulty: 'normal',
+    date: '',
+    secret: [],
+    guesses: [],
+    input: [],
+    attemptsLeft: MAX_TRIES,
+    error: '',
+    resultAttempts: 0,
+    shareMsg: '',
+    resumed: false
+  };
+
+  var app = null;
+
+  function track(name, extra) {
+    try {
+      if (window.counters && window.counters.track) {
+        var props = { game: 'digits', difficulty: D.difficulty, mode: D.mode };
+        if (extra) {
+          for (var k in extra) {
+            if (Object.prototype.hasOwnProperty.call(extra, k)) props[k] = extra[k];
+          }
+        }
+        window.counters.track(name, props);
+      }
+    } catch (e) { /* 埋点失败不能影响游戏 */ }
+  }
+
+  function storageGet(key) {
+    try {
+      var raw = window.localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function storageSet(key, val) {
+    try { window.localStorage.setItem(key, JSON.stringify(val)); return true; }
+    catch (e) { return false; }
+  }
+  function storageDel(key) {
+    try { window.localStorage.removeItem(key); } catch (e) {}
+  }
+
+  /* ══════════ 每日存档 ══════════ */
+  function persist() {
+    if (D.mode !== 'daily') return;
+    storageSet(KEY_DAILY, {
+      date: D.date,
+      difficulty: 'normal',
+      secret: D.secret.slice(),
+      guesses: D.guesses.map(function (g) {
+        return { digits: g.digits.slice(), a: g.a, b: g.b };
+      }),
+      finished: D.phase === 'win' || D.phase === 'lose',
+      win: D.phase === 'win',
+      resultAttempts: D.resultAttempts,
+      at: Date.now()
+    });
+  }
+
+  /* ══════════ 开局 ══════════ */
+  function startDaily() {
+    D.mode = 'daily';
+    D.difficulty = 'normal';
+    D.date = dateKey(new Date());
+    D.secret = dailySecret(D.date);
+    D.guesses = [];
+    D.input = [];
+    D.attemptsLeft = MAX_TRIES;
+    D.error = '';
+    D.resultAttempts = 0;
+    D.shareMsg = '';
+    D.resumed = false;
+    D.phase = 'play';
+    track('game_start');
+    persist();
+    render();
+  }
+
+  function startPractice(diff) {
+    D.mode = 'practice';
+    D.difficulty = diff === 'hard' ? 'hard' : 'normal';
+    D.date = dateKey(new Date());
+    D.secret = randomSecret(D.difficulty);
+    D.guesses = [];
+    D.input = [];
+    D.attemptsLeft = MAX_TRIES;
+    D.error = '';
+    D.resultAttempts = 0;
+    D.shareMsg = '';
+    D.resumed = false;
+    D.phase = 'play';
+    track('game_start');
+    render();
+  }
+
+  function loadDaily() {
+    D.mode = 'daily';
+    D.difficulty = 'normal';
+    D.date = dateKey(new Date());
+    var saved = storageGet(KEY_DAILY);
+    if (saved && saved.date === D.date && saved.secret && saved.secret.length === LEN) {
+      D.secret = saved.secret.slice();
+      D.guesses = (saved.guesses || []).map(function (g) {
+        return { digits: g.digits.slice(), a: g.a, b: g.b };
+      });
+      D.attemptsLeft = Math.max(0, MAX_TRIES - D.guesses.length);
+      D.resultAttempts = saved.resultAttempts || D.guesses.length;
+      D.resumed = true;
+      D.phase = saved.finished ? (saved.win ? 'win' : 'lose') : 'play';
+      render();
+      return;
+    }
+    if (saved) storageDel(KEY_DAILY);
+    D.secret = dailySecret(D.date);
+    D.phase = 'intro';
+    render();
+  }
+
+  /* ══════════ 操作 ══════════ */
+  function pressDigit(d) {
+    if (D.phase !== 'play') return;
+    if (D.input.length >= LEN) return;
+    D.input.push(Number(d));
+    D.error = '';
+    render();
+  }
+
+  function backspace() {
+    if (D.phase !== 'play') return;
+    if (!D.input.length) return;
+    D.input.pop();
+    D.error = '';
+    render();
+  }
+
+  function submitGuess() {
+    if (D.phase !== 'play') return;
+    var v = validateGuess(D.input, D.difficulty);
+    if (!v.ok) {
+      D.error = v.msg;
+      track('digits_invalid', { reason: v.msg });
+      render();
+      return;
+    }
+    var sc = scoreGuess(D.secret, D.input);
+    D.guesses.push({ digits: D.input.slice(), a: sc.a, b: sc.b });
+    D.input = [];
+    D.error = '';
+    D.attemptsLeft = MAX_TRIES - D.guesses.length;
+    if (sc.a === LEN) { finishGame(true); return; }
+    if (D.attemptsLeft <= 0) { finishGame(false); return; }
+    persist();
+    render();
+  }
+
+  function finishGame(win) {
+    D.phase = win ? 'win' : 'lose';
+    D.resultAttempts = D.guesses.length;
+    persist();
+    track(win ? 'game_win' : 'game_fail', {
+      attempts: D.guesses.length,
+      candidatesLeft: candidateCount(D.guesses, D.difficulty)
+    });
+    render();
+  }
+
+  /* ══════════ 分享 ══════════ */
+  function buildShareText() {
+    var win = D.phase === 'win';
+    var modeLine = D.mode === 'daily'
+      ? '每日挑战 ' + D.date
+      : '练习模式 · ' + (D.difficulty === 'hard' ? '困难' : '普通');
+    var resultLine = win
+      ? '用 ' + D.resultAttempts + '/6 次猜中了答案'
+      : '6 次机会用完，差一点';
+    return '🕵️ 反直觉 · 数字侦探' + NL + modeLine + ' · ' + resultLine + NL +
+      '4 位数字 + A/B 反馈，你也来试试 → ' + GAME_URL;
+  }
+
+  function fallbackCopy(text, done) {
+    var ok = false;
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', 'readonly');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch (e) { ok = false; }
+    done(ok);
+  }
+
+  function copyShare() {
+    var text = buildShareText();
+    track('share', { result: D.phase === 'win' ? 'win' : 'lose' });
+    var done = function (ok) {
+      D.shareMsg = ok ? '已复制 ✓ 直接粘贴发出去吧' : '复制失败，请手动选中上面的文案';
+      render();
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, function () {
+        fallbackCopy(text, done);
+      });
+    } else {
+      fallbackCopy(text, done);
+    }
+  }
+
+  /* ══════════ 渲染工具 ══════════ */
+  function rule(n, inner) {
+    return '<div class="r"><span class="n">' + n + '</span><span>' + inner + '</span></div>';
+  }
+
+  function ctaFooter() {
+    return '<div class="cta-line">关注公众号 <b>「楠楠北北的大转盘」</b> 回复 <b>「聚变」</b> 拿 20 集目录</div>';
+  }
+
+  function topbarPlay() {
+    var right = D.mode === 'daily'
+      ? '每日挑战 · ' + D.date
+      : '练习 · ' + (D.difficulty === 'hard' ? '困难' : '普通');
+    return '<div class="topbar"><span class="ep">反直觉 · <b>数字侦探</b></span>' +
+      '<span class="day">' + right + '</span></div>';
+  }
+
+  function histRow(g, i) {
+    var digits = '';
+    for (var k = 0; k < g.digits.length; k++) {
+      digits += '<span class="hd">' + g.digits[k] + '</span>';
+    }
+    var fb;
+    if (g.a === 0 && g.b === 0) {
+      fb = '<span class="fb-zero">数字都不在</span>';
+    } else {
+      fb = '<span class="fb-a">' + g.a + 'A</span><span class="fb-b">' + g.b + 'B</span>';
+    }
+    return '<div class="hist-row"><span class="hist-no">' + (i + 1) + '</span>' +
+      '<span class="hist-digits">' + digits + '</span>' +
+      '<span class="hist-fb">' + fb + '</span></div>';
+  }
+
+  function historySummary() {
+    var out = '';
+    for (var i = 0; i < D.guesses.length; i++) out += histRow(D.guesses[i], i);
+    return '<div class="history summary">' + out + '</div>';
+  }
+
+  function answerLabel() {
+    return D.mode === 'daily' ? '今天的答案' : '这局的答案';
+  }
+
+  function shareBlock() {
+    return '<div class="sharebox">' +
+      '<div class="share-label">成绩文案（不含答案，可直接发朋友）</div>' +
+      '<pre class="sharepreview">' + buildShareText() + '</pre>' +
+      '<button class="btn-share" id="btn-share">复制分享文案</button>' +
+      (D.shareMsg ? '<div class="share-msg">' + D.shareMsg + '</div>' : '') +
+      '</div>';
+  }
+
+  function bindSettlement() {
+    var sh = document.getElementById('btn-share');
+    if (sh) sh.onclick = copyShare;
+    var again = document.getElementById('btn-again');
+    if (again) again.onclick = function () { startPractice(D.difficulty); };
+    var hard = document.getElementById('btn-again-hard');
+    if (hard) hard.onclick = function () { startPractice('hard'); };
+  }
+
+  /* ══════════ 渲染：说明页 ══════════ */
+  function renderIntro() {
+    var today = dateKey(new Date());
+    app.innerHTML = [
+      '<div class="topbar"><span class="ep">反直觉 · <b>数字侦探</b></span>' +
+        '<span class="day">Bulls &amp; Cows</span></div>',
+      '<div class="title">四位数字，六次机会</div>',
+      '<div class="subtitle">你每猜一串 4 位数，系统只回两个数字：' +
+        '<b>A</b>（数字和位置都对）和 <b>B</b>（数字对、位置错）。' +
+        '用反馈排除可能性，找出唯一答案。</div>',
+      '<div class="rules">',
+        rule(1, '答案是 <b>4 位数字</b>；普通模式数字不重复（困难模式可重复）'),
+        rule(2, '你有 <b>6 次</b>猜测机会，每次得到 <b>A/B</b> 反馈'),
+        rule(3, '例：答案 <b>1234</b>，猜 <b>1324</b> → <b>2A2B</b>'),
+        rule(4, '非法输入（位数不对 / 数字重复）只提示，<b>不扣次数</b>'),
+      '</div>',
+      '<button class="modecard daily" id="btn-daily">' +
+        '<span class="mk">每日挑战 · DAILY</span>' +
+        '<span class="mt">今天的题（' + today + '）</span>' +
+        '<span class="md">同一天所有人同一题 · 普通难度 · 刷新不丢进度</span>' +
+      '</button>',
+      '<div class="modecard">' +
+        '<span class="mk">练习模式 · PRACTICE</span>' +
+        '<span class="mt">随机出题，随时再来</span>' +
+        '<div class="diffrow">' +
+          '<button class="difftab' + (D.difficulty === 'normal' ? ' active' : '') + '" data-diff="normal">普通 · 不重复</button>' +
+          '<button class="difftab' + (D.difficulty === 'hard' ? ' active' : '') + '" data-diff="hard">困难 · 可重复</button>' +
+        '</div>' +
+        '<button class="btn-practice" id="btn-practice">开始练习</button>' +
+      '</div>',
+      ctaFooter()
+    ].join('');
+
+    document.getElementById('btn-daily').onclick = startDaily;
+    document.getElementById('btn-practice').onclick = function () { startPractice(D.difficulty); };
+    Array.prototype.forEach.call(document.querySelectorAll('.difftab'), function (b) {
+      b.onclick = function () {
+        D.difficulty = b.getAttribute('data-diff');
+        render();
+      };
+    });
+  }
+
+  /* ══════════ 渲染：游戏页 ══════════ */
+  function renderPlay() {
+    var hist = '';
+    for (var i = 0; i < D.guesses.length; i++) hist += histRow(D.guesses[i], i);
+
+    var slots = '';
+    for (var s = 0; s < LEN; s++) {
+      var has = D.input[s] !== undefined;
+      slots += '<span class="slot' + (has ? ' filled' : '') + '">' +
+        (has ? D.input[s] : '·') + '</span>';
+    }
+
+    var cand = '';
+    if (D.guesses.length > 0) {
+      cand = '<span class="cand">候选集 <b>' + candidateCount(D.guesses, D.difficulty) + '</b> 种</span>';
+    } else {
+      cand = '<span class="cand">候选集 <b>' + TOTAL[D.difficulty] + '</b> 种</span>';
+    }
+
+    var resume = D.resumed ? '<div class="resume">已恢复今天的进度，继续。</div>' : '';
+    D.resumed = false;
+
+    var keys = '';
+    for (var k = 1; k <= 9; k++) {
+      keys += '<button class="key" data-digit="' + k + '">' + k + '</button>';
+    }
+    keys += '<button class="key key-ghost" id="key-back" aria-label="删除">⌫</button>';
+    keys += '<button class="key" data-digit="0">0</button>';
+    keys += '<button class="key key-go" id="key-submit">提交</button>';
+
+    app.innerHTML = [
+      topbarPlay(),
+      resume,
+      '<div class="statusbar"><span>第 <b>' + (D.guesses.length + 1) + '</b> / ' + MAX_TRIES +
+        ' 次 · 剩 <b>' + D.attemptsLeft + '</b> 次</span>' + cand + '</div>',
+      '<div class="history' + (hist ? '' : ' empty') + '">' +
+        (hist || '<div class="hist-empty">还没有猜测 — 第一问最关键</div>') + '</div>',
+      '<div class="inputbox"><span class="inputlabel">你的猜测</span>' +
+        '<div class="slots">' + slots + '</div></div>',
+      '<div class="error" role="status">' + (D.error || '') + '</div>',
+      '<div class="keypad" id="keypad">' + keys + '</div>',
+      '<div class="hint">A = 数字和位置都对；B = 数字对但位置错。' +
+        '反馈里没出现的数字，就不在答案里。</div>',
+      '<div class="footerlinks"><a href="../../">← 返回首页</a><a href="../">玩《抓狐狸》→</a></div>',
+      ctaFooter()
+    ].join('');
+
+    Array.prototype.forEach.call(document.querySelectorAll('#keypad [data-digit]'), function (b) {
+      b.onclick = function () { pressDigit(b.getAttribute('data-digit')); };
+    });
+    var back = document.getElementById('key-back');
+    if (back) back.onclick = backspace;
+    var sub = document.getElementById('key-submit');
+    if (sub) sub.onclick = submitGuess;
+  }
+
+  /* ══════════ 渲染：结算 ══════════ */
+  function renderWin() {
+    app.innerHTML = [
+      topbarPlay(),
+      '<div class="ending">',
+        '<div class="big">🎯</div>',
+        '<h2>猜中了！</h2>',
+        '<p class="sub2">你用了 <b>' + D.resultAttempts + '</b> 次，在 6 次机会内找到了答案。</p>',
+        '<div class="answer-label">' + answerLabel() + '</div>',
+        '<div class="answer" id="answer">' + D.secret.join(' ') + '</div>',
+        historySummary(),
+        shareBlock(),
+        '<div class="mathbox">',
+          '<div class="math-title">数学解释</div>',
+          '<p>好的猜测不是「猜答案」，而是把候选集切小：每次 A/B 反馈都在做排除，这就是信息量。</p>',
+          '<p class="strategy">策略：优先猜「能排除最多可能」的数。</p>',
+          '<p class="dim">4 位不重复的答案共 <b>5040</b> 种可能；你只用了 ' + D.resultAttempts + ' 次提问就锁定了它。</p>',
+        '</div>',
+        '<div class="btns">',
+          '<button class="primary" id="btn-again">再来一局</button>',
+          '<button id="btn-again-hard">困难练习</button>',
+          '<a href="../../">回首页</a>',
+        '</div>',
+        '<div class="footerlinks"><a href="../">去玩《抓狐狸》→</a></div>',
+        ctaFooter(),
+      '</div>'
+    ].join('');
+    bindSettlement();
+  }
+
+  function renderLose() {
+    var left = candidateCount(D.guesses, D.difficulty);
+    app.innerHTML = [
+      topbarPlay(),
+      '<div class="ending">',
+        '<div class="big">🔍</div>',
+        '<h2>6 次用完了</h2>',
+        '<p class="sub2">答案已经揭晓。这一局不是运气问题 — 是候选集还没被收紧。</p>',
+        '<div class="answer-label">' + answerLabel() + '</div>',
+        '<div class="answer" id="answer">' + D.secret.join(' ') + '</div>',
+        historySummary(),
+        shareBlock(),
+        '<div class="mathbox">',
+          '<div class="math-title">数学解释</div>',
+          '<p>6 次提问足以排除绝大多数可能：先猜一组数字全不同的组合，再按 A/B 收紧范围。</p>',
+          '<p class="strategy">策略：优先猜「能排除最多可能」的数。</p>',
+          '<p class="dim">这局 6 次猜测之后，仍剩 <b>' + left + '</b> 种可能的答案。</p>',
+        '</div>',
+        '<div class="btns">',
+          '<button class="primary" id="btn-again">再来一局</button>',
+          '<button id="btn-again-hard">困难练习</button>',
+          '<a href="../../">回首页</a>',
+        '</div>',
+        '<div class="footerlinks"><a href="../">去玩《抓狐狸》→</a></div>',
+        ctaFooter(),
+      '</div>'
+    ].join('');
+    bindSettlement();
+  }
+
+  /* ══════════ 主循环 ══════════ */
+  function render() {
+    if (!app) app = document.getElementById('app');
+    if (!app) return;
+    var map = { intro: renderIntro, play: renderPlay, win: renderWin, lose: renderLose };
+    (map[D.phase] || renderIntro)();
+  }
+
+  function boot() {
+    var q = new URLSearchParams(window.location.search);
+    var mode = q.get('mode');
+    var diff = q.get('difficulty') === 'hard' ? 'hard' : 'normal';
+    if (mode === 'practice') { startPractice(diff); return; }
+    if (mode === 'daily') { startDaily(); return; }
+    loadDaily();
+  }
+
+  function bindGlobalKeys() {
+    document.addEventListener('keydown', function (e) {
+      if (D.phase !== 'play') return;
+      if (e.key >= '0' && e.key <= '9') { pressDigit(parseInt(e.key, 10)); e.preventDefault(); }
+      else if (e.key === 'Backspace') { backspace(); e.preventDefault(); }
+      else if (e.key === 'Enter') { submitGuess(); e.preventDefault(); }
+    });
+  }
+
+  /* 暴露给 E2E / 单测 */
+  window.D = D;
+  window.render = render;
+  window.startDaily = startDaily;
+  window.startPractice = startPractice;
+  window.pressDigit = pressDigit;
+  window.backspace = backspace;
+  window.submitGuess = submitGuess;
+  window.buildShareText = buildShareText;
+  window.__digits = {
+    LEN: LEN,
+    MAX_TRIES: MAX_TRIES,
+    GAME_URL: GAME_URL,
+    TOTAL: TOTAL,
+    dateKey: dateKey,
+    dailySecret: dailySecret,
+    randomSecret: randomSecret,
+    scoreGuess: scoreGuess,
+    validateGuess: validateGuess,
+    candidateCount: candidateCount
+  };
+
+  if (typeof document !== 'undefined' && document.getElementById && document.getElementById('app')) {
+    bindGlobalKeys();
+    boot();
+  }
+})();
+</script>
+</body>
+</html>

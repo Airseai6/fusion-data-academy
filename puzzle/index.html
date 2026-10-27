@@ -122,6 +122,20 @@ button.small{padding:9px 18px;font-size:13px}
 }
 .cta-line b{color:var(--fox)}
 
+/* ── 系列入口卡片 ── */
+.series{
+  display:block;margin-bottom:22px;padding:16px 18px;border-radius:10px;
+  background:linear-gradient(135deg,rgba(96,165,250,.10),rgba(96,165,250,.02));
+  border:1px solid rgba(96,165,250,.35);text-decoration:none;transition:.15s;
+}
+.series:hover{border-color:var(--accent);transform:translateY(-1px)}
+.series .series-k{
+  display:block;font-size:11px;letter-spacing:.12em;color:var(--accent);
+  font-family:Consolas,monospace;margin-bottom:6px;
+}
+.series .series-t{display:block;font-size:16px;font-weight:600;color:var(--ink);margin-bottom:5px}
+.series .series-d{display:block;font-size:13px;color:var(--dim);line-height:1.8}
+
 .hint{
   margin-top:22px;padding:16px 18px;border-radius:8px;
   background:rgba(96,165,250,.06);border-left:3px solid var(--accent);
@@ -363,6 +377,11 @@ function renderIntro() {
         <b>这不是运气题</b>。有一个顺序能<b>保证</b>抓到 —— 不管她怎么躲。<br>
         同一个洞<b>可以查多次</b>（她可能又绕回来）。
       </div>
+      <a class="series" href="./digits/">
+        <span class="series-k">反直觉系列 · 新作</span>
+        <span class="series-t">数字侦探 · Bulls &amp; Cows</span>
+        <span class="series-d">4 位数字 + 6 次机会，用 A/B 反馈排除候选 →</span>
+      </a>
       <div class="btns"><button class="primary" onclick="startPlay()">开始</button></div>
     `;
   } else {
