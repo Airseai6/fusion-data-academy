@@ -108,6 +108,20 @@ button.primary:hover:not(:disabled){background:#FFA06E}
 button:disabled{opacity:.35;cursor:not-allowed}
 button.small{padding:9px 18px;font-size:13px}
 
+/* ── 跨页链接 / CTA ── */
+.btns a{
+  font-family:inherit;font-size:14px;padding:12px 26px;border-radius:6px;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);
+  text-decoration:none;transition:.15s;display:inline-block;
+}
+.btns a:hover{border-color:var(--accent)}
+.btns a.primary{background:var(--fox);border-color:var(--fox);color:#180D06;font-weight:600}
+.btns a.primary:hover{background:#FFA06E}
+.cta-line{
+  margin-top:24px;text-align:center;font-size:13.5px;color:#8FA0B5;line-height:1.9
+}
+.cta-line b{color:var(--fox)}
+
 .hint{
   margin-top:22px;padding:16px 18px;border-radius:8px;
   background:rgba(96,165,250,.06);border-left:3px solid var(--accent);
@@ -656,6 +670,12 @@ function renderReveal() {
       <button onclick="startStrategy();">再试一次（明知无解）</button>
       <button class="primary" onclick="goFinal()">继续</button>
     </div>
+    <div class="btns" style="margin-top:18px">
+      <a class="primary" href="../lab/">去玩物理版：从零理解核聚变 →</a>
+    </div>
+    <div class="cta-line">
+      关注公众号 <b>「楠楠北北的大转盘」</b> 回复 <b>「聚变」</b> 拿 20 集目录
+    </div>
   `;
 }
 
@@ -681,6 +701,12 @@ function renderFinal() {
     <div class="btns">
       <button class="primary" onclick="resetLevel(1);render()">从头再玩一次</button>
       <button onclick="resetLevel(2);startStrategy()">回第二关</button>
+    </div>
+    <div class="btns" style="margin-top:18px">
+      <a class="primary" href="../lab/">去玩物理版：从零理解核聚变 →</a>
+    </div>
+    <div class="cta-line">
+      关注公众号 <b>「楠楠北北的大转盘」</b> 回复 <b>「聚变」</b> 拿 20 集目录
     </div>
   `;
 }
