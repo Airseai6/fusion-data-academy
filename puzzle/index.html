@@ -508,8 +508,15 @@ function showReveal() {
 /* ══════════════════════════════════════════════════════════
    启动
    ══════════════════════════════════════════════════════════ */
-resetLevel(1);
-render();
+// 支持 ?level=2 直接进第二关（方便试玩）
+const _q = new URLSearchParams(location.search);
+if (_q.get('level') === '2') {
+  goLevel2();
+  startPlay();
+} else {
+  resetLevel(1);
+  render();
+}
 </script>
 </body>
 </html>
