@@ -53,8 +53,9 @@ body{
   transition:transform .08s,border-color .12s,background .12s;
 }
 .tile:hover:not(.blank):not(.locked){border-color:var(--accent)}
-.tile.movable{border-color:rgba(96,165,250,.85);box-shadow:0 0 0 2px rgba(96,165,250,.18),0 3px 10px rgba(0,0,0,.4);color:#DCEBFF}
 .tile.placed{border-color:rgba(91,217,190,.5);background:linear-gradient(180deg,#22343A,#16242A);color:#BFEEE3}
+/* 可滑动优先于「已归位」：能动的格子先要看得出来 */
+.tile.movable{border-color:rgba(96,165,250,.85);box-shadow:0 0 0 2px rgba(96,165,250,.18),0 3px 10px rgba(0,0,0,.4);color:#DCEBFF}
 .tile.blank{background:var(--panel2);border:1px dashed rgba(122,135,152,.35);cursor:default}
 .tile.locked{cursor:default}
 .tile:active:not(.blank){transform:scale(.97)}
