@@ -71,8 +71,10 @@ h1 em{font-style:normal;color:var(--amber)}
 .qr{
   flex:0 0 92px;width:92px;height:92px;border-radius:10px;border:1px dashed rgba(255,179,71,.55);
   background:#0D1117;display:flex;align-items:center;justify-content:center;text-align:center;
-  font-size:9px;line-height:1.6;color:var(--dim2);padding:8px;
+  font-size:9px;line-height:1.6;color:var(--dim2);padding:8px;overflow:hidden;
 }
+.qr img{width:100%;height:100%;object-fit:contain;border-radius:8px;display:block}
+.qr span{display:none}
 .follow small{display:block;color:var(--dim2);font-size:10px;margin-top:6px}
 
 .camp{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:22px 0}
@@ -179,7 +181,10 @@ footer a{color:var(--dim);text-decoration:none}
       </div>
       <small>二维码图待替换：wechat-qr.png（后台下载后放到 /wechat/ 目录）</small>
     </div>
-    <div class="qr">公众号<br>二维码<br>待替换</div>
+    <div class="qr">
+      <img src="wechat-qr.png" alt="楠楠北北的大转盘公众号二维码" onerror="this.style.display='none';document.getElementById('qrFallback').style.display='block'">
+      <span id="qrFallback">公众号<br>二维码<br>待替换</span>
+    </div>
   </div>
 
   <div class="camp">
