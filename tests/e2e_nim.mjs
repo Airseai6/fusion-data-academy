@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import { launch, newTab, navigate, evalJs, shot, sleep } from 'file:///D:/DSHWorkspace/playtest/cdp.mjs';
 
-const PAGE = 'file:///D:/hermesWorkspace/projects/github-pages/puzzle/nim/index.html';
+const PAGE = process.env.NIM_URL || 'file:///D:/hermesWorkspace/projects/github-pages/puzzle/nim/index.html';
 const OUT = 'D:/DSHWorkspace/playtest/shots-e2e';
 fs.mkdirSync(OUT, { recursive: true });
 const results = [];
