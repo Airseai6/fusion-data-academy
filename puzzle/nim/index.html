@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>反直觉 · 最后一颗 | Nim 取子</title>
+<meta name="description" content="三堆石子，轮流取子，取走最后一颗的人赢或输。三档 AI，最高档用二进制异或走最优策略；看懂必败态。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0F14;--panel:#141A22;--panel2:#0E141B;--line:#232C38;--line2:#3A4757;
+  --ink:#E8EDF4;--dim:#96A5B8;--dim2:#7A8798;
+  --amber:#FFB347;--teal:#5BD9BE;--ok:#4ADE80;--bad:#F87171;--accent:#60A5FA;
+}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  min-height:100vh;display:flex;justify-content:center;padding:18px 14px 54px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{width:100%;max-width:760px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
+.topbar .ep{font-size:12px;color:var(--dim);font-family:Consolas,monospace;letter-spacing:.08em}
+.topbar .ep b{color:var(--amber)}
+.topbar a{color:var(--dim);text-decoration:none;font-size:13px}
+.topbar a:hover{color:var(--ink)}
+.title{font-size:28px;font-weight:750;letter-spacing:.02em;margin-bottom:8px}
+.lead{font-size:14px;line-height:1.9;color:#A8B6C8;margin-bottom:20px}
+.lead b{color:var(--amber)}
+
+.hud{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.turn{font-size:15px;font-weight:600;min-height:24px}
+.turn b{color:var(--amber)}
+.turn.ai b{color:var(--accent)}
+.settings{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.settings label{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px}
+.settings select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12px;min-height:34px}
+
+.board{display:flex;flex-direction:column;gap:12px;margin:8px 0 14px}
+.pile{
+  position:relative;display:flex;align-items:center;gap:14px;min-height:84px;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:12px 14px;cursor:pointer;text-align:left;color:var(--ink);
+  transition:border-color .15s,background .15s,transform .1s;
+  -webkit-tap-highlight-color:transparent;width:100%;
+}
+.pile:hover:not(:disabled){border-color:var(--accent)}
+.pile.selected{border-color:var(--amber);background:rgba(255,179,71,.08)}
+.pile:disabled{opacity:.72;cursor:default}
+.pile .pname{flex:0 0 48px;font-family:Consolas,monospace;font-size:13px;color:var(--dim2)}
+.pile .pcount{flex:0 0 56px;font-size:32px;font-weight:750;font-family:Consolas,monospace;color:var(--amber);text-align:right}
+.pile .stones{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+.stone{width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#ffd28a,#c97a20 70%);box-shadow:0 1px 2px rgba(0,0,0,.5)}
+.pile.empty .pcount{color:var(--dim2)}
+.pile.empty .stone{display:none}
+
+.picker{background:var(--panel2);border:1px dashed var(--line2);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.picker .plabel{font-size:12px;color:var(--dim);margin-bottom:9px}
+.picker .pbtns{display:flex;gap:8px;flex-wrap:wrap}
+.picker button{min-width:48px;min-height:44px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);font-family:Consolas,monospace;font-size:16px;font-weight:600;cursor:pointer}
+.picker button:hover{border-color:var(--amber);color:var(--amber)}
+.picker .cancel{font-family:inherit;font-size:12px;color:var(--dim);min-width:auto;padding:0 12px}
+
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin:6px 0 16px}
+.actions button{font-family:inherit;font-size:13px;min-height:42px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;padding:9px 14px;transition:.15s;-webkit-tap-highlight-color:transparent}
+.actions button:hover:not(:disabled){border-color:var(--accent)}
+.actions button.primary{background:var(--amber);border-color:var(--amber);color:#1A1004;font-weight:650}
+.actions button:disabled{opacity:.35;cursor:not-allowed}
+
+.hint{background:rgba(96,165,250,.06);border-left:3px solid var(--accent);border-radius:8px;padding:13px 15px;font-size:13px;line-height:1.95;color:#B8C6D8;margin:12px 0}
+.hint b{color:var(--accent)}
+.hint .bin{font-family:Consolas,monospace;font-size:12.5px;color:var(--dim);line-height:2;margin-top:6px;white-space:pre-wrap}
+.hint .good{color:var(--ok)}
+
+.result{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin:14px 0}
+.result.win{border-color:rgba(74,222,128,.55);background:rgba(74,222,128,.05)}
+.result.lose{border-color:rgba(248,113,113,.55);background:rgba(248,113,113,.05)}
+.result h2{font-size:20px;margin-bottom:8px}
+.result.win h2{color:var(--ok)}
+.result.lose h2{color:var(--bad)}
+.result p{font-size:13.5px;line-height:1.95;color:#B8C6D8;margin-bottom:10px}
+.result .math{font-size:13px;line-height:1.9;color:#9FB0C4;background:var(--panel2);border-radius:8px;padding:12px 14px;font-family:Consolas,monospace;white-space:pre-wrap}
+.sharebox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;margin:12px 0}
+.sharebox .sl{font-size:11px;color:var(--dim2);margin-bottom:8px}
+.sharebox pre{font-family:Consolas,monospace;font-size:12px;line-height:1.8;color:#C8D4E2;white-space:pre-wrap;word-break:break-all;margin-bottom:9px}
+.sharebox button{font-family:inherit;font-size:12px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);border-radius:7px;padding:7px 12px;cursor:pointer}
+.sharebox button:hover{border-color:var(--teal)}
+.share-msg{font-size:12px;color:var(--teal);margin-top:8px;min-height:18px}
+
+details.rules{margin-top:18px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;line-height:1.95;color:#9FB0C4}
+details.rules summary{cursor:pointer;color:var(--dim);font-size:13px;margin-bottom:8px}
+details.rules b{color:var(--amber)}
+.hidden{display:none!important}
+.footlinks{margin-top:22px;text-align:center;font-size:13px;line-height:1.9}
+.footlinks a{color:#FFB347;text-decoration:none;border-bottom:1px solid rgba(255,179,71,.3)}
+.footlinks .sep{color:#3A4757;margin:0 10px}
+
+@media (max-width:560px){
+  body{padding:14px 10px 46px}
+  .title{font-size:23px}
+  .pile{min-height:74px;gap:10px;padding:10px 11px}
+  .pile .pname{flex-basis:38px;font-size:11px}
+  .pile .pcount{flex-basis:44px;font-size:26px}
+  .stone{width:15px;height:15px}
+  .settings select{min-height:38px}
+}
+</style>
+<script src="../../analytics.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <span class="ep">反直觉系列 · <b>第三关</b></span>
+    <a href="../../brain/">← 回大脑保健操</a>
+  </div>
+  <h1 class="title">最后一颗</h1>
+  <p class="lead">
+    三堆石子，轮流从<b>任意一堆</b>取走至少一颗。取走最后一颗的人——
+    在普通模式里<b>赢</b>，在「取最后者输」模式里<b>输</b>。
+    最高档 AI 会用二进制异或，让你越取越绝望。
+  </p>
+
+  <div id="app"></div>
+
+  <details class="rules">
+    <summary>规则 / 数学解释</summary>
+    <p><b>普通模式（取最后者胜）：</b>把三堆数量做异或（XOR）。如果当前异或和为 0，先手必败；不为 0 时，总能把异或和变成 0 留给对手。</p>
+    <p><b>取最后者输：</b>先处理「只剩 1 颗的堆」——若所有堆都只剩 1 颗，留给对手奇数堆才是好局面；否则先按普通异或策略调整。</p>
+    <p>这就是组合博弈论里的 <b>Nim</b>：必败态（P-position）与必胜态（N-position）。提示按钮会显示每一步的异或和。</p>
+  </details>
+
+  <div class="footlinks">
+    <a href="../../brain/">← 回大脑保健操</a><span class="sep">|</span><a href="../digits/">玩《数字侦探》→</a><span class="sep">|</span><a href="../">回小游戏区</a>
+  </div>
+</div>
+
+<script>
+/* === NIM CORE START === */
+function nimSum(piles) {
+  return piles.reduce((a, b) => a ^ b, 0);
+}
+
+function totalStones(piles) {
+  return piles.reduce((a, b) => a + b, 0);
+}
+
+function applyMove(piles, move) {
+  const next = piles.slice();
+  next[move.pile] -= move.count;
+  return next;
+}
+
+function legalMoves(piles) {
+  const moves = [];
+  for (let i = 0; i < piles.length; i++) {
+    for (let count = 1; count <= piles[i]; count++) moves.push({ pile: i, count });
+  }
+  return moves;
+}
+
+/**
+ * True if the player to move from `piles` can force a win.
+ * Terminal: no stones.
+ *  - normal: player to move has no move => loses.
+ *  - misere: the previous player took the last stone and loses => player to move wins.
+ */
+function winningState(piles, misere, memo) {
+  memo = memo || new Map();
+  const key = piles.slice().sort((a, b) => a - b).join(',') + '|' + (misere ? 1 : 0);
+  if (memo.has(key)) return memo.get(key);
+  if (totalStones(piles) === 0) {
+    const result = Boolean(misere);
+    memo.set(key, result);
+    return result;
+  }
+  let result = false;
+  for (const move of legalMoves(piles)) {
+    if (!winningState(applyMove(piles, move), misere, memo)) { result = true; break; }
+  }
+  memo.set(key, result);
+  return result;
+}
+
+function randomMove(piles) {
+  const moves = legalMoves(piles);
+  return moves[Math.floor(Math.random() * moves.length)];
+}
+
+/** Optimal move for both normal and misere Nim (small state DP). */
+function bestMove(piles, misere) {
+  const moves = legalMoves(piles);
+  for (const move of moves) {
+    if (!winningState(applyMove(piles, move), misere)) return move;
+  }
+  return randomMove(piles);
+}
+
+function randomPiles() {
+  const piles = [];
+  for (let i = 0; i < 3; i++) piles.push(2 + Math.floor(Math.random() * 5));
+  if (totalStones(piles) === 0) piles[0] = 3;
+  return piles;
+}
+
+function formatBinary(n) {
+  return n.toString(2).padStart(3, '0');
+}
+/* === NIM CORE END === */
+
+/* ================= UI ================= */
+const G = {
+  piles: [3, 4, 5],
+  mode: 'normal',
+  difficulty: 'hard',
+  phase: 'playing',
+  turn: 'player',
+  selected: null,
+  hint: false,
+  last: null,
+  winner: null,
+  aiTimer: null,
+  snapshots: [],
+  shareMsg: '',
+};
+
+const app = document.getElementById('app');
+const MODE_LABEL = { normal: '取最后者胜', misere: '取最后者输' };
+const DIFF_LABEL = { easy: '简单', medium: '中等', hard: '困难' };
+
+function track(name, params) {
+  try { if (window.counters && window.counters.track) window.counters.track(name, params); } catch (_) {}
+}
+
+function newGame(opts) {
+  opts = opts || {};
+  clearTimeout(G.aiTimer);
+  G.piles = opts.piles ? opts.piles.slice() : (opts.random ? randomPiles() : [3, 4, 5]);
+  G.mode = opts.mode || G.mode;
+  G.difficulty = opts.difficulty || G.difficulty;
+  G.phase = 'playing';
+  G.turn = 'player';
+  G.selected = null;
+  G.last = null;
+  G.winner = null;
+  G.snapshots = [];
+  G.shareMsg = '';
+  track('game_start', { game: 'nim', difficulty: G.difficulty, mode: G.mode });
+  render();
+}
+
+function render() {
+  if (!app) return;
+  const hint = G.hint ? renderHint() : '';
+  const result = G.phase === 'result' ? renderResult() : '';
+  app.innerHTML = `
+    <div class="hud">
+      <div class="turn ${G.turn === 'ai' ? 'ai' : ''}" id="turn">${G.phase === 'result' ? '本局结束' : (G.turn === 'player' ? '轮到你' : 'AI 正在思考…')}</div>
+      <div class="settings">
+        <label>模式
+          <select id="mode">
+            <option value="normal" ${G.mode === 'normal' ? 'selected' : ''}>取最后者胜</option>
+            <option value="misere" ${G.mode === 'misere' ? 'selected' : ''}>取最后者输</option>
+          </select>
+        </label>
+        <label>难度
+          <select id="difficulty">
+            <option value="easy" ${G.difficulty === 'easy' ? 'selected' : ''}>简单</option>
+            <option value="medium" ${G.difficulty === 'medium' ? 'selected' : ''}>中等</option>
+            <option value="hard" ${G.difficulty === 'hard' ? 'selected' : ''}>困难</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="board" id="board">${G.piles.map(renderPile).join('')}</div>
+    ${G.selected !== null && G.phase === 'playing' && G.turn === 'player' ? renderPicker(G.selected) : ''}
+
+    <div class="actions">
+      <button class="primary" id="btnNew">新的一局</button>
+      <button id="btnRandom">随机开局</button>
+      <button id="btnHint">${G.hint ? '隐藏提示' : '显示提示'}</button>
+      <button id="btnUndo" ${G.snapshots.length && G.phase === 'playing' && G.turn === 'player' ? '' : 'disabled'}>悔棋</button>
+    </div>
+    ${hint}
+    ${result}
+    <div class="hidden" id="aria-live" aria-live="polite">${G.last ? G.last.text : ''}</div>
+  `;
+  bindEvents();
+}
+
+function renderPile(pile, i) {
+  const stones = Array.from({ length: pile }, () => '<span class="stone"></span>').join('');
+  const selected = G.selected === i ? ' selected' : '';
+  const empty = pile === 0 ? ' empty' : '';
+  return `<button class="pile${selected}${empty}" data-pile="${i}" ${G.phase === 'result' || G.turn !== 'player' ? 'disabled' : ''}>
+    <span class="pname">堆 ${String.fromCharCode(65 + i)}</span>
+    <span class="stones">${stones}</span>
+    <span class="pcount">${pile}</span>
+  </button>`;
+}
+
+function renderPicker(index) {
+  const pile = G.piles[index];
+  const buttons = Array.from({ length: pile }, (_, k) => `<button data-count="${k + 1}">${k + 1}</button>`).join('');
+  return `<div class="picker">
+    <div class="plabel">从「堆 ${String.fromCharCode(65 + index)}」取走几颗？</div>
+    <div class="pbtns">${buttons}<button class="cancel" id="btnCancel">取消</button></div>
+  </div>`;
+}
+
+function renderHint() {
+  const sum = nimSum(G.piles);
+  const lines = G.piles.map((p, i) => `堆 ${String.fromCharCode(65 + i)}：${String(p).padStart(2)}  = ${formatBinary(p)}`).join('\n');
+  const move = bestMove(G.piles, G.mode === 'misere');
+  let suggestion = '';
+  if (G.phase === 'playing' && G.turn === 'player' && move) {
+    suggestion = `\n当前异或和 = ${formatBinary(sum)} (${sum}) → 最优：从堆 ${String.fromCharCode(65 + move.pile)} 取 ${move.count} 颗`;
+  }
+  return `<div class="hint"><b>二进制提示</b>
+    <div class="bin">${lines}\n异或和：${formatBinary(sum)} = ${sum}${suggestion ? suggestion : ''}</div>
+  </div>`;
+}
+
+function renderResult() {
+  const won = G.winner === 'player';
+  const explanation = G.mode === 'normal'
+    ? '把每堆数量异或起来：异或和为 0 是留给对手的必败态；不为 0 时，总能把局面变回 0。'
+    : '取最后者输的秘诀：先把局面变成「只剩 1 颗的堆有奇数个」；否则按普通异或策略把异或和变成 0。';
+  const shareText = `我在《最后一颗》用「${DIFF_LABEL[G.difficulty]}」难度${G.mode === 'misere' ? '（取最后者输）' : ''}${won ? '赢' : '输'}了一局。\n三堆石子的二进制异或，决定了谁拿走最后一颗。\n来试：${location.origin}${location.pathname}`;
+  return `<div class="result ${won ? 'win' : 'lose'}">
+    <h2>${won ? '你拿走了最后一颗——按规则你赢了' : 'AI 拿走了最后一颗，你输了'}</h2>
+    <p>${G.mode === 'normal' ? '普通模式：取走最后一颗者胜。' : '取最后者输模式：取走最后一颗的人反而输。'}</p>
+    <div class="math">${explanation}</div>
+    <div class="sharebox">
+      <div class="sl">分享文案（不含答案）</div>
+      <pre>${shareText}</pre>
+      <button id="btnShare">复制分享文案</button>
+      <div class="share-msg">${G.shareMsg}</div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="btnAgain">再来一局</button>
+      <button id="btnSwitchMode">换个模式</button>
+    </div>
+  </div>`;
+}
+
+function bindEvents() {
+  document.querySelectorAll('.pile').forEach((el) => {
+    el.addEventListener('click', () => selectPile(Number(el.dataset.pile)));
+  });
+  document.querySelectorAll('.picker [data-count]').forEach((el) => {
+    el.addEventListener('click', () => playerMove(G.selected, Number(el.dataset.count)));
+  });
+  const cancel = document.getElementById('btnCancel');
+  if (cancel) cancel.addEventListener('click', () => { G.selected = null; render(); });
+  document.getElementById('mode').addEventListener('change', (e) => newGame({ mode: e.target.value }));
+  document.getElementById('difficulty').addEventListener('change', (e) => { G.difficulty = e.target.value; newGame(); });
+  document.getElementById('btnNew').addEventListener('click', () => newGame());
+  document.getElementById('btnRandom').addEventListener('click', () => newGame({ random: true }));
+  document.getElementById('btnHint').addEventListener('click', () => { G.hint = !G.hint; render(); });
+  document.getElementById('btnUndo').addEventListener('click', undo);
+  const again = document.getElementById('btnAgain');
+  if (again) again.addEventListener('click', () => newGame());
+  const switchMode = document.getElementById('btnSwitchMode');
+  if (switchMode) switchMode.addEventListener('click', () => newGame({ mode: G.mode === 'normal' ? 'misere' : 'normal' }));
+  const share = document.getElementById('btnShare');
+  if (share) share.addEventListener('click', copyShare);
+}
+
+function selectPile(index) {
+  if (G.phase !== 'playing' || G.turn !== 'player') return;
+  if (G.piles[index] <= 0) return;
+  G.selected = index;
+  render();
+}
+
+function playerMove(index, count) {
+  if (G.phase !== 'playing' || G.turn !== 'player') return;
+  if (index === null || G.piles[index] < count || count < 1) return;
+  G.snapshots.push({ piles: G.piles.slice(), turn: G.turn });
+  const before = G.piles[index];
+  G.piles[index] -= count;
+  G.selected = null;
+  G.last = { mover: 'player', text: `玩家从堆 ${String.fromCharCode(65 + index)} 取 ${count} 颗（${before}→${G.piles[index]}）` };
+  track('nim_move', { game: 'nim', mover: 'player', pile: index, count, difficulty: G.difficulty });
+  if (finishIfOver('player')) return;
+  G.turn = 'ai';
+  render();
+  scheduleAI();
+}
+
+function scheduleAI() {
+  clearTimeout(G.aiTimer);
+  G.aiTimer = setTimeout(() => {
+    if (G.phase !== 'playing' || G.turn !== 'ai') return;
+    const move = chooseAI();
+    const before = G.piles[move.pile];
+    G.piles[move.pile] -= move.count;
+    G.last = { mover: 'ai', text: `AI 从堆 ${String.fromCharCode(65 + move.pile)} 取 ${move.count} 颗（${before}→${G.piles[move.pile]}）` };
+    track('nim_move', { game: 'nim', mover: 'ai', pile: move.pile, count: move.count, difficulty: G.difficulty });
+    if (finishIfOver('ai')) return;
+    G.turn = 'player';
+    render();
+  }, 300 + Math.floor(Math.random() * 300));
+}
+
+function chooseAI() {
+  if (G.difficulty === 'easy') return randomMove(G.piles);
+  if (G.difficulty === 'medium') return Math.random() < 0.55 ? bestMove(G.piles, G.mode === 'misere') : randomMove(G.piles);
+  return bestMove(G.piles, G.mode === 'misere');
+}
+
+function finishIfOver(lastMover) {
+  if (totalStones(G.piles) !== 0) return false;
+  G.phase = 'result';
+  G.turn = 'player';
+  G.winner = G.mode === 'normal'
+    ? lastMover
+    : (lastMover === 'player' ? 'ai' : 'player');
+  track(G.winner === 'player' ? 'game_win' : 'game_fail', { game: 'nim', difficulty: G.difficulty, mode: G.mode });
+  render();
+  return true;
+}
+
+function undo() {
+  if (G.phase !== 'playing' || G.turn !== 'player' || G.snapshots.length === 0) return;
+  clearTimeout(G.aiTimer);
+  const snap = G.snapshots.pop();
+  G.piles = snap.piles;
+  G.turn = 'player';
+  G.selected = null;
+  G.last = null;
+  render();
+}
+
+function copyShare() {
+  const text = `我在《最后一颗》用「${DIFF_LABEL[G.difficulty]}」难度${G.mode === 'misere' ? '（取最后者输）' : ''}${G.winner === 'player' ? '赢' : '输'}了一局。\n三堆石子的二进制异或，决定了谁拿走最后一颗。\n来试：${location.origin}${location.pathname}`;
+  const done = (ok) => {
+    G.shareMsg = ok ? '已复制 ✓' : '复制失败，请手动选中';
+    track('share', { game: 'nim', difficulty: G.difficulty, mode: G.mode });
+    render();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => done(true)).catch(() => done(false));
+  } else {
+    done(false);
+  }
+}
+
+/* Expose core + state for tests */
+window.Nim = { nimSum, totalStones, applyMove, legalMoves, winningState, bestMove, randomMove, randomPiles, formatBinary };
+window.__nim = G;
+
+newGame({ mode: 'normal', difficulty: 'hard' });
+</script>
+</body>
+</html>
