@@ -26,7 +26,7 @@ jobs:
           playwright install --with-deps chromium
 
       - name: Puzzle core logic tests
-        run: node --test tests/nim_logic_test.mjs tests/hanoi_logic_test.mjs tests/fifteen_logic_test.mjs tests/twentyfour_logic_test.mjs
+        run: node --test tests/nim_logic_test.mjs tests/hanoi_logic_test.mjs tests/fifteen_logic_test.mjs tests/twentyfour_logic_test.mjs tests/river_logic_test.mjs
 
       - name: Run E2E
         run: python tests/e2e_test.py --root .
