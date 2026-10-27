@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>过河 · 状态图 | 狼羊菜与传教士野人</title>
+<meta name="description" content="船每次只能载有限的人或物：狼和羊、羊和菜、野人多于传教士都会出事。这是一张状态图上的最短路 —— 狼羊菜最短 7 步，传教士野人最短 11 步，BFS 逐层扩张证明更短无解。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0F14;--panel:#141A22;--panel2:#0E141B;--line:#232C38;--line2:#3A4757;
+  --ink:#E8EDF4;--dim:#96A5B8;--dim2:#7A8798;
+  --teal:#5BD9BE;--amber:#FFB347;--ok:#4ADE80;--bad:#F87171;--accent:#60A5FA;
+}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  min-height:100vh;display:flex;justify-content:center;padding:18px 14px 54px;-webkit-font-smoothing:antialiased;
+}
+.wrap{width:100%;max-width:720px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
+.topbar .ep{font-size:12px;color:var(--dim);font-family:Consolas,monospace;letter-spacing:.08em}
+.topbar .ep b{color:var(--teal)}
+.topbar a{color:var(--dim);text-decoration:none;font-size:13px}
+.topbar a:hover{color:var(--ink)}
+.title{font-size:28px;font-weight:750;letter-spacing:.02em;margin-bottom:8px}
+.lead{font-size:14px;line-height:1.9;color:#A8B6C8;margin-bottom:16px}
+.lead b{color:var(--teal)}
+
+.levelbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.levelbar button{
+  flex:1 1 0;min-width:0;min-height:46px;padding:8px 12px;
+  font-family:inherit;font-size:13.5px;font-weight:600;text-align:left;
+  background:var(--panel);color:var(--dim);border:1px solid var(--line);border-radius:10px;
+  cursor:pointer;transition:.15s;-webkit-tap-highlight-color:transparent;line-height:1.35;
+}
+.levelbar button .lv{display:block;font-size:11px;font-weight:500;color:var(--dim2);font-family:Consolas,monospace;letter-spacing:.06em}
+.levelbar button:hover{border-color:var(--line2);color:var(--ink)}
+.levelbar button.on{background:rgba(91,217,190,.10);border-color:var(--teal);color:var(--ink)}
+.levelbar button.on .lv{color:var(--teal)}
+.levelbar button:disabled{cursor:default;opacity:.55}
+
+.hud{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.stats{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--dim);font-family:Consolas,monospace}
+.stats b{color:var(--ink);font-size:13px}
+.stats .k{color:var(--dim2)}
+.goal{font-size:11.5px;color:var(--dim2);font-family:Consolas,monospace}
+
+.stage{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.bank{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-height:92px}
+.bank.goal-side{border-color:rgba(91,217,190,.4);background:linear-gradient(180deg,rgba(91,217,190,.05),var(--panel))}
+.bankhead{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11.5px;color:var(--dim);font-family:Consolas,monospace;margin-bottom:8px;flex-wrap:wrap}
+.bankhead .tag{color:var(--teal)}
+.pieces{display:flex;flex-wrap:wrap;gap:8px;min-height:56px;align-items:center}
+.pieces .empty{font-size:12px;color:var(--dim2)}
+.piece{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  min-width:58px;min-height:58px;padding:6px 8px;
+  background:linear-gradient(180deg,#313D4C,#1D2632);border:1px solid var(--line2);border-radius:10px;
+  color:var(--ink);cursor:pointer;transition:transform .08s,border-color .12s,opacity .12s;
+  -webkit-tap-highlight-color:transparent;
+}
+.piece .ic{font-size:20px;line-height:1}
+.piece .nm{font-size:11.5px;color:#C4D2E2;white-space:nowrap}
+.piece:hover{border-color:var(--accent)}
+.piece:active{transform:scale(.96)}
+.piece.onboat{border-color:var(--teal);background:linear-gradient(180deg,#1E3A36,#142723);cursor:pointer}
+.piece.far{opacity:.42}
+
+.river{
+  position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:linear-gradient(180deg,#0A1A24,#0D2430);
+  border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-height:76px;
+}
+.boat{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  background:#16232E;border:1px solid var(--line2);border-radius:10px;padding:6px 9px;min-height:50px;
+  transition:margin .18s ease;
+}
+.boat .boatcap{font-family:Consolas,monospace;font-size:11px;color:var(--dim);white-space:nowrap}
+.boat .boatcap b{color:var(--ink)}
+.boat.right{margin-left:auto}
+.sail{
+  flex:1 1 140px;min-height:50px;padding:0 16px;border-radius:10px;
+  font-family:inherit;font-size:14.5px;font-weight:650;cursor:pointer;transition:.15s;
+  background:var(--teal);border:1px solid var(--teal);color:#04211C;-webkit-tap-highlight-color:transparent;
+}
+.sail span{font-family:Consolas,monospace}
+.sail:hover{filter:brightness(1.06)}
+.sail:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(.5)}
+
+.msg{font-size:12.5px;line-height:1.75;color:var(--amber);margin:2px 0 10px;min-height:0}
+.msg:empty{display:none}
+.hintbox{background:rgba(255,179,71,.07);border-left:3px solid var(--amber);border-radius:8px;padding:11px 14px;font-size:13px;line-height:1.85;color:#D8C7A8;margin:10px 0}
+.hintbox b{color:var(--amber);font-family:Consolas,monospace;font-size:13.5px}
+
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin:6px 0 4px}
+.actions button{
+  font-family:inherit;font-size:13.5px;min-height:44px;padding:9px 16px;border-radius:9px;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;
+  transition:.15s;-webkit-tap-highlight-color:transparent;
+}
+.actions button:hover:not(:disabled){border-color:var(--accent)}
+.actions button:disabled{opacity:.35;cursor:not-allowed}
+.actions button.primary{background:var(--teal);border-color:var(--teal);color:#04211C;font-weight:650}
+
+.result{background:var(--panel);border:1px solid rgba(74,222,128,.55);border-radius:12px;padding:18px;margin:16px 0}
+.result h2{font-size:20px;margin-bottom:8px;color:var(--ok)}
+.result p{font-size:13.5px;line-height:1.95;color:#B8C6D8;margin-bottom:10px}
+.result p b{color:var(--teal)}
+.result .math{font-size:12.5px;line-height:1.95;color:#9FB0C4;background:var(--panel2);border-radius:8px;padding:12px 14px;font-family:Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+.result .math b{color:var(--teal)}
+.sharebox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;margin:12px 0}
+.sharebox .sl{font-size:11px;color:var(--dim2);margin-bottom:8px}
+.sharebox pre{font-family:Consolas,monospace;font-size:12px;line-height:1.8;color:#C8D4E2;white-space:pre-wrap;word-break:break-all;margin-bottom:9px}
+.sharebox button{font-family:inherit;font-size:12px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);border-radius:7px;padding:7px 12px;cursor:pointer}
+.sharebox button:hover{border-color:var(--teal)}
+.share-msg{font-size:12px;color:var(--teal);margin-top:8px;min-height:18px}
+
+details.rules{margin-top:18px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;line-height:1.95;color:#9FB0C4}
+details.rules summary{cursor:pointer;color:var(--dim);font-size:13px;margin-bottom:8px}
+details.rules b{color:var(--teal)}
+details.rules p{margin-bottom:9px}
+.footlinks{margin-top:22px;text-align:center;font-size:13px;line-height:1.9}
+.footlinks a{color:#FFB347;text-decoration:none;border-bottom:1px solid rgba(255,179,71,.3)}
+.footlinks .sep{color:#3A4757;margin:0 10px}
+
+@media (max-width:560px){
+  body{padding:14px 10px 46px}
+  .title{font-size:23px}
+  .lead{font-size:13px}
+  .stats{gap:10px;font-size:11.5px}
+  .stats b{font-size:12.5px}
+  .bank{padding:9px 10px}
+  .piece{min-width:52px;min-height:52px;padding:5px 7px}
+  .piece .ic{font-size:18px}
+  .piece .nm{font-size:11px}
+  .sail{flex:1 1 120px;font-size:14px}
+  .boat{margin-left:0}
+  .levelbar button{font-size:12.5px}
+}
+</style>
+<script src="../../analytics.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <span class="ep">反直觉系列 · <b>第七关</b></span>
+    <a href="../../brain/">← 回大脑保健操</a>
+  </div>
+  <h1 class="title">过河 · 状态图</h1>
+  <p class="lead">
+    船每次只能载<b>有限的乘客</b>，有些组合留在岸上就会出事。这不是脑筋急转弯 ——
+    每过一趟河就是状态图上的<b>一条边</b>，最短步数是能<b>证明</b>的。
+  </p>
+
+  <div id="app"></div>
+
+  <details class="rules" id="rules">
+    <summary>规则 / 为什么这是图论题</summary>
+    <p><b>规则一（狼羊菜）：</b>船每次只能带 1 样；你可以<b>独自划空船</b>回来。你不在的那一岸，狼和羊不能单独相处，羊和菜也不能单独相处。</p>
+    <p><b>规则二（传教士野人）：</b>船每次最多带 2 个，而且<b>必须有人划</b> —— 船不会自己漂回来。任何一岸只要还有传教士，野人数就不能多于传教士数。</p>
+    <p><b>为什么这两条的措辞不一样：</b>如果传教士那关也允许空船，1 个传教士 + 1 个野人往返三次就全过去了，<b>5 步</b>收工。正因为船必须有人划，最短才变成 <b>11 步</b>。规则差一句，答案差 6 步 —— 这是建模题，不是脑筋急转弯。</p>
+    <p><b>为什么这是图论：</b>把「哪几个还在出发岸 + 船在哪一岸」记成一个<b>顶点</b>，一次合法渡河就是一条<b>边</b>。所有不违反规则的顶点构成状态图，题目问的就是<b>两个顶点之间的最短路径</b>。</p>
+    <p><b>为什么「最短」可信：</b>从出发点做广度优先搜索（BFS），一层一层往外扩。目标第一次出现的那一层就是最短步数 —— 前面所有层都试过了，所以更短的解<b>不存在</b>，不是「没人想出来」。</p>
+  </details>
+
+  <div class="footlinks">
+    <a href="../../brain/">← 回大脑保健操</a><span class="sep">|</span><a href="../24/">玩《24点》←</a><span class="sep">|</span><a href="../">回小游戏区</a>
+  </div>
+</div>
+
+<script>
+/* === RIVER CORE START === */
+/* 状态 = { boat: 0 在出发岸(左) | 1 在目标岸(右), left: {组id: 还在左岸的个数} }
+   装船本身不改变状态：一次「开船」才是一条边，步数 = 开船次数。 */
+
+/** 狼羊菜：没有看守的一岸，狼+羊 或 羊+菜 会出事。hasGuard = 船/人在这一岸。 */
+function rulePredator(counts, hasGuard) {
+  if (hasGuard) return null;
+  if ((counts.wolf || 0) > 0 && (counts.sheep || 0) > 0) return { code: 'wolf-eats-sheep', text: '狼和羊单独留在一起，羊被吃了' };
+  if ((counts.sheep || 0) > 0 && (counts.cabbage || 0) > 0) return { code: 'sheep-eats-cabbage', text: '羊和菜单独留在一起，菜被吃了' };
+  return null;
+}
+
+/** 传教士野人：任何一岸，只要有传教士，野人就不能更多（船在不在都一样）。 */
+function ruleMissionary(counts) {
+  const m = counts.m || 0;
+  const c = counts.c || 0;
+  if (m > 0 && c > m) return { code: 'cannibal', text: '野人多于传教士，传教士被吃了' };
+  return null;
+}
+
+const LEVELS = [
+  {
+    id: 'wgc',
+    name: '狼 · 羊 · 菜',
+    tag: '入门',
+    cap: 1,
+    groups: [
+      { id: 'wolf', label: '狼', icon: '🐺', count: 1 },
+      { id: 'sheep', label: '羊', icon: '🐑', count: 1 },
+      { id: 'cabbage', label: '菜', icon: '🥬', count: 1 },
+    ],
+    rule: rulePredator,
+    guarded: true,          // 规则需要知道这一岸有没有看守
+    allowEmpty: true,       // 农夫能独自把空船划回来
+  },
+  {
+    id: 'mc',
+    name: '传教士 · 野人',
+    tag: '挑战',
+    cap: 2,
+    groups: [
+      { id: 'm', label: '传教士', icon: '🧑‍🎓', count: 3 },
+      { id: 'c', label: '野人', icon: '👹', count: 3 },
+    ],
+    rule: ruleMissionary,
+    guarded: false,         // 全岸规则，与船的位置无关
+    allowEmpty: false,      // 没有船夫：船必须载至少 1 人，不能自己漂回来
+  },
+];
+
+const levelById = (id) => LEVELS.filter((l) => l.id === id)[0] || null;
+
+function emptyCounts(level) {
+  const c = {};
+  for (const g of level.groups) c[g.id] = 0;
+  return c;
+}
+function fullCounts(level) {
+  const c = {};
+  for (const g of level.groups) c[g.id] = g.count;
+  return c;
+}
+function cloneCounts(level, src) {
+  const c = {};
+  for (const g of level.groups) c[g.id] = src[g.id] || 0;
+  return c;
+}
+function startState(level) { return { boat: 0, left: fullCounts(level) }; }
+function goalState(level) { return { boat: 1, left: emptyCounts(level) }; }
+function stateKey(level, s) { return `${s.boat}|${level.groups.map((g) => s.left[g.id]).join(',')}`; }
+
+/** 某一岸上的个数（side 0=左/出发岸，1=右/目标岸）。 */
+function countsOn(level, s, side) {
+  if (side === 0) return cloneCounts(level, s.left);
+  const right = {};
+  for (const g of level.groups) right[g.id] = g.count - s.left[g.id];
+  return right;
+}
+
+/** 状态是否安全；不安全时返回 {code, side, text}，text 可以直接给玩家看。 */
+function unsafeReason(level, s) {
+  const sides = [
+    { side: 0, label: '出发岸', counts: s.left },
+    { side: 1, label: '目标岸', counts: countsOn(level, s, 1) },
+  ];
+  for (const item of sides) {
+    const guarded = level.guarded ? item.side === s.boat : false;
+    const bad = level.rule(item.counts, guarded);
+    if (bad) return { code: bad.code, side: item.side, text: `${item.label}：${bad.text}` };
+  }
+  return null;
+}
+
+/** 船在这一岸时，所有能装的组合（含空船 {全 0}，若该关允许空船）。 */
+function loadCombos(level, sideCounts) {
+  const out = [];
+  const cur = {};
+  const caps = level.groups.map((g) => Math.min(g.count, sideCounts[g.id] || 0));
+  const walk = (i, used) => {
+    if (i === level.groups.length) {
+      if (used === 0 && level.allowEmpty === false) return;   // 船必须有人划
+      out.push(Object.assign({}, cur));
+      return;
+    }
+    for (let n = 0; n <= caps[i] && used + n <= level.cap; n++) {
+      cur[level.groups[i].id] = n;
+      walk(i + 1, used + n);
+    }
+  };
+  walk(0, 0);
+  return out;
+}
+
+/** 开一次船：把 load 从船所在岸搬到对岸（boat 翻转）。不做安全校验。 */
+function stepState(level, s, load) {
+  const left = cloneCounts(level, s.left);
+  const sign = s.boat === 0 ? -1 : 1;
+  for (const g of level.groups) left[g.id] += sign * (load[g.id] || 0);
+  return { boat: 1 - s.boat, left };
+}
+
+const loadTotal = (load) => Object.keys(load).reduce((n, k) => n + (load[k] || 0), 0);
+
+function trimLoad(level, load) {
+  const out = {};
+  for (const g of level.groups) if ((load[g.id] || 0) > 0) out[g.id] = load[g.id];
+  return out;
+}
+
+const sameLoad = (level, a, b) => level.groups.every((g) => (a[g.id] || 0) === (b[g.id] || 0));
+
+/** 全部合法开船方案（终点状态必须安全）。 */
+function legalMoves(level, s) {
+  const side = countsOn(level, s, s.boat);
+  const out = [];
+  for (const combo of loadCombos(level, side)) {
+    const next = stepState(level, s, combo);
+    if (unsafeReason(level, next)) continue;
+    out.push({ load: trimLoad(level, combo), next, key: stateKey(level, next) });
+  }
+  return out;
+}
+
+/** BFS：dist/ways 从 from 出发；order 是探索顺序，keys 是 key→state。 */
+function bfsFrom(level, from) {
+  const dist = new Map();
+  const ways = new Map();
+  const keys = new Map();
+  const order = [from];
+  const first = stateKey(level, from);
+  dist.set(first, 0); ways.set(first, 1); keys.set(first, from);
+  for (let i = 0; i < order.length; i++) {
+    const cur = order[i];
+    const ck = stateKey(level, cur);
+    const d = dist.get(ck) + 1;
+    for (const mv of legalMoves(level, cur)) {
+      if (!dist.has(mv.key)) {
+        dist.set(mv.key, d); ways.set(mv.key, ways.get(ck)); keys.set(mv.key, mv.next); order.push(mv.next);
+      } else if (dist.get(mv.key) === d) {
+        ways.set(mv.key, ways.get(mv.key) + ways.get(ck));
+      }
+    }
+  }
+  return { dist, ways, keys, order, startKey: first };
+}
+
+/** 每一层的宽度（从第 0 层到最远层），用于说明图的形状。 */
+function layerWidths(dist) {
+  const widths = [];
+  for (const d of dist.values()) {
+    widths[d] = (widths[d] || 0) + 1;
+  }
+  for (let i = 0; i < widths.length; i++) widths[i] = widths[i] || 0;
+  return widths;
+}
+
+/** 枚举全部摆法，数出「不违反规则」的状态有多少个。 */
+function allSafeStates(level) {
+  const out = [];
+  const counts = {};
+  const walk = (i) => {
+    if (i === level.groups.length) {
+      for (const boat of [0, 1]) {
+        const s = { boat, left: Object.assign({}, counts) };
+        if (!unsafeReason(level, s)) out.push(s);
+      }
+      return;
+    }
+    for (let n = 0; n <= level.groups[i].count; n++) {
+      counts[level.groups[i].id] = n;
+      walk(i + 1);
+    }
+  };
+  walk(0);
+  return out;
+}
+
+const GRAPH_CACHE = new Map();
+
+/** 状态图统计（按 level.id 缓存）。front = 从出发点，back = 从目标点。 */
+function levelGraph(level) {
+  if (GRAPH_CACHE.has(level.id)) return GRAPH_CACHE.get(level.id);
+  const start = startState(level);
+  const goal = goalState(level);
+  const front = bfsFrom(level, start);
+  const back = bfsFrom(level, goal);
+  const goalKey = stateKey(level, goal);
+  let edges = 0;
+  for (const key of front.dist.keys()) {
+    const s = front.keys.get(key);
+    for (const mv of legalMoves(level, s)) if (key < mv.key) edges += 1;
+  }
+  const distance = front.dist.has(goalKey) ? front.dist.get(goalKey) : null;
+  const maxDist = Math.max(...front.dist.values());
+  const graph = {
+    startKey: stateKey(level, start),
+    goalKey,
+    front,
+    back,
+    nodes: front.dist.size,
+    safeStates: allSafeStates(level).length,
+    edges,
+    distance,
+    paths: front.ways.get(goalKey) || 0,
+    layers: layerWidths(front.dist),
+    maxDist,
+    cycles: Math.max(0, edges - front.dist.size + 1),
+    sameComponent: back.dist.size === front.dist.size,
+  };
+  GRAPH_CACHE.set(level.id, graph);
+  return graph;
+}
+
+const shortestDistance = (level) => levelGraph(level).distance;
+
+/** 反事实：同一关如果允许空船自己漂回来，最短会变成几步（用来讲「规则差一句」）。 */
+function freeBoatDistance(level) {
+  const variant = Object.assign({}, level, { id: `${level.id}@free`, allowEmpty: true });
+  return shortestDistance(variant);
+}
+
+/** 一条最短路径（state 序列 + 每步装了什么）。 */
+function shortestPath(level) {
+  const g = levelGraph(level);
+  if (g.distance === null) return [];
+  const out = [];
+  let cur = startState(level);
+  for (let guard = 0; guard < 64; guard++) {
+    const ck = stateKey(level, cur);
+    if (ck === g.goalKey) break;
+    // 用「到目标的距离」场前进：用「距起点的距离」会被死胡同式的深分支带偏
+    const d = g.back.dist.get(ck);
+    if (d === undefined) break;
+    const mv = legalMoves(level, cur).filter((m) => g.back.dist.get(m.key) === d - 1)[0];
+    if (!mv) break;
+    out.push({ load: mv.load, from: cur, to: mv.next, toKey: mv.key });
+    cur = mv.next;
+  }
+  return out;
+}
+
+/** 提示：从当前状态出发，走一条到目标距离 −1 的边（只报这一步）。 */
+function hintNext(level, s) {
+  const g = levelGraph(level);
+  const ck = stateKey(level, s);
+  const dNow = g.back.dist.get(ck);
+  if (dNow === undefined || dNow === 0) return null;
+  for (const mv of legalMoves(level, s)) {
+    if (g.back.dist.get(mv.key) === dNow - 1) return { move: mv, remaining: dNow - 1 };
+  }
+  return null;
+}
+
+/** 提示文案：只描述这一步（不叫「答案」）。 */
+function hintText(level, s, move) {
+  const dir = s.boat === 0 ? '过去' : '回来';
+  const names = level.groups
+    .filter((g) => (move.load[g.id] || 0) > 0)
+    .map((g) => `${g.label}${move.load[g.id] > 1 ? ` ×${move.load[g.id]}` : ''}`);
+  if (!names.length) return `这一步：空船${dir} —— 船上不载东西，但船的位置会变。`;
+  return `这一步：把 ${names.join('、')} ${dir}。`;
+}
+/* === RIVER CORE END === */
+
+/* ================= UI ================= */
+const STORE_KEY = 'fd_river_best_v1';
+const app = document.getElementById('app');
+const G = {
+  levelId: LEVELS[0].id,
+  level: LEVELS[0],
+  state: startState(LEVELS[0]),
+  load: {},
+  steps: 0,
+  hints: 0,
+  illegal: 0,
+  phase: 'playing',
+  history: [],
+  msg: '',
+  hint: null,
+  shareMsg: '',
+  best: {},
+};
+
+function track(name, params) {
+  try { if (window.counters && window.counters.track) window.counters.track(name, params); } catch (_) {}
+}
+
+function loadBest() {
+  try { G.best = JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; } catch (_) { G.best = {}; }
+}
+function saveBest() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(G.best)); } catch (_) {}
+}
+function recordBest(id, steps) {
+  const prev = G.best[id];
+  if (prev === undefined || steps < prev) { G.best[id] = steps; saveBest(); return true; }
+  return false;
+}
+
+// file:// 下 location.origin 是 "null"，分享兜底到线上地址
+function shareLink() {
+  if (location.protocol === 'file:') return 'https://airseai6.github.io/fusion-data-academy/puzzle/river/';
+  return location.origin + location.pathname;
+}
+
+function shareText() {
+  const g = levelGraph(G.level);
+  const best = G.best[G.level.id] || G.steps;
+  const perfect = G.steps === g.distance ? '，正好是最优解' : `（最优 ${g.distance} 步）`;
+  return `我在《过河 · 状态图》·${G.level.name} 用 ${G.steps} 步把全部送到了对岸${perfect}。\n最少 ${best} 步，用了 ${G.hints} 次提示。\n看起来是常识题，其实是在状态图上找最短路。\n来试：${shareLink()}`;
+}
+
+/* ── 状态切换 ── */
+function resetLevel(id, options) {
+  const o = options || {};
+  const level = levelById(id) || LEVELS[0];
+  G.levelId = level.id;
+  G.level = level;
+  G.state = startState(level);
+  G.load = {};
+  G.steps = 0;
+  G.hints = 0;
+  G.illegal = 0;
+  G.history = [];
+  G.phase = 'playing';
+  G.msg = '';
+  G.hint = null;
+  G.shareMsg = '';
+  if (!o.silent) track('river_start', { game: 'river', level: level.id });
+  render();
+}
+
+/* ── 渲染 ── */
+function bankHtml(side) {
+  const level = G.level;
+  const isBoatSide = G.state.boat === side;
+  const counts = countsOn(level, G.state, side);
+  const cards = [];
+  for (const g of level.groups) {
+    const onBank = (counts[g.id] || 0) - (isBoatSide ? (G.load[g.id] || 0) : 0);
+    for (let i = 0; i < onBank; i++) {
+      cards.push(`<button class="piece${isBoatSide ? '' : ' far'}" data-side="${side}" data-pid="${g.id}"
+        aria-label="${g.label}${isBoatSide ? '（点击装船）' : '（船不在这一岸）'}">
+        <span class="ic">${g.icon}</span><span class="nm">${g.label}</span></button>`);
+    }
+  }
+  const empty = cards.length ? cards.join('') : '<span class="empty">（空）</span>';
+  const head = side === 1
+    ? `<span>目标岸 <span class="tag">${G.state.boat === 1 ? '· 船在这里' : ''}</span></span><span>${G.phase === 'playing' ? '全部送到这里' : ''}</span>`
+    : `<span>出发岸 <span class="tag">${G.state.boat === 0 ? '· 船在这里' : ''}</span></span><span>${G.state.boat === 0 && G.phase === 'playing' ? '点物品装船' : ''}</span>`;
+  return `<div class="bank${side === 1 ? ' goal-side' : ''}" id="bank-${side === 1 ? 'right' : 'left'}">
+    <div class="bankhead">${head}</div>
+    <div class="pieces">${empty}</div>
+  </div>`;
+}
+
+function boatHtml() {
+  const level = G.level;
+  const loaded = [];
+  for (const g of level.groups) {
+    for (let i = 0; i < (G.load[g.id] || 0); i++) {
+      loaded.push(`<button class="piece onboat" data-boat="${g.id}" aria-label="${g.label}（点击卸回岸上）">
+        <span class="ic">${g.icon}</span><span class="nm">${g.label}</span></button>`);
+    }
+  }
+  const cap = `${loadTotal(G.load)}/<b>${level.cap}</b>`;
+  const arrow = G.state.boat === 0 ? '过去 →' : '← 回来';
+  return `<div class="river">
+    <div class="boat${G.state.boat === 1 ? ' right' : ''}" id="boat">
+      <span class="boatcap">船 <span id="boatcap">${cap}</span></span>
+      ${loaded.length ? loaded.join('') : '<span class="boatcap">空</span>'}
+    </div>
+    <button class="sail" id="btnSail" ${G.phase === 'playing' ? '' : 'disabled'}>开船 <span>${arrow}</span></button>
+  </div>`;
+}
+
+function hudHtml() {
+  const g = levelGraph(G.level);
+  const best = G.best[G.level.id];
+  const shortestCell = G.phase === 'win' ? `<span class="k">最优</span><b>${g.distance}</b>` : '<span class="k">最优</span><b>?</b>';
+  return `<div class="hud">
+    <div class="stats">
+      <span class="k">步数</span><b id="steps">${G.steps}</b>
+      ${shortestCell}
+      <span class="k">提示</span><b id="hints">${G.hints}</b>
+      <span class="k">非法尝试</span><b id="illegal">${G.illegal}</b>
+      ${best ? `<span class="k">最少记录</span><b>${best}</b>` : ''}
+    </div>
+    <span class="goal">目标：全部到目标岸，船也在目标岸</span>
+  </div>`;
+}
+
+function levelbarHtml() {
+  return `<div class="levelbar">${LEVELS.map((l) => `
+    <button data-level="${l.id}" class="${l.id === G.levelId ? 'on' : ''}">
+      <span class="lv">${l.tag}</span>${l.name}
+    </button>`).join('')}</div>`;
+}
+
+function resultHtml() {
+  const g = levelGraph(G.level);
+  const diff = G.steps - g.distance;
+  const verdict = diff === 0 ? '正好是最优解' : `比最优多 ${diff} 步`;
+  const layers = g.layers.slice(0, g.distance + 1).map((w, i) => `${i}:${w}`).join(' → ');
+  const freeNote = G.level.allowEmpty === false
+    ? `\n如果换一条规则、允许空船自己漂回来，同一道题只要 <b>${freeBoatDistance(G.level)}</b> 步 —— 最短步数是规则的产物，不是故事自带的。`
+    : '';
+  return `<div class="result" id="result">
+    <h2>全部过河 ✓ ${G.steps} 步（${verdict}）</h2>
+    <p>${G.level.name}：最少 <b>${g.distance}</b> 步。${G.hints ? `你用了 <b>${G.hints}</b> 次提示。` : '没有用提示。'}</p>
+    <div class="math">状态图：${g.safeStates} 个安全状态里，从出发点走得到 <b>${g.nodes}</b> 个，连成 <b>${g.edges}</b> 条边（每条边 = 一次合法渡河）。
+BFS 逐层扩张，目标第一次出现在第 <b>${g.distance}</b> 层 —— 各层宽度 ${layers}。
+所以 ${g.distance - 1} 步以内<b>不存在</b>解：这是穷举的结论，不是「没人想到」。
+图里有 <b>${g.cycles}</b> 个独立环（边 − 顶点 + 1），所以凭直觉走很容易绕回走过的状态。
+最短路径共 <b>${g.paths}</b> 条（把等价的人/物互换也算不同走法）。${freeNote}</div>
+    <div class="sharebox">
+      <div class="sl">分享文案（不含步骤）</div>
+      <pre id="sharetext">${shareText()}</pre>
+      <button id="btnShare2">复制分享文案</button>
+      <div class="share-msg">${G.shareMsg}</div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="btnRetry">再走一遍</button>
+      <button id="btnNextLevel">换一关</button>
+    </div>
+  </div>`;
+}
+
+function render() {
+  if (!app) return;
+  const playing = G.phase === 'playing';
+  app.innerHTML = `
+    ${levelbarHtml()}
+    ${hudHtml()}
+    ${playing ? '' : resultHtml()}
+    <div class="stage">
+      ${bankHtml(1)}
+      ${boatHtml()}
+      ${bankHtml(0)}
+    </div>
+    <div class="msg" id="msg" role="alert">${G.msg}</div>
+    ${G.hint && playing ? `<div class="hintbox" id="hintbox">${hintText(G.level, G.state, G.hint.move)}<br>（还剩 <b>${G.hint.remaining}</b> 步到对岸，自己验证一下再开船）</div>` : ''}
+    ${playing ? `<div class="actions">
+      <button id="btnHint">给个提示</button>
+      <button id="btnUndo" ${G.history.length ? '' : 'disabled'}>撤销一步</button>
+      <button id="btnReset">重置</button>
+      <button id="btnShare">复制分享文案</button>
+    </div>` : `<div class="actions"><button class="primary" id="btnRetry2">再走一遍</button></div>`}
+    <div class="share-msg" id="share-msg">${playing ? G.shareMsg : ''}</div>
+    <div id="aria-live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">${G.msg}</div>
+  `;
+  bindEvents();
+}
+
+/* ── 交互 ── */
+function say(msg) {
+  G.msg = msg;
+  const el = document.getElementById('msg');
+  if (el) el.textContent = msg;
+  const live = document.getElementById('aria-live');
+  if (live) live.textContent = msg;
+}
+
+function togglePiece(side, pid) {
+  if (G.phase !== 'playing') return;
+  const level = G.level;
+  if (side !== G.state.boat) {
+    say('船不在这一岸 —— 先开船过去，再装这边的。');
+    return;
+  }
+  const onBank = (countsOn(level, G.state, side)[pid] || 0) - (G.load[pid] || 0);
+  if (onBank <= 0) return;
+  if (loadTotal(G.load) >= level.cap) {
+    say(`船最多载 ${level.cap} 个 —— 先点船上的物品卸下来。`);
+    return;
+  }
+  G.load[pid] = (G.load[pid] || 0) + 1;
+  G.hint = null;
+  say('');
+  render();
+}
+
+function unloadPiece(pid) {
+  if (G.phase !== 'playing' || !(G.load[pid] > 0)) return;
+  G.load[pid] -= 1;
+  if (!G.load[pid]) delete G.load[pid];
+  say('');
+  render();
+}
+
+function sail() {
+  if (G.phase !== 'playing') return;
+  const level = G.level;
+  const moves = legalMoves(level, G.state);
+  const picked = moves.filter((m) => sameLoad(level, m.load, G.load))[0];
+  if (!picked) {
+    const next = stepState(level, G.state, G.load);
+    const bad = unsafeReason(level, next);
+    G.illegal += 1;
+    track('river_illegal', { game: 'river', level: level.id, step: G.steps, reason: bad ? bad.code : 'unknown' });
+    if (!bad && loadTotal(G.load) === 0 && level.allowEmpty === false) {
+      say('船得有人划 —— 先点乘客上船，空船不会自己漂过去。');
+    } else if (bad) {
+      say(`不能这么走 —— ${bad.text}。先把会出事的那个带回来。`);
+    } else {
+      say('这一步不合法。');
+    }
+    return;
+  }
+  G.history.push({ state: G.state, load: G.load, steps: G.steps });
+  G.state = picked.next;
+  G.steps += 1;
+  G.load = {};
+  G.hint = null;
+  say('');
+  track('river_sail', { game: 'river', level: level.id, step: G.steps, carried: loadTotal(picked.load) });
+  if (stateKey(level, G.state) === stateKey(level, goalState(level))) { win(); return; }
+  render();
+}
+
+function win() {
+  G.phase = 'win';
+  const g = levelGraph(G.level);
+  const improved = recordBest(G.level.id, G.steps);
+  track('river_win', { game: 'river', level: G.level.id, steps: G.steps, shortest: g.distance, hints: G.hints, illegal: G.illegal, best: improved });
+  render();
+}
+
+function undo() {
+  if (G.phase !== 'playing' || !G.history.length) return;
+  const prev = G.history.pop();
+  G.state = prev.state;
+  G.load = prev.load || {};
+  G.steps = prev.steps;
+  G.hint = null;
+  track('river_undo', { game: 'river', level: G.level.id, step: G.steps });
+  render();
+  say('已退回一步。');
+}
+
+function useHint() {
+  if (G.phase !== 'playing') return;
+  const h = hintNext(G.level, G.state);
+  if (!h) { say('这一步已经在最优路径上，直接开船。'); return; }
+  G.hints += 1;
+  G.hint = { move: h.move, remaining: h.remaining };
+  track('river_hint', { game: 'river', level: G.level.id, step: G.steps, hints: G.hints });
+  render();
+}
+
+function doReset() {
+  track('river_reset', { game: 'river', level: G.levelId, step: G.steps });
+  resetLevel(G.levelId, { silent: true });
+}
+
+function copyShare(btnId) {
+  const text = shareText();
+  const done = (ok) => {
+    G.shareMsg = ok ? '已复制 ✓' : '复制失败，请手动选中文案';
+    track('share', { game: 'river', level: G.level.id, won: G.phase === 'win' });
+    // 结算时页面上有两个 .share-msg（结算面板里 + 页面底部），优先更新结算面板那个
+    const box = document.querySelector('.sharebox .share-msg') || document.getElementById('share-msg');
+    if (box) box.textContent = G.shareMsg;
+    const b = document.getElementById(btnId);
+    if (b) b.textContent = G.shareMsg;
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => done(true)).catch(() => done(false));
+  } else {
+    done(false);
+  }
+}
+
+function bindEvents() {
+  app.querySelectorAll('.piece[data-side]').forEach((el) => {
+    el.addEventListener('click', () => togglePiece(Number(el.dataset.side), el.dataset.pid));
+  });
+  app.querySelectorAll('.piece[data-boat]').forEach((el) => {
+    el.addEventListener('click', () => unloadPiece(el.dataset.boat));
+  });
+  app.querySelectorAll('.levelbar button[data-level]').forEach((el) => {
+    el.addEventListener('click', () => resetLevel(el.dataset.level));
+  });
+  const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+  on('btnSail', sail);
+  on('btnHint', useHint);
+  on('btnUndo', undo);
+  on('btnReset', doReset);
+  on('btnShare', () => copyShare('btnShare'));
+  on('btnShare2', () => copyShare('btnShare2'));
+  on('btnRetry', () => resetLevel(G.levelId));
+  on('btnRetry2', () => resetLevel(G.levelId));
+  on('btnNextLevel', () => {
+    const idx = LEVELS.findIndex((l) => l.id === G.levelId);
+    resetLevel(LEVELS[(idx + 1) % LEVELS.length].id);
+  });
+}
+
+/* ── 暴露给测试 ── */
+window.River = {
+  LEVELS, levelById, startState, goalState, stateKey, countsOn, unsafeReason,
+  loadCombos, stepState, legalMoves, loadTotal, trimLoad, sameLoad,
+  bfsFrom, layerWidths, allSafeStates, levelGraph, shortestDistance, shortestPath, hintNext, hintText,
+  freeBoatDistance,
+  rulePredator, ruleMissionary, resetLevel, togglePiece, unloadPiece, sail, undo, useHint, doReset,
+};
+window.__river = G;
+
+loadBest();
+resetLevel(LEVELS[0].id);
+</script>
+</body>
+</html>

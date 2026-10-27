@@ -130,7 +130,7 @@ h1 .hl{color:var(--fox)}
   </div>
 
   <div class="stats">
-    <div class="stat"><span class="v">5</span><span class="k">已上线</span></div>
+    <div class="stat"><span class="v" id="stat-games">7</span><span class="k">个游戏</span></div>
     <div class="stat"><span class="v">≈3</span><span class="k">分钟 / 局</span></div>
     <div class="stat"><span class="v">0</span><span class="k">门槛</span></div>
     <div class="stat"><span class="v">∞</span><span class="k">练习模式</span></div>
@@ -240,6 +240,23 @@ h1 .hl{color:var(--fox)}
       <span class="arrow">→</span>
     </a>
 
+    <a class="card" href="../puzzle/river/" style="--accent:var(--accent)">
+      <div class="card-top">
+        <span class="icon">🛶</span>
+        <span class="name">过河</span>
+        <span class="badge">两关</span>
+      </div>
+      <p class="desc">
+        船每次只能载有限的乘客：狼和羊、羊和菜不能单独留在一起，野人也不能多于传教士。
+        这不是靠灵感 —— 它是一张状态图上的最短路，最短步数能被穷举证明。
+      </p>
+      <div class="meta">
+        <span><i class="dot" style="background:var(--accent)"></i>图论 · 状态图最短路</span>
+        <span><i class="dot" style="background:var(--teal)"></i>BFS 证明 7 步 / 11 步</span>
+      </div>
+      <span class="arrow">→</span>
+    </a>
+
   </div>
 
   <div class="note">
@@ -278,6 +295,10 @@ document.querySelectorAll('.card[href]').forEach(el => {
     } catch (e) {}
   });
 });
+
+// 卡片数量自动同步：每加一个游戏不用再手改上面那个数字（之前写死 5，加完 G5 就过时了）
+const gamesStat = document.getElementById('stat-games');
+if (gamesStat) gamesStat.textContent = String(document.querySelectorAll('.games a.card').length);
 </script>
 </body>
 </html>
