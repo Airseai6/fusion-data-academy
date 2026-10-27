@@ -25,8 +25,8 @@ jobs:
           pip install playwright
           playwright install --with-deps chromium
 
-      - name: Nim core logic tests
-        run: node --test tests/nim_logic_test.mjs
+      - name: Nim & Hanoi core logic tests
+        run: node --test tests/nim_logic_test.mjs tests/hanoi_logic_test.mjs
 
       - name: Run E2E
         run: python tests/e2e_test.py --root .

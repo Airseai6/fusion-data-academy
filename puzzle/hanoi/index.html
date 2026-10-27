@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>反直觉 · 汉诺塔 | 最少步</title>
+<meta name="description" content="三根柱子、3–6 层圆盘，一次只能移动一个盘且大盘不能压小盘。最少步数是 2ⁿ−1，提示会直接告诉你下一步。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0F14;--panel:#141A22;--panel2:#0E141B;--line:#232C38;--line2:#3A4757;
+  --ink:#E8EDF4;--dim:#96A5B8;--dim2:#7A8798;
+  --violet:#B79CFF;--teal:#5BD9BE;--amber:#FFB347;--ok:#4ADE80;--bad:#F87171;--accent:#60A5FA;
+}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  min-height:100vh;display:flex;justify-content:center;padding:18px 14px 54px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{width:100%;max-width:820px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
+.topbar .ep{font-size:12px;color:var(--dim);font-family:Consolas,monospace;letter-spacing:.08em}
+.topbar .ep b{color:var(--violet)}
+.topbar a{color:var(--dim);text-decoration:none;font-size:13px}
+.topbar a:hover{color:var(--ink)}
+.title{font-size:28px;font-weight:750;letter-spacing:.02em;margin-bottom:8px}
+.lead{font-size:14px;line-height:1.9;color:#A8B6C8;margin-bottom:18px}
+.lead b{color:var(--violet)}
+
+.hud{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.turn{font-size:15px;font-weight:600;min-height:24px}
+.turn b{color:var(--violet)}
+.turn.bad{color:var(--bad)}
+.stats{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--dim);font-family:Consolas,monospace}
+.stats b{color:var(--ink)}
+.settings{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.settings label{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px}
+.settings select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12px;min-height:34px}
+
+.board{
+  display:flex;align-items:stretch;gap:12px;margin:12px 0 16px;
+  background:linear-gradient(180deg,rgba(183,156,255,.05),transparent 65%);
+  border:1px solid var(--line);border-radius:14px;padding:16px 12px 10px;
+  min-height:300px;
+}
+.peg{
+  flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  position:relative;background:transparent;border:1px solid transparent;border-radius:10px;
+  padding:10px 4px 8px;cursor:pointer;color:var(--ink);min-height:270px;
+  -webkit-tap-highlight-color:transparent;transition:background .12s,border-color .12s;
+}
+.peg:hover{border-color:var(--line2);background:rgba(255,255,255,.015)}
+.peg.selected{border-color:var(--violet);background:rgba(183,156,255,.07)}
+.peg .rod{
+  position:absolute;bottom:42px;left:50%;transform:translateX(-50%);
+  width:6px;height:200px;border-radius:4px;
+  background:linear-gradient(180deg,#4b435f,#2a2535);box-shadow:0 0 18px rgba(183,156,255,.10);
+}
+.peg .disks{position:relative;z-index:1;display:flex;flex-direction:column-reverse;justify-content:flex-start;align-items:center;gap:4px;width:100%;min-height:190px}
+.disk{
+  height:18px;border-radius:5px;
+  background:linear-gradient(180deg,#c7b2ff,#8b6fd6);border:1px solid rgba(255,255,255,.20);
+  box-shadow:0 2px 6px rgba(0,0,0,.35);
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:#1b1429;font-family:Consolas,monospace;font-weight:700;
+  max-width:100%;transition:transform .1s;
+}
+.disk.top{outline:1px solid rgba(255,255,255,.28)}
+.peg .pname{position:relative;z-index:2;margin-top:8px;font-family:Consolas,monospace;font-size:13px;color:var(--dim);min-height:20px}
+.peg .pcount{position:absolute;top:6px;right:8px;font-size:11px;color:var(--dim2);font-family:Consolas,monospace}
+.peg .base{position:absolute;bottom:30px;left:6%;right:6%;height:8px;border-radius:4px;background:#2b2538;border:1px solid #3a3250}
+
+.hintbox{background:rgba(91,217,190,.06);border-left:3px solid var(--teal);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.9;color:#B8C6D8;margin:10px 0;min-height:46px}
+.hintbox b{color:var(--teal)}
+.warnbox{background:rgba(248,113,113,.07);border-left:3px solid var(--bad);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.9;color:#C8B0B0;margin:10px 0}
+.warnbox b{color:var(--bad)}
+
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin:10px 0 16px}
+.actions button{font-family:inherit;font-size:13px;min-height:42px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;padding:9px 14px;transition:.15s}
+.actions button:hover:not(:disabled){border-color:var(--accent)}
+.actions button:disabled{opacity:.35;cursor:not-allowed}
+
+.result{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin:14px 0}
+.result.win{border-color:rgba(74,222,128,.55);background:rgba(74,222,128,.05)}
+.result h2{font-size:20px;margin-bottom:8px;color:var(--ok)}
+.result p{font-size:13.5px;line-height:1.95;color:#B8C6D8;margin-bottom:10px}
+.result .math{font-size:13px;line-height:1.9;color:#9FB0C4;background:var(--panel2);border-radius:8px;padding:12px 14px;font-family:Consolas,monospace;white-space:pre-wrap}
+.sharebox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;margin:12px 0}
+.sharebox .sl{font-size:11px;color:var(--dim2);margin-bottom:8px}
+.sharebox pre{font-family:Consolas,monospace;font-size:12px;line-height:1.8;color:#C8D4E2;white-space:pre-wrap;word-break:break-all;margin-bottom:9px}
+.sharebox button{font-family:inherit;font-size:12px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);border-radius:7px;padding:7px 12px;cursor:pointer}
+.sharebox button:hover{border-color:var(--teal)}
+.share-msg{font-size:12px;color:var(--teal);margin-top:8px;min-height:18px}
+
+details.rules{margin-top:18px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;line-height:1.95;color:#9FB0C4}
+details.rules summary{cursor:pointer;color:var(--dim);font-size:13px;margin-bottom:8px}
+details.rules b{color:var(--violet)}
+.footlinks{margin-top:22px;text-align:center;font-size:13px;line-height:1.9}
+.footlinks a{color:#FFB347;text-decoration:none;border-bottom:1px solid rgba(255,179,71,.3)}
+.footlinks .sep{color:#3A4757;margin:0 10px}
+.hidden{display:none!important}
+
+@media (max-width:620px){
+  body{padding:14px 8px 46px}
+  .title{font-size:23px}
+  .board{gap:6px;padding:12px 6px 8px;min-height:260px}
+  .peg{min-height:230px;padding:8px 2px 6px}
+  .peg .rod{height:160px;bottom:38px;width:5px}
+  .peg .disks{min-height:150px;gap:3px}
+  .disk{height:16px;border-radius:4px;font-size:8px}
+  .peg .pname{font-size:11px}
+  .peg .base{bottom:27px;height:6px}
+}
+</style>
+<script src="../../analytics.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <span class="ep">反直觉系列 · <b>第四关</b></span>
+    <a href="../../brain/">← 回大脑保健操</a>
+  </div>
+  <h1 class="title">汉诺塔 · 最少步</h1>
+  <p class="lead">
+    三根柱子，A 柱从大到小叠着圆盘。每次只能移动最上面的一个，而且<b>大盘不能压小盘</b>。
+    把整座塔搬到 C 柱，最少要 <b>2ⁿ − 1</b> 步——提示会直接告诉你下一步。
+  </p>
+
+  <div id="app"></div>
+
+  <details class="rules">
+    <summary>规则 / 数学解释</summary>
+    <p><b>递归解法：</b>要把 n 层从 A 搬到 C，先想办法把上面 n−1 层搬到 B，把最大盘搬到 C，再把 n−1 层从 B 搬到 C。</p>
+    <p>步数满足 <b>T(n) = 2T(n−1) + 1</b>，解出来就是 <b>T(n) = 2ⁿ − 1</b>：3 层 7 步，4 层 15 步，5 层 31 步，6 层 63 步。</p>
+    <p>这个数字增长得比你想得快：每多一层，步数几乎翻倍。这不是「手速」问题，是指数增长。</p>
+  </details>
+
+  <div class="footlinks">
+    <a href="../../brain/">← 回大脑保健操</a><span class="sep">|</span><a href="../nim/">玩《最后一颗》→</a><span class="sep">|</span><a href="../">回小游戏区</a>
+  </div>
+</div>
+
+<script>
+/* === HANOI CORE START === */
+function clonePegs(pegs) {
+  return pegs.map((p) => p.slice());
+}
+
+function minMoves(n) {
+  return Math.pow(2, n) - 1;
+}
+
+function legalMove(pegs, from, to) {
+  if (from === to) return false;
+  if (!pegs[from] || pegs[from].length === 0) return false;
+  if (pegs[to].length === 0) return true;
+  const topFrom = pegs[from][pegs[from].length - 1];
+  const topTo = pegs[to][pegs[to].length - 1];
+  return topFrom < topTo;
+}
+
+function applyMove(pegs, from, to) {
+  if (!legalMove(pegs, from, to)) return null;
+  const next = clonePegs(pegs);
+  next[to].push(next[from].pop());
+  return next;
+}
+
+function solveHanoi(n, from, aux, to, out) {
+  from = from === undefined ? 0 : from;
+  aux = aux === undefined ? 1 : aux;
+  to = to === undefined ? 2 : to;
+  out = out || [];
+  if (n <= 0) return out;
+  solveHanoi(n - 1, from, to, aux, out);
+  out.push({ from, to });
+  solveHanoi(n - 1, aux, from, to, out);
+  return out;
+}
+
+function stateKey(pegs) {
+  return pegs.map((p) => p.join('.')).join('|');
+}
+
+/** BFS shortest path from arbitrary legal state to all disks on target peg. */
+function shortestPath(pegs, target) {
+  const n = pegs.reduce((sum, p) => sum + p.length, 0);
+  if (pegs[target].length === n) return [];
+  const start = clonePegs(pegs);
+  const queue = [{ pegs: start, path: [] }];
+  const seen = new Set([stateKey(start)]);
+  let head = 0;
+  while (head < queue.length) {
+    const current = queue[head++];
+    if (current.pegs[target].length === n) return current.path;
+    for (let from = 0; from < 3; from++) {
+      for (let to = 0; to < 3; to++) {
+        if (!legalMove(current.pegs, from, to)) continue;
+        const next = applyMove(current.pegs, from, to);
+        const key = stateKey(next);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const path = current.path.concat([{ from, to }]);
+        if (next[target].length === n) return path;
+        queue.push({ pegs: next, path });
+      }
+    }
+  }
+  return [];
+}
+
+function hintMove(pegs, target) {
+  const path = shortestPath(pegs, target);
+  return path.length ? path[0] : null;
+}
+/* === HANOI CORE END === */
+
+/* ================= UI ================= */
+const G = {
+  n: 3,
+  pegs: [[3, 2, 1], [], []],
+  selected: null,
+  moves: 0,
+  history: [],
+  phase: 'playing',
+  hint: null,
+  error: '',
+  shareMsg: '',
+};
+
+const app = document.getElementById('app');
+const PEG_NAMES = ['A', 'B', 'C'];
+
+function track(name, params) {
+  try { if (window.counters && window.counters.track) window.counters.track(name, params); } catch (_) {}
+}
+
+function newGame(n) {
+  G.n = n || G.n;
+  G.pegs = [Array.from({ length: G.n }, (_, i) => G.n - i), [], []];
+  G.selected = null;
+  G.moves = 0;
+  G.history = [];
+  G.phase = 'playing';
+  G.hint = null;
+  G.error = '';
+  G.shareMsg = '';
+  track('game_start', { game: 'hanoi', difficulty: 'n' + G.n });
+  render();
+}
+
+function render() {
+  if (!app) return;
+  app.innerHTML = `
+    <div class="hud">
+      <div class="turn" id="turn">${G.phase === 'win' ? '完成！' : (G.selected === null ? '点一根柱子拿起最上面的圆盘' : '已选中 ' + PEG_NAMES[G.selected] + ' 柱，再点目标柱')}</div>
+      <div class="settings">
+        <label>层数
+          <select id="level">
+            ${[3, 4, 5, 6].map((n) => `<option value="${n}" ${G.n === n ? 'selected' : ''}>${n} 层</option>`).join('')}
+          </select>
+        </label>
+        <div class="stats">步数 <b>${G.moves}</b> / 最少 <b>${minMoves(G.n)}</b></div>
+      </div>
+    </div>
+
+    <div class="board" id="board">
+      ${G.pegs.map((peg, i) => renderPeg(peg, i)).join('')}
+    </div>
+
+    ${G.error ? `<div class="warnbox"><b>不能这么走：</b>${G.error}</div>` : ''}
+    ${G.hint ? `<div class="hintbox"><b>提示：</b>下一步 ${PEG_NAMES[G.hint.from]} → ${PEG_NAMES[G.hint.to]}；从当前局面最优还需 ${shortestPath(G.pegs, 2).length} 步。</div>` : ''}
+    ${G.phase === 'win' ? renderWin() : ''}
+
+    <div class="actions">
+      <button id="btnHint">提示下一步</button>
+      <button id="btnUndo" ${G.history.length && G.phase === 'playing' ? '' : 'disabled'}>悔棋</button>
+      <button id="btnReset">重来</button>
+    </div>
+  `;
+  bindEvents();
+}
+
+function renderPeg(peg, index) {
+  const disks = peg.map((size) => {
+    const width = 34 + Math.round((size / G.n) * 62);
+    return `<div class="disk${size === peg[peg.length - 1] ? ' top' : ''}" style="width:${width}%">${size}</div>`;
+  }).join('');
+  const selected = G.selected === index ? ' selected' : '';
+  return `<button class="peg${selected}" data-peg="${index}" aria-label="${PEG_NAMES[index]} 柱">
+    <span class="pcount">${peg.length}</span>
+    <span class="rod"></span>
+    <span class="disks">${disks}</span>
+    <span class="base"></span>
+    <span class="pname">${PEG_NAMES[index]}</span>
+  </button>`;
+}
+
+function renderWin() {
+  const perfect = G.moves === minMoves(G.n);
+  const stars = perfect ? '★★★' : (G.moves <= minMoves(G.n) * 1.5 ? '★★☆' : '★☆☆');
+  const shareText = `我在《汉诺塔》${G.n} 层用了 ${G.moves} 步（最少 ${minMoves(G.n)} 步）完成 ${stars}。\n把 n 层从 A 搬到 C，最少步数是 2ⁿ−1；每多一层，步数几乎翻倍。\n来试：${location.origin}${location.pathname}`;
+  return `<div class="result win">
+    <h2>${G.n} 层完成 · ${G.moves} 步 ${stars}</h2>
+    <p>${perfect ? '完美！你走的是最少步数。' : '完成了。最少步数是 ' + minMoves(G.n) + '，再试一次可能更少。'}</p>
+    <div class="math">T(n) = 2T(n−1) + 1 → T(n) = 2ⁿ − 1
+${G.n} 层最少 ${minMoves(G.n)} 步；每多一层，步数约翻倍。
+递归：先把上面 n−1 层搬到辅助柱，再搬最大盘，再把 n−1 层搬过去。</div>
+    <div class="sharebox">
+      <div class="sl">分享文案（不含解法步骤）</div>
+      <pre>${shareText}</pre>
+      <button id="btnShare">复制分享文案</button>
+      <div class="share-msg">${G.shareMsg}</div>
+    </div>
+    <div class="actions">
+      <button id="btnAgain">再来一次</button>
+      <button id="btnNext">下一层</button>
+    </div>
+  </div>`;
+}
+
+function bindEvents() {
+  document.querySelectorAll('.peg').forEach((el) => {
+    el.addEventListener('click', () => clickPeg(Number(el.dataset.peg)));
+  });
+  const level = document.getElementById('level');
+  level.addEventListener('change', (e) => newGame(Number(e.target.value)));
+  document.getElementById('btnHint').addEventListener('click', () => {
+    if (G.phase !== 'playing') return;
+    const hint = hintMove(G.pegs, 2);
+    if (!hint) return;
+    G.hint = hint;
+    G.error = '';
+    render();
+  });
+  document.getElementById('btnUndo').addEventListener('click', undo);
+  document.getElementById('btnReset').addEventListener('click', () => newGame(G.n));
+  const share = document.getElementById('btnShare');
+  if (share) share.addEventListener('click', copyShare);
+  const again = document.getElementById('btnAgain');
+  if (again) again.addEventListener('click', () => newGame(G.n));
+  const next = document.getElementById('btnNext');
+  if (next) next.addEventListener('click', () => newGame(Math.min(6, G.n + 1)));
+}
+
+function clickPeg(index) {
+  if (G.phase !== 'playing') return;
+  G.error = '';
+  if (G.selected === null) {
+    if (G.pegs[index].length === 0) { G.error = '这根柱子上没有圆盘。'; render(); return; }
+    G.selected = index;
+    render();
+    return;
+  }
+  if (G.selected === index) {
+    G.selected = null;
+    render();
+    return;
+  }
+  const from = G.selected;
+  const to = index;
+  const next = applyMove(G.pegs, from, to);
+  if (!next) {
+    G.error = `大盘不能压在小盘上（${PEG_NAMES[from]} → ${PEG_NAMES[to]}）。`;
+    G.selected = null;
+    render();
+    return;
+  }
+  G.history.push({ pegs: clonePegs(G.pegs), moves: G.moves });
+  G.pegs = next;
+  G.moves += 1;
+  G.selected = null;
+  G.hint = null;
+  track('hanoi_move', { game: 'hanoi', n: G.n, moves: G.moves });
+  if (G.pegs[2].length === G.n) {
+    G.phase = 'win';
+    track('game_win', { game: 'hanoi', difficulty: 'n' + G.n, moves: G.moves });
+    render();
+    return;
+  }
+  render();
+}
+
+function undo() {
+  if (!G.history.length || G.phase !== 'playing') return;
+  const prev = G.history.pop();
+  G.pegs = prev.pegs;
+  G.moves = prev.moves;
+  G.selected = null;
+  G.hint = null;
+  G.error = '';
+  render();
+}
+
+function copyShare() {
+  const perfect = G.moves === minMoves(G.n);
+  const stars = perfect ? '★★★' : (G.moves <= minMoves(G.n) * 1.5 ? '★★☆' : '★☆☆');
+  const text = `我在《汉诺塔》${G.n} 层用了 ${G.moves} 步（最少 ${minMoves(G.n)} 步）完成 ${stars}。\n把 n 层从 A 搬到 C，最少步数是 2ⁿ−1；每多一层，步数几乎翻倍。\n来试：${location.origin}${location.pathname}`;
+  const done = (ok) => {
+    G.shareMsg = ok ? '已复制 ✓' : '复制失败，请手动选中';
+    track('share', { game: 'hanoi', difficulty: 'n' + G.n, moves: G.moves });
+    render();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => done(true)).catch(() => done(false));
+  } else {
+    done(false);
+  }
+}
+
+window.Hanoi = { minMoves, legalMove, applyMove, solveHanoi, shortestPath, hintMove, clonePegs };
+window.__hanoi = G;
+
+newGame(3);
+</script>
+</body>
+</html>

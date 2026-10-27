@@ -130,7 +130,7 @@ h1 .hl{color:var(--fox)}
   </div>
 
   <div class="stats">
-    <div class="stat"><span class="v">3</span><span class="k">已上线</span></div>
+    <div class="stat"><span class="v">4</span><span class="k">已上线</span></div>
     <div class="stat"><span class="v">≈3</span><span class="k">分钟 / 局</span></div>
     <div class="stat"><span class="v">0</span><span class="k">门槛</span></div>
     <div class="stat"><span class="v">∞</span><span class="k">练习模式</span></div>
@@ -189,21 +189,22 @@ h1 .hl{color:var(--fox)}
       <span class="arrow">→</span>
     </a>
 
-    <div class="card disabled" style="--accent:var(--violet)">
+    <a class="card" href="../puzzle/hanoi/" style="--accent:var(--violet)">
       <div class="card-top">
-        <span class="icon">⬤</span>
-        <span class="name">最后一颗</span>
-        <span class="badge soon">即将上线</span>
+        <span class="icon">🗼</span>
+        <span class="name">汉诺塔</span>
+        <span class="badge">3–6 层</span>
       </div>
       <p class="desc">
-        三堆石子，轮流从任意一堆取走至少一颗，拿到最后一颗的赢。<br>
-        但你会发现自己怎么走都输 —— 因为异或为 0 的位置，本来就不该走到。
+        三根柱子，大盘不能压小盘。把整座塔从 A 搬到 C，最少要 2ⁿ−1 步。
+        提示会直接告诉你下一步，但越往后每一步都更值钱。
       </p>
       <div class="meta">
-        <span><i class="dot" style="background:var(--violet)"></i>博弈论 · 二进制异或</span>
-        <span><i class="dot" style="background:var(--dim2)"></i>必败态 P-position</span>
+        <span><i class="dot" style="background:var(--violet)"></i>递归 · 指数增长</span>
+        <span><i class="dot" style="background:var(--teal)"></i>最少步 2ⁿ−1</span>
       </div>
-    </div>
+      <span class="arrow">→</span>
+    </a>
 
   </div>
 
