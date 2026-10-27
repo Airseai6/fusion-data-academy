@@ -13,8 +13,11 @@
 (function () {
   'use strict';
 
-  // ★ 想真正上报时，把这里改成你的收集端点（如 Cloudflare Worker）
-  const ENDPOINT = '';
+  // ★ 埋点端点（P2：待用户提供 Umami / 自建 Worker / 百度统计 等收集端点）
+  //   接线方式（二选一，默认留空 = 只存 localStorage、不发任何请求）：
+  //   ① 在 analytics.js 之前插入一行：<script>window.FD_ANALYTICS_ENDPOINT='https://...';</script>
+  //   ② 或运行时调用 window.counters.setEndpoint('https://...')
+  let ENDPOINT = (typeof window !== 'undefined' && window.FD_ANALYTICS_ENDPOINT) || '';
 
   const KEY = 'fd.events.v1';
   const MAX = 500;                     // 本地最多留 500 条，防爆
@@ -124,9 +127,16 @@
       try { localStorage.removeItem(KEY); } catch (e) {}
     },
 
-    /** 配置端点（运行时改） */
+    /** 配置端点（运行时改；返回当前端点） */
     setEndpoint(url) {
-      console.warn('ENDPOINT 是编译期常量，请在 analytics.js 里改');
+      ENDPOINT = String(url || '');
+      if (ENDPOINT) console.info('[analytics] endpoint =', ENDPOINT);
+      return ENDPOINT;
+    },
+
+    /** 读取当前端点（测试/调试用） */
+    endpoint() {
+      return ENDPOINT;
     },
   };
 

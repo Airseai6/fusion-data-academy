@@ -310,7 +310,13 @@ const D = {
   kappa: 1.7,       // 拉长比
   delta: 0.4,       // 三角形变
   Ip: 8.0,          // 电流 MA
-  Pheat: 50,        // 加热 MW
+  Pheat: 50,        // 加热总功率 MW
+  heatO: 15,        // 欧姆加热 MW
+  heatR: 20,        // 射频加热 MW
+  heatN: 15,        // 中性束 MW
+  wallF: 40,        // 第一壁钨覆盖比例 %
+  ang: 2.0,         // 偏滤器掠射角（度）
+  detach: 20,       // 脱靶强度 %
   cost: 0,
   trust: 50,
   flags: {}
@@ -406,13 +412,147 @@ function Qvalue() {
   return Pfus() / Math.max(D.Pheat, 1);
 }
 
-/** 成本（相对值，非线性） */
+/** 主机成本（磁体/真空室/屏蔽/系统集成；相对值，非线性） */
 function costIndex() {
   const magnet = Math.pow(D.Bt / 5.3, 2.2) * Math.pow(D.R0, 0.6) * 40;
   const vessel = Math.pow(volume() / 800, 0.85) * 35;
   const shield = Math.pow(D.a * D.kappa, 1.4) * 6;
   const system = 18;                      // 系统集成（固定）
   return magnet + vessel + shield + system;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   P2 二轮：子系统成本 + 综合评分
+   - 加热 / 第一壁 / 偏滤器 / 年维护 全部计入总成本
+   - 第 4/5/6 幕的选择影响 Q（高 Z 辐射损失）、寿命与评分
+   - Q 收益封顶：q_eff ≥ 9 后不再加分（防极端 Q 刷分）
+   - 预算上限 BUDGET：超支扣分且最高只能 B 级
+   ══════════════════════════════════════════════════════════════ */
+
+const BUDGET = 300;                        // 总成本上限（相对指数）
+
+/** 兼容旧存档 / 外部直接改写 D：子系统字段缺失时回落到默认值 */
+function ensureSubsystems() {
+  if (D.heatO == null) D.heatO = 15;
+  if (D.heatR == null) D.heatR = 20;
+  if (D.heatN == null) D.heatN = 15;
+  if (D.wallF == null) D.wallF = 40;
+  if (D.ang == null) D.ang = 2.0;
+  if (D.detach == null) D.detach = 20;
+}
+
+/** 加热系统造价（相对值；射频 20×、中性束 32× 欧姆，再归一到与主机同量级） */
+function heatCost() {
+  ensureSubsystems();
+  return (D.heatO * 1 + D.heatR * 20 + D.heatN * 32) / 20;
+}
+/** 第一壁造价：钨越多越贵 */
+function wallCost() {
+  ensureSubsystems();
+  return 8 + 12 * (D.wallF / 100);
+}
+/** 偏滤器造价：脱靶注入系统 + 小掠射角的工程难度 */
+function divCost() {
+  ensureSubsystems();
+  return 8 + 14 * (D.detach / 100) + 5 * Math.max(0, (3 - D.ang) / 3);
+}
+/** 第一壁性能损失（%）：高 Z 杂质辐射。计入 Q_eff */
+function wallPerf() {
+  ensureSubsystems();
+  const f = D.wallF / 100;
+  return 12.5 * Math.pow(f, 1.7);
+}
+/** 第一壁寿命（年） */
+function wallLife() {
+  ensureSubsystems();
+  const f = D.wallF / 100;
+  return 0.6 + 4.2 * f;
+}
+/** 年维护成本（相对值；寿命越短越贵） */
+function maintCost() {
+  return 4 / Math.max(wallLife(), 0.4);
+}
+/** 靶板峰值热流（MW/m²），与六幕同一简化模型 */
+function divHeatFlux() {
+  ensureSubsystems();
+  const alpha = Math.max(D.ang, 0.3) * Math.PI / 180;
+  const lam = 0.0015 + 0.0055 * Math.sin(Math.min(alpha * 3.2, Math.PI / 2));
+  const fRad = 1 - 0.82 * Math.pow(D.detach / 100, 1.35);
+  const P_SOL = 20;
+  return ((P_SOL * fRad * 1e6) / (2 * Math.PI * D.R0 * lam) * Math.sin(alpha)) / 1e6;
+}
+/** 成本分项（七幕账本 + 八幕评分共用） */
+function costParts() {
+  return [
+    ['磁体系统', Math.pow(D.Bt / 5.3, 2.2) * Math.pow(D.R0, 0.6) * 40, '#D2694A'],
+    ['真空室', Math.pow(volume() / 800, 0.85) * 35, '#FFB347'],
+    ['屏蔽层', Math.pow(D.a * D.kappa, 1.4) * 6, '#8B9DC3'],
+    ['系统集成', 18, '#4EC9B0'],
+    ['加热系统', heatCost(), '#E07A5A'],
+    ['第一壁', wallCost(), '#B8925A'],
+    ['偏滤器', divCost(), '#7C8FB5'],
+    ['年维护', maintCost(), '#5A6472']
+  ];
+}
+/** 总成本 = 主机 + 加热 + 第一壁 + 偏滤器 + 年维护 */
+function totalCost() {
+  return costParts().reduce(function (s, part) { return s + part[1]; }, 0);
+}
+
+/** 综合评分 v2（八幕 / 设计卡共用，避免两处公式漂移） */
+function computeScore() {
+  ensureSubsystems();
+  const qRaw = Qvalue();
+  const perf = wallPerf();
+  const qEff = qRaw * (1 - perf / 100);
+  const C = totalCost();
+  const over = Math.max(0, C - BUDGET);
+
+  // 1) 物理性能分（30）：Q_eff ≥ 5 达标；Q_eff ≥ 9 后封顶
+  let qScore;
+  if (qEff >= 5) qScore = 22 + Math.min(8, (qEff - 5) * 2);
+  else if (qEff >= 3) qScore = 12 + (qEff - 3) * 5;
+  else qScore = Math.max(0, qEff * 4);
+
+  // 2) 成本分（25）：≤160 满分，≥320 归零
+  const costScore = Math.max(0, Math.min(25, 25 * (320 - C) / 160));
+
+  // 3) 稳定性分（12）：垂直裕度（复用三幕的 margin()）
+  const mg = margin();
+  const stabScore = mg >= 80 ? 12 : mg >= 60 ? 8 : mg >= 40 ? 4 : 0;
+
+  // 4) 第一壁 / 寿命分（13）
+  const life = wallLife();
+  const wallScore = (life >= 3 ? 7 : life >= 2 ? 4 : 0)
+                  + (perf <= 5 ? 3 : 0);
+  // 维护成本项单独算
+  const maintPart = maintCost() <= 4 ? 3 : 0;
+
+  // 5) 排气安全分（10）：靶板热流
+  const hf = divHeatFlux();
+  const divScore = hf < 8 ? 10 : hf < 10 ? 7 : hf < 15 ? 3 : 0;
+
+  // 6) 风险 / 预算纪律分（10）
+  const riskScore = (D.Bt <= 8 ? 4 : D.Bt <= 10 ? 2 : 0)
+                  + (Ip_auto() <= 20 ? 3 : 2)
+                  + (over === 0 ? 3 : 0);
+
+  let score = qScore + costScore + stabScore + wallScore + maintPart + divScore + riskScore;
+  const penalty = over > 0 ? Math.min(30, over * 0.5) : 0;
+  score = Math.max(0, Math.min(100, score - penalty));
+
+  let grade = score >= 80 ? 'A' : score >= 60 ? 'B' : score >= 40 ? 'C' : 'D';
+  // A 级门槛：预算内 + 寿命 ≥ 2 年 + 排气安全（热流 < 15） + Q_eff ≥ 5
+  const aBlock = over > 0 || life < 2 || hf >= 15 || qEff < 5;
+  if (aBlock && grade === 'A') grade = 'B';
+
+  return {
+    score: score, grade: grade, qRaw: qRaw, qEff: qEff,
+    perf: perf, life: life, maint: maintCost(), hf: hf, margin: mg,
+    C: C, over: over, budget: BUDGET, aBlock: aBlock,
+    qScore: qScore, costScore: costScore, stabScore: stabScore,
+    wallScore: wallScore + maintPart, divScore: divScore, riskScore: riskScore, penalty: penalty
+  };
 }
 
 /** 稳定性裕度（简化：κ 高了不稳，δ 高了改善） */
@@ -1297,10 +1437,15 @@ P_SOL   排气功率（数十至上百 MW）
 act7: {
   n: '七幕', t: '算账',
   render: () => {
-    const c = costIndex();
-    const q = Qvalue();
+    const sc = computeScore();
+    const c = sc.C;                    // 总成本（含加热/壁/偏滤器/年维护）
+    const q = sc.qEff;                 // 第一壁高 Z 辐射后的有效 Q
     const te = Te(), tau = tauE(), ip = Ip_auto();
     const V = volume();
+    const over = sc.over;
+    const overTxt = over > 0
+      ? `超出预算 <b>${over.toFixed(0)}</b>（-<b>${sc.penalty.toFixed(0)}</b> 分，最高只能 B 级）`
+      : `预算余量 <b>${(BUDGET - c).toFixed(0)}</b>`;
     return `
     <div class="narr">
       所有子系统都定了。方案图贴满了整面墙。
@@ -1336,29 +1481,43 @@ act7: {
           <div class="ro"><div class="ro-k">约束时间 τ_E</div><div class="ro-v" style="font-size:16px">${tau.toFixed(3)} s</div></div>
           <div class="ro"><div class="ro-k">电子温度</div><div class="ro-v" style="font-size:16px">${te.toFixed(1)} keV</div></div>
           <div class="ro"><div class="ro-k">加热功率</div><div class="ro-v" style="font-size:16px">${D.Pheat} MW</div></div>
-          <div class="ro"><div class="ro-k">Q 值</div>
+          <div class="ro"><div class="ro-k">Q_eff</div>
             <div class="ro-v" style="color:${q >= 5 ? 'var(--teal)' : q >= 3 ? 'var(--amber)' : 'var(--rust)'}">
               ${q.toFixed(2)}</div></div>
+        </div>
+        <div class="readout" style="margin:0 0 16px">
+          <div class="ro"><div class="ro-k">总成本</div>
+            <div class="ro-v" style="color:${over > 0 ? 'var(--rust)' : 'var(--teal)'}">${c.toFixed(0)} / ${BUDGET}</div></div>
+          <div class="ro"><div class="ro-k">预算</div>
+            <div class="ro-v" style="font-size:14px;line-height:1.6">${overTxt}</div></div>
+          <div class="ro"><div class="ro-k">第一壁寿命</div>
+            <div class="ro-v" style="font-size:15px">${sc.life.toFixed(1)} 年</div></div>
+          <div class="ro"><div class="ro-k">靶板热流</div>
+            <div class="ro-v" style="font-size:15px">${sc.hf.toFixed(1)} MW/m²</div></div>
         </div>
 
         <canvas id="cv-budget" height="250"></canvas>
 
-        <div class="cq ${q >= 5 ? 'good' : q >= 3 ? 'warn' : 'bad'}" style="margin-bottom:0">
+        <div class="cq ${over > 0 ? 'bad' : q >= 5 ? 'good' : q >= 3 ? 'warn' : 'bad'}" style="margin-bottom:0">
           <div class="cq-h">
             <span class="t">这一版设计</span>
-            <span class="s ${q >= 5 ? 'good' : q >= 3 ? 'warn' : 'bad'}">
-              ${q >= 5 ? '达标' : q >= 3 ? '接近' : '不够'}</span>
+            <span class="s ${over > 0 ? 'bad' : q >= 5 ? 'good' : q >= 3 ? 'warn' : 'bad'}">
+              ${over > 0 ? '超预算' : q >= 5 ? '达标' : q >= 3 ? '接近' : '不够'}</span>
           </div>
           <div class="cq-t">
-            相对成本指数：<b>${c.toFixed(0)}</b><br>
-            ${q >= 5
-              ? `Q = ${q.toFixed(2)}，达到了目标。<br>
-                 但成本指数是 ${c.toFixed(0)}——<b>你要能说服别人为什么值这个钱。</b>`
+            总成本指数：<b>${c.toFixed(0)}</b>（预算上限 <b>${BUDGET}</b>）<br>
+            ${overTxt}<br><br>
+            ${over > 0
+              ? `超支会扣分，而且<b>最高只能拿 B 级</b>。<br>
+                 <span style="color:var(--dim)">高场磁体、贵加热、大脱靶系统——每一笔都要算。</span>`
+              : q >= 5
+              ? `Q_eff = ${q.toFixed(2)}，达到了目标。<br>
+                 但总成本 ${c.toFixed(0)}——<b>你要能说服别人为什么值这个钱。</b>`
               : q >= 3
-              ? `Q = ${q.toFixed(2)}，还差一点。成本 ${c.toFixed(0)}。<br>
+              ? `Q_eff = ${q.toFixed(2)}，还差一点。总成本 ${c.toFixed(0)}。<br>
                  <span style="color:var(--dim)">要么再投入一点，要么认了这个数。</span>`
-              : `Q = ${q.toFixed(2)}——离目标差得远。<br>
-                 <span style="color:var(--dim)">但成本只有 ${c.toFixed(0)}，你还有预算空间。</span>`}
+              : `Q_eff = ${q.toFixed(2)}——离目标差得远。<br>
+                 <span style="color:var(--dim)">但总成本只有 ${c.toFixed(0)}，你还有预算空间。</span>`}
           </div>
         </div>
       </div>
@@ -1372,9 +1531,15 @@ act7: {
 真空室 ∝ (V/800)^0.85
 屏蔽   ∝ (a·κ)^1.4
 系统集成 = 常数
+加热系统 = (P_欧姆 + 20·P_射频 + 32·P_中性束) / 20
+第一壁   = 8 + 12·(钨比例)
+偏滤器   = 8 + 14·(脱靶强度) + 小掠射角工程项
+年维护   ∝ 1 / 第一壁寿命
 
 <span class="cm">// 关键：磁体对 B 是超线性的（^2.2）</span>
-<span class="cm">// 这是"高场路线"最贵的地方</span></div>
+<span class="cm">// 这是"高场路线"最贵的地方</span>
+<span class="cm">// 总成本 = 以上全部之和；上限 BUDGET = 300</span>
+<span class="cm">// Q_eff = Q × (1 − 高Z辐射损失)：钨越多，性能越低</span></div>
 
         <h4>为什么"系统集成"也占大头</h4>
         <p>真实装置的成本里，非核心系统的比例往往超过一半：
@@ -1413,31 +1578,18 @@ act7: {
 act8: {
   n: '八幕', t: '评审',
   render: () => {
-    const q = Qvalue();
-    const c = costIndex();
-    // 综合评分
-    let score = 0;
-    if (q >= 5) score += 45;
-    else if (q >= 3) score += 22 + (q - 3) * 11;
-    else score += q * 7;
-
-    // 成本分：越低越好
-    const costScore = Math.max(0, 35 - (c - 90) * 0.16);
-    score += costScore;
-
-    // 稳定性分
-    if (D.kappa <= 1.6) score += 10;
-    else if (D.kappa <= 2.0) score += 5;
-    if (D.delta >= 0.35) score += 5;
-
-    // 场强风险
-    if (D.Bt > 10) score -= 4;
-
-    score = Math.max(0, Math.min(95, score));
-    const grade = score >= 75 ? 'A' : score >= 55 ? 'B' : score >= 35 ? 'C' : 'D';
+    // P2 二轮：统一评分（加热/壁/偏滤器成本入账、Q 封顶、预算上限、寿命/排气门槛）
+    const sc = computeScore();
+    const q = sc.qEff;
+    const c = sc.C;
+    const score = sc.score;
+    const grade = sc.grade;
     const gcol = grade === 'A' ? 'var(--teal)'
                : grade === 'B' ? 'var(--amber)'
                : 'var(--rust)';
+    const gradeNote = sc.aBlock
+      ? '<br><span style="color:var(--rust)">未达 A 级门槛：需预算内、第一壁寿命 ≥ 2 年、靶板热流 &lt; 15 MW/m²、Q_eff ≥ 5。</span>'
+      : '';
 
     return `
     <div class="narr">
@@ -1503,10 +1655,20 @@ act8: {
             <div class="ro-v" style="color:${gcol}">${grade} 级</div></div>
           <div class="ro"><div class="ro-k">评分</div>
             <div class="ro-v">${score.toFixed(0)} / 100</div></div>
-          <div class="ro"><div class="ro-k">Q 值</div>
+          <div class="ro"><div class="ro-k">Q_eff</div>
             <div class="ro-v" style="font-size:16px">${q.toFixed(2)}</div></div>
-          <div class="ro"><div class="ro-k">成本指数</div>
-            <div class="ro-v" style="font-size:16px">${c.toFixed(0)}</div></div>
+          <div class="ro"><div class="ro-k">总成本</div>
+            <div class="ro-v" style="font-size:16px;color:${sc.over > 0 ? 'var(--rust)' : 'var(--paper)'}">${c.toFixed(0)} / ${BUDGET}</div></div>
+        </div>
+        <div class="readout" style="margin:0 0 16px">
+          <div class="ro"><div class="ro-k">预算</div>
+            <div class="ro-v" style="font-size:15px">${sc.over > 0 ? '超支 ' + sc.over.toFixed(0) : '余量 ' + (BUDGET - c).toFixed(0)}</div></div>
+          <div class="ro"><div class="ro-k">第一壁寿命</div>
+            <div class="ro-v" style="font-size:15px">${sc.life.toFixed(1)} 年</div></div>
+          <div class="ro"><div class="ro-k">靶板峰值热流</div>
+            <div class="ro-v" style="font-size:15px">${sc.hf.toFixed(1)} MW/m²</div></div>
+          <div class="ro"><div class="ro-k">加热/壁/偏滤器成本</div>
+            <div class="ro-v" style="font-size:15px">${heatCost().toFixed(0)} / ${wallCost().toFixed(0)} / ${divCost().toFixed(0)}</div></div>
         </div>
         <div class="cq ${grade === 'A' || grade === 'B' ? 'good' : grade === 'C' ? 'warn' : 'bad'}"
              style="margin:0">
@@ -1526,6 +1688,10 @@ act8: {
                  <b>建议重新设计。</b>`
               : `这一版不成立。<br>
                  <b>回到第一步。</b>`}
+            ${gradeNote}
+            <br><br>
+            <span style="color:var(--dim)">评分构成（满分 100）：Q 性能 ${sc.qScore.toFixed(0)}/30 · 成本 ${sc.costScore.toFixed(0)}/25 · 稳定性 ${sc.stabScore}/12 · 壁与寿命 ${sc.wallScore}/13 · 排气安全 ${sc.divScore}/10 · 风险与预算纪律 ${sc.riskScore}/10${sc.penalty > 0 ? ' · 超预算 -' + sc.penalty.toFixed(0) : ''}<br>
+            Q 分在 Q_eff ≥ 9 后封顶（不再为极端 Q 加分）。</span>
           </div>
         </div>
       </div>
@@ -1675,7 +1841,10 @@ act8: {
     if (b) b.onclick = () => {
       Object.assign(D, {
         R0: 3.0, a: 1.0, Bt: 5.3, kappa: 1.7, delta: 0.4,
-        Ip: 8.0, Pheat: 50, cost: 0, trust: 50, flags: {}
+        Ip: 8.0, Pheat: 50,
+        heatO: 15, heatR: 20, heatN: 15,
+        wallF: 40, ang: 2.0, detach: 20,
+        cost: 0, trust: 50, flags: {}
       });
       renderScene('prologue');
     };
@@ -1695,21 +1864,11 @@ act8: {
    设计卡生成（Canvas → PNG）
    ══════════════════════════════════════════════════════════════ */
 function makeDesignCard() {
-  const q = Qvalue();
-  const c = costIndex();
-
-  let score = 0;
-  if (q >= 5) score += 45;
-  else if (q >= 3) score += 22 + (q - 3) * 11;
-  else score += q * 7;
-  score += Math.max(0, 35 - (c - 90) * 0.16);
-  if (D.kappa <= 1.6) score += 10;
-  else if (D.kappa <= 2.0) score += 5;
-  if (D.delta >= 0.35) score += 5;
-  if (D.Bt > 10) score -= 4;
-  score = Math.max(0, Math.min(95, score));
-
-  const grade = score >= 75 ? 'A' : score >= 55 ? 'B' : score >= 35 ? 'C' : 'D';
+  const sc = computeScore();
+  const q = sc.qEff;
+  const c = sc.C;
+  const score = sc.score;
+  const grade = sc.grade;
   const gc = grade === 'A' ? '#5BD9BE' : grade === 'B' ? '#FFB347' : '#E07A5A';
 
   const W = 1080, H = 1350;
@@ -1773,8 +1932,9 @@ function makeDesignCard() {
   // 关键参数（两列）
   x.textAlign = 'left';
   const rows = [
-    ['Q 值', q.toFixed(2), q >= 5 ? '#5BD9BE' : q >= 3 ? '#FFB347' : '#E07A5A'],
-    ['成本指数', c.toFixed(0), '#B8C4D4'],
+    ['Q_eff', q.toFixed(2), q >= 5 ? '#5BD9BE' : q >= 3 ? '#FFB347' : '#E07A5A'],
+    ['总成本 / 预算', c.toFixed(0) + ' / ' + BUDGET, sc.over > 0 ? '#E07A5A' : '#B8C4D4'],
+    ['第一壁寿命', sc.life.toFixed(1) + ' 年', sc.life >= 2 ? '#B8C4D4' : '#E07A5A'],
     ['大半径 R0', D.R0.toFixed(1) + ' m', '#B8C4D4'],
     ['环向场 B', D.Bt.toFixed(1) + ' T', D.Bt > 10 ? '#E07A5A' : '#B8C4D4'],
   ];
@@ -1827,7 +1987,10 @@ function saveProgress(id) {
     localStorage.setItem(SAVE_KEY2, JSON.stringify({
       scene: id,
       D: { R0: D.R0, a: D.a, Bt: D.Bt, kappa: D.kappa, delta: D.delta,
-           Ip: D.Ip, Pheat: D.Pheat, cost: D.cost, trust: D.trust, flags: D.flags },
+           Ip: D.Ip, Pheat: D.Pheat,
+           heatO: D.heatO, heatR: D.heatR, heatN: D.heatN,
+           wallF: D.wallF, ang: D.ang, detach: D.detach,
+           cost: D.cost, trust: D.trust, flags: D.flags },
       at: Date.now()
     }));
   } catch (e) {}
@@ -2412,6 +2575,7 @@ function setupHeat2(nextId) {
     document.getElementById('h-nbi-v').textContent = pN + ' MW';
 
     const T = solveT(pO, pR, pN);
+    D.heatO = pO; D.heatR = pR; D.heatN = pN;   // 供总成本/评分使用
     draw(pO, pR, pN, T);
 
     const Q = Qvalue();
@@ -2420,7 +2584,7 @@ function setupHeat2(nextId) {
     document.getElementById('ro-Q3').textContent = Q.toFixed(2);
     document.getElementById('ro-Q3').style.color = Q >= 5 ? TEAL : AMBER;
 
-    const hc = hcost(pO, pR, pN);
+    const hc = heatCost();                  // 已归一到总账同量级
     document.getElementById('ro-hcost').textContent = hc.toFixed(0);
 
     const cq = document.getElementById('heat2-cq');
@@ -2431,7 +2595,7 @@ function setupHeat2(nextId) {
     if (T >= 12) {
       cq.classList.add('good'); cs.className = 's good'; cs.textContent = '达标';
       tx.innerHTML = `温度 <b>${T.toFixed(2)} keV</b>，Q = <b>${Q.toFixed(2)}</b>。<br>
-        加热系统相对造价 <b>${hc.toFixed(0)}</b>。<br>
+        加热系统相对造价 <b>${hc.toFixed(0)}</b>（已计入总账）。<br>
         <span style="color:var(--dim)">注意欧姆那一栏几乎不花钱——但它贡献有限。</span>`;
       if (!solved) {
         solved = true;
@@ -2544,6 +2708,7 @@ function setupWall(nextId) {
 
   function update() {
     const f = parseInt(sw.value, 10) / 100;
+    D.wallF = Math.round(f * 100);          // 供总成本/评分使用
     document.getElementById('w-val').textContent = (f * 100).toFixed(0) + '%';
     draw(f);
 
@@ -2673,6 +2838,7 @@ function setupDiv(nextId) {
   function update() {
     const ang = parseFloat(sa.value);
     const det = parseInt(sd.value, 10);
+    D.ang = ang; D.detach = det;            // 供总成本/评分使用
     document.getElementById('ang-val').textContent = ang.toFixed(1) + '°';
     document.getElementById('det-val').textContent = det + '%';
     draw(ang, det);
@@ -2729,71 +2895,72 @@ function setupDiv(nextId) {
 function setupBudget(nextId) {
   let cv = null;
 
-  function parts() {
-    const magnet = Math.pow(D.Bt / 5.3, 2.2) * Math.pow(D.R0, 0.6) * 40;
-    const vessel = Math.pow(volume() / 800, 0.85) * 35;
-    const shield = Math.pow(D.a * D.kappa, 1.4) * 6;
-    const system = 18;
-    return [
-      ['磁体系统', magnet, '#D2694A'],
-      ['真空室', vessel, '#FFB347'],
-      ['屏蔽层', shield, '#8B9DC3'],
-      ['系统集成', system, '#4EC9B0'],
-    ];
-  }
-
   function draw() {
     if (!cv) cv = setupCanvas('cv-budget', 250);
     const { ctx, w, h } = cv;
     ctx.clearRect(0, 0, w, h);
     grid(ctx, w, h, 8, 4);
 
-    const padL = 30, padR = 20, padT = 34, padB = 48;
+    const padL = 30, padR = 20, padT = 36, padB = 48;
     const pw = w - padL - padR;
 
-    const ps = parts();
-    const total = ps.reduce((s, [, v]) => s + v, 0);
+    const ps = costParts();
+    const total = ps.reduce(function (s, part) { return s + part[1]; }, 0);
+    const scale = Math.max(total, BUDGET) * 1.06;
+    const over = Math.max(0, total - BUDGET);
 
-    // 堆叠横条
-    const barY = padT + 20;
+    // 堆叠横条（按预算/总成本中较大者缩放）
+    const barY = padT + 22;
     const barH = 36;
     let acc = padL;
-    ps.forEach(([, v, c]) => {
-      const bw = v / total * pw;
-      ctx.fillStyle = c;
+    ps.forEach(function (part) {
+      const bw = part[1] / scale * pw;
+      ctx.fillStyle = part[2];
       ctx.fillRect(acc, barY, bw, barH);
       acc += bw;
     });
+    // 超支部分用斜线标注
+    if (over > 0) {
+      ctx.fillStyle = 'rgba(224,122,90,.35)';
+      ctx.fillRect(padL + BUDGET / scale * pw, barY, over / scale * pw, barH);
+    }
+
+    // 预算线
+    const bx = padL + BUDGET / scale * pw;
+    ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = over > 0 ? RUST : TEAL;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(bx, barY - 8); ctx.lineTo(bx, barY + barH + 8); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = over > 0 ? RUST : TEAL;
+    ctx.font = '600 11px Consolas,monospace'; ctx.textAlign = 'center';
+    ctx.fillText('预算 ' + BUDGET, bx, barY - 14);
 
     // 总成本标注
-    ctx.fillStyle = PAPER;
+    ctx.fillStyle = over > 0 ? RUST : PAPER;
     ctx.font = '600 13px Consolas,monospace';
     ctx.textAlign = 'left';
-    ctx.fillText(`总成本指数 ${total.toFixed(0)}`, padL, padT);
+    ctx.fillText('总成本指数 ' + total.toFixed(0) + '  （预算 ' + BUDGET + '）', padL, padT);
     ctx.textAlign = 'right';
-    ctx.fillStyle = DIM;
+    ctx.fillStyle = over > 0 ? RUST : TEAL;
     ctx.font = '11px Consolas,monospace';
-    ctx.fillText('（相对值）', padL + pw, padT);
+    ctx.fillText(over > 0 ? ('超支 ' + over.toFixed(0)) : ('余量 ' + (BUDGET - total).toFixed(0)), padL + pw, padT);
 
-    // 图例
+    // 图例（8 项，两列）
     ctx.font = '11px Consolas,monospace';
-    let ly = barY + barH + 34;
-    ps.forEach(([name, v, c], i) => {
-      const pct = (v / total * 100);
-      ctx.fillStyle = c;
-      ctx.fillRect(padL, ly - 9, 10, 10);
+    const colW = pw / 2;
+    ps.forEach(function (part, i) {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const lx = padL + col * colW;
+      const ly = barY + barH + 34 + row * 22;
+      ctx.fillStyle = part[2];
+      ctx.fillRect(lx, ly - 9, 10, 10);
       ctx.fillStyle = PAPER;
       ctx.textAlign = 'left';
-      ctx.fillText(`${name}`, padL + 18, ly);
+      ctx.fillText(part[0], lx + 18, ly);
       ctx.fillStyle = DIM;
-      ctx.fillText(`${v.toFixed(0)}  (${pct.toFixed(0)}%)`, padL + 130, ly);
-      if (i % 2 === 1) ly += 26;
-    });
-    // 第二列
-    ly = barY + barH + 34;
-    ps.forEach(([name, v, c], i) => {
-      if (i % 2 === 0) return;
-      // 已在上面处理
+      ctx.fillText(part[1].toFixed(0) + '  (' + (part[1] / total * 100).toFixed(0) + '%)', lx + 96, ly);
     });
   }
 
