@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>反直觉 · 24点 | 限时凑数与分数陷阱</title>
+<meta name="description" content="4 个数字各用一次，用 + − × ÷ 和括号凑出 24。手牌保证有解，每手 60 秒；很多题只有中间步算出分数才解得开——比如 8÷(3−8÷3)。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0F14;--panel:#141A22;--panel2:#0E141B;--line:#232C38;--line2:#3A4757;
+  --ink:#E8EDF4;--dim:#96A5B8;--dim2:#7A8798;
+  --teal:#5BD9BE;--amber:#FFB347;--ok:#4ADE80;--bad:#F87171;--accent:#60A5FA;
+}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  min-height:100vh;display:flex;justify-content:center;padding:18px 14px 54px;-webkit-font-smoothing:antialiased;
+}
+.wrap{width:100%;max-width:760px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
+.topbar .ep{font-size:12px;color:var(--dim);font-family:Consolas,monospace;letter-spacing:.08em}
+.topbar .ep b{color:var(--teal)}
+.topbar a{color:var(--dim);text-decoration:none;font-size:13px}
+.topbar a:hover{color:var(--ink)}
+.title{font-size:28px;font-weight:750;letter-spacing:.02em;margin-bottom:8px}
+.lead{font-size:14px;line-height:1.9;color:#A8B6C8;margin-bottom:18px}
+.lead b{color:var(--teal)}
+
+.timer{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+.tbar{flex:1;height:7px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;overflow:hidden}
+.tbar i{display:block;height:100%;width:100%;background:var(--teal);transition:width .12s linear,background .2s}
+.tbar.warn i{background:var(--amber)}
+.tbar.danger i{background:var(--bad)}
+.tnum{font-family:Consolas,monospace;font-size:13px;color:var(--dim);min-width:62px;text-align:right}
+.tnum b{color:var(--ink);font-size:15px}
+.tnum.danger b{color:var(--bad)}
+
+.hud{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.stats{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--dim);font-family:Consolas,monospace}
+.stats b{color:var(--ink)}
+.stats .k{color:var(--dim2)}
+.settings label{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px}
+.settings select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12px;min-height:34px}
+
+.hand{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(6px,1.8vw,12px);margin:4px 0 16px}
+.num{
+  font-family:Consolas,monospace;font-weight:750;font-size:clamp(26px,7.4vw,40px);
+  min-height:clamp(74px,19vw,104px);display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#313D4C,#1D2632);color:var(--ink);
+  border:1px solid var(--line2);border-radius:12px;cursor:pointer;
+  transition:transform .08s,border-color .12s,opacity .12s;-webkit-tap-highlight-color:transparent;
+  position:relative;
+}
+/* 有重复数字时标出还剩几张，否则玩家分不清「哪张用掉了」 */
+.num .copies{position:absolute;top:6px;right:8px;font-size:12px;font-style:normal;font-weight:600;color:var(--dim)}
+.num.spent .copies{color:var(--dim2)}
+.num:hover:not(:disabled){border-color:var(--accent)}
+.num:active:not(:disabled){transform:scale(.96)}
+/* 结算后要留着题面看清 4 个数字，所以「用过了」才变灰，不是「禁用了」就变灰 */
+.num:disabled{opacity:1;cursor:default;border-color:var(--line2)}
+.num.spent{opacity:.3;cursor:not-allowed;border-color:var(--line)}
+
+.exprrow{display:flex;gap:9px;align-items:stretch;margin-bottom:10px}
+.expr{
+  flex:1;min-width:0;font-family:Consolas,monospace;font-size:16px;letter-spacing:.02em;
+  background:var(--panel2);border:1px solid var(--line2);border-radius:10px;color:var(--ink);
+  padding:12px 13px;min-height:50px;
+}
+.expr::placeholder{color:#5A6675;font-size:13px}
+.expr:focus{outline:none;border-color:var(--teal)}
+.exprrow button{
+  flex:0 0 auto;min-height:50px;padding:0 18px;white-space:nowrap;
+  font-family:inherit;font-size:14.5px;font-weight:650;
+  background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;cursor:pointer;
+  transition:.15s;-webkit-tap-highlight-color:transparent;
+}
+.exprrow button:hover{border-color:var(--accent)}
+.exprrow button.primary{background:var(--teal);border-color:var(--teal);color:#04211C}
+.exprrow button.primary:hover{filter:brightness(1.06);border-color:var(--teal)}
+.exprrow button:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(.4)}
+
+.pad{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:12px}
+.pad button{
+  font-family:Consolas,monospace;font-size:17px;min-height:46px;
+  background:var(--panel);border:1px solid var(--line);border-radius:9px;color:var(--ink);
+  cursor:pointer;transition:.13s;-webkit-tap-highlight-color:transparent;
+}
+.pad button:hover{border-color:var(--accent)}
+.pad button.small{font-size:13px;font-family:inherit}
+
+.msg{font-size:12.5px;line-height:1.7;min-height:0;color:var(--amber);margin:2px 0 10px}
+.msg:empty{display:none}
+
+.hintbox{background:rgba(255,179,71,.07);border-left:3px solid var(--amber);border-radius:8px;padding:11px 14px;font-size:13px;line-height:1.85;color:#D8C7A8;margin:10px 0}
+.hintbox b{color:var(--amber);font-family:Consolas,monospace;font-size:14px}
+
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin:6px 0 4px}
+.actions button{
+  font-family:inherit;font-size:13.5px;min-height:44px;border-radius:9px;border:1px solid var(--line);
+  background:var(--panel);color:var(--ink);cursor:pointer;padding:9px 16px;transition:.15s;-webkit-tap-highlight-color:transparent;
+}
+.actions button:hover:not(:disabled){border-color:var(--accent)}
+.actions button.primary{background:var(--teal);border-color:var(--teal);color:#04211C;font-weight:650}
+.actions button:disabled{opacity:.35;cursor:not-allowed}
+
+.result{background:var(--panel);border:1px solid rgba(74,222,128,.55);border-radius:12px;padding:18px;margin:16px 0}
+.result.fail{border-color:rgba(248,113,113,.5)}
+.result h2{font-size:20px;margin-bottom:8px;color:var(--ok)}
+.result.fail h2{color:var(--bad)}
+.result p{font-size:13.5px;line-height:1.95;color:#B8C6D8;margin-bottom:10px}
+.result .math{font-size:13px;line-height:1.9;color:#9FB0C4;background:var(--panel2);border-radius:8px;padding:12px 14px;font-family:Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+.sharebox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;margin:12px 0}
+.sharebox .sl{font-size:11px;color:var(--dim2);margin-bottom:8px}
+.sharebox pre{font-family:Consolas,monospace;font-size:12px;line-height:1.8;color:#C8D4E2;white-space:pre-wrap;word-break:break-all;margin-bottom:9px}
+.sharebox button{font-family:inherit;font-size:12px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);border-radius:7px;padding:7px 12px;cursor:pointer}
+.sharebox button:hover{border-color:var(--teal)}
+.share-msg{font-size:12px;color:var(--teal);margin-top:8px;min-height:18px}
+
+details.rules{margin-top:18px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;line-height:1.95;color:#9FB0C4}
+details.rules summary{cursor:pointer;color:var(--dim);font-size:13px;margin-bottom:8px}
+details.rules b{color:var(--teal)}
+.footlinks{margin-top:22px;text-align:center;font-size:13px;line-height:1.9}
+.footlinks a{color:#FFB347;text-decoration:none;border-bottom:1px solid rgba(255,179,71,.3)}
+.footlinks .sep{color:#3A4757;margin:0 10px}
+
+@media (max-width:560px){
+  body{padding:14px 10px 46px}
+  .title{font-size:23px}
+  .pad{grid-template-columns:repeat(4,1fr)}
+  .stats{gap:10px;font-size:11.5px}
+  .expr{font-size:15px}
+}
+</style>
+<script src="../../analytics.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <span class="ep">反直觉系列 · <b>第六关</b></span>
+    <a href="../../brain/">← 回大脑保健操</a>
+  </div>
+  <h1 class="title">24点 · 限时</h1>
+  <p class="lead">
+    手里的 <b>4 个数字</b>，每个用一次，加减乘除配括号，凑出 <b>24</b>。手牌保证有解 ——
+    但很多题必须让中间步算出<b>分数</b>才解得开，一上来就想整数的都会被卡死。
+  </p>
+
+  <div id="app"></div>
+
+  <details class="rules">
+    <summary>规则 / 数学解释</summary>
+    <p><b>规则：</b>4 个数字各用一次（不能少用、不能重复、不能凭空添数），只允许 + − × ÷ 和括号，结果必须正好是 24。每手 60 秒，用一次提示扣 5 秒。</p>
+    <p><b>为什么难：</b>人习惯只用整数中间结果，但像 <b>8 ÷ (3 − 8 ÷ 3) = 24</b> 这样的手牌，唯一解法要经过 1/3 这个分数。不试分数，就只能干看着。</p>
+    <p><b>为什么有些题真的无解：</b>4 个数只有 4! × 5 种运算结构 × 4³ 种运算选择，总共几万种，穷举得完。1–13 的 <b>1820</b> 种手牌里有 <b>1362</b> 种能凑出 24，剩下 <b>458</b> 种无论怎么算都不行 —— 这不是你笨，是穷举证明的结论。所以出题只从可解的一半里挑。</p>
+    <p><b>分数要精确：</b>页面内部用「分子/分母」整数对做运算，不是浮点数，所以 8÷(3−8÷3) 能判到正好 24，不会被 0.0000001 的误差骗过去。</p>
+  </details>
+
+  <div class="footlinks">
+    <a href="../../brain/">← 回大脑保健操</a><span class="sep">|</span><a href="../fifteen/">玩《十五数码》←</a><span class="sep">|</span><a href="../">回小游戏区</a>
+  </div>
+</div>
+
+<script>
+/* === TWENTYFOUR CORE START === */
+const TARGET24 = 24;
+const OP_SYMBOLS = ['+', '−', '×', '÷'];
+
+function gcd(a, b) {
+  let x = Math.abs(a);
+  let y = Math.abs(b);
+  while (y) { const t = x % y; x = y; y = t; }
+  return x || 1;
+}
+
+/** 精确分数 {n, d}（d > 0，已约分）。除以 0 返回 null。 */
+function rat(n, d) {
+  const den = d === undefined ? 1 : d;
+  if (den === 0) return null;
+  const sign = den < 0 ? -1 : 1;
+  const g = gcd(n, den);
+  return { n: (sign * n) / g, d: (sign * den) / g };
+}
+
+const ratAdd = (a, b) => rat(a.n * b.d + b.n * a.d, a.d * b.d);
+const ratSub = (a, b) => rat(a.n * b.d - b.n * a.d, a.d * b.d);
+const ratMul = (a, b) => rat(a.n * b.n, a.d * b.d);
+const ratDiv = (a, b) => (b.n === 0 ? null : rat(a.n * b.d, a.d * b.n));
+const RAT_FN = { '+': ratAdd, '−': ratSub, '×': ratMul, '÷': ratDiv };
+const ratIsInt = (a, k) => a.n === k * a.d;
+
+function ratToString(a) {
+  if (!a) return '—';
+  return a.d === 1 ? String(a.n) : `${a.n}/${a.d}`;
+}
+
+/**
+ * 两两合并穷举：每次取两个数用一个运算符合掉，递归到只剩一个。
+ * 这种枚举覆盖了全部 4 个数、全部括号结构与运算顺序，结果用分数精确比较。
+ */
+function solve24(nums, limit) {
+  const cap = limit || 1;
+  const found = [];
+  const walk = (items) => {
+    if (found.length >= cap) return;
+    if (items.length === 1) {
+      if (ratIsInt(items[0].v, TARGET24)) found.push({ expr: items[0].s, divs: items[0].divs, fracs: items[0].fracs });
+      return;
+    }
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const rest = items.filter((_, k) => k !== i && k !== j);
+        for (const sym of OP_SYMBOLS) {
+          const orders = sym === '+' || sym === '×' ? [[i, j]] : [[i, j], [j, i]];
+          for (const [x, y] of orders) {
+            const v = RAT_FN[sym](items[x].v, items[y].v);
+            if (!v) continue;                                     // 除以 0 的分支直接剪掉
+            walk(rest.concat({
+              v,
+              s: `(${items[x].s}${sym}${items[y].s})`,
+              divs: items[x].divs + items[y].divs + (sym === '÷' ? 1 : 0),
+              fracs: items[x].fracs + items[y].fracs + (v.d === 1 ? 0 : 1),   // 这一步算出了分数（已约分，d>1 即非整数）
+            }));
+          }
+        }
+      }
+    }
+  };
+  walk(nums.map((n) => ({ v: rat(n), s: String(n), divs: 0, fracs: 0 })));
+  return found;
+}
+
+const hasSolution = (nums) => solve24(nums, 1).length > 0;
+
+/** 括号里如果自己已经平衡，外层括号就是多余的，逐层剥掉。 */
+function trimParens(expr) {
+  let s = expr;
+  const balanced = (inner) => {
+    let depth = 0;
+    for (const ch of inner) {
+      if (ch === '(') depth++;
+      else if (ch === ')' && --depth < 0) return false;
+    }
+    return depth === 0;
+  };
+  while (s.length > 2 && s[0] === '(' && s[s.length - 1] === ')' && balanced(s.slice(1, -1))) {
+    s = s.slice(1, -1);
+  }
+  return s;
+}
+
+/** 提示用：在全部解里挑「除法最少、串最短」的那一条，玩家最容易看懂。 */
+function bestSolutionInfo(nums) {
+  const all = solve24(nums, 160);
+  if (!all.length) return null;
+  all.sort((a, b) => a.divs - b.divs || a.expr.length - b.expr.length);
+  return { expr: trimParens(all[0].expr), fracs: all[0].fracs, divs: all[0].divs };
+}
+
+const bestSolution = (nums) => {
+  const info = bestSolutionInfo(nums);
+  return info ? info.expr : null;
+};
+
+/** 记法统一：*、x、/、- 都收成排版符号，空格丢掉。 */
+function normalizeExpr(text) {
+  return String(text == null ? '' : text)
+    .replace(/[×xX*]/g, '×')
+    .replace(/[÷/]/g, '÷')
+    .replace(/[-−–]/g, '−')
+    .replace(/（/g, '(')
+    .replace(/）/g, ')')
+    .replace(/[＝=]/g, '')
+    .replace(/\s+/g, '');
+}
+
+function tokenize(text) {
+  const src = normalizeExpr(text);
+  const tokens = [];
+  let i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch >= '0' && ch <= '9') {
+      let j = i;
+      while (j < src.length && src[j] >= '0' && src[j] <= '9') j++;
+      tokens.push({ type: 'num', value: Number(src.slice(i, j)) });
+      i = j;
+      continue;
+    }
+    if (OP_SYMBOLS.includes(ch) || ch === '(' || ch === ')') { tokens.push({ type: ch }); i++; continue; }
+    return { error: `不认识「${ch}」，只能用数字、+ − × ÷ 和括号` };
+  }
+  return { tokens };
+}
+
+/** 调度场算法转后缀求值，全程分数运算。 */
+function evalTokens(tokens) {
+  const prec = { '+': 1, '−': 1, '×': 2, '÷': 2 };
+  const out = [];
+  const ops = [];
+  const apply = () => {
+    const sym = ops.pop();
+    const b = out.pop();
+    const a = out.pop();
+    if (!a || !b) return '算式不完整';
+    const v = RAT_FN[sym](a, b);
+    if (!v) return '不能除以 0';
+    out.push(v);
+    return null;
+  };
+  for (const tk of tokens) {
+    if (tk.type === 'num') { out.push(rat(tk.value)); continue; }
+    if (tk.type === '(') { ops.push('('); continue; }
+    if (tk.type === ')') {
+      let err = null;
+      while (ops.length && ops[ops.length - 1] !== '(' && !err) err = apply();
+      if (err) return { error: err };
+      if (!ops.length) return { error: '括号不配对' };
+      ops.pop();
+      continue;
+    }
+    while (ops.length && prec[ops[ops.length - 1]] >= prec[tk.type]) {
+      const err = apply();
+      if (err) return { error: err };
+    }
+    ops.push(tk.type);
+  }
+  while (ops.length) {
+    if (ops[ops.length - 1] === '(') return { error: '括号不配对' };
+    const err = apply();
+    if (err) return { error: err };
+  }
+  if (out.length !== 1) return { error: '算式不完整' };
+  return { value: out[0] };
+}
+
+function evaluateExpression(text) {
+  const t = tokenize(text);
+  if (t.error) return { error: t.error };
+  if (!t.tokens.length) return { error: '先写下算式' };
+  const r = evalTokens(t.tokens);
+  if (r.error) return { error: r.error };
+  return { value: r.value, text: ratToString(r.value) };
+}
+
+function numbersIn(text) {
+  const t = tokenize(text);
+  if (t.error) return [];
+  return t.tokens.filter((tk) => tk.type === 'num').map((tk) => tk.value);
+}
+
+const sameMultiset = (a, b) => a.length === b.length && a.slice().sort((x, y) => x - y).join(',') === b.slice().sort((x, y) => x - y).join(',');
+
+/** 提交判定：先查「4 个数各用一次」，再算值，最后比 24。 */
+function checkAnswer(text, nums) {
+  const t = tokenize(text);
+  if (t.error) return { ok: false, error: t.error };
+  if (!t.tokens.length) return { ok: false, error: '先写下算式再提交' };
+  if (!sameMultiset(numbersIn(text), nums)) {
+    return { ok: false, error: `这手牌是 ${nums.join('、')}，必须每个正好用一次（不能少用、不能重、不能添）` };
+  }
+  const r = evalTokens(t.tokens);
+  if (r.error) return { ok: false, error: r.error };
+  if (!ratIsInt(r.value, TARGET24)) return { ok: false, error: `算出来是 ${ratToString(r.value)}，不是 24` };
+  return { ok: true, value: TARGET24 };
+}
+
+function poolFor(difficulty) {
+  const max = difficulty === 'classic' ? 13 : 9;
+  const pool = [];
+  for (let i = 1; i <= max; i++) pool.push(i);
+  return pool;
+}
+
+const handKey = (nums) => nums.slice().sort((a, b) => a - b).join(',');
+
+/** 出题：反复抽 4 张，只留下有解、且最近没出过的手牌。 */
+function generateHand(difficulty, rng, seen) {
+  const rand = rng || Math.random;
+  const pool = poolFor(difficulty);
+  const skip = seen || new Set();
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const nums = [];
+    for (let i = 0; i < 4; i++) nums.push(pool[Math.floor(rand() * pool.length)]);
+    nums.sort((a, b) => a - b);
+    if (skip.has(handKey(nums))) continue;
+    if (!hasSolution(nums)) continue;
+    return nums;
+  }
+  return [3, 3, 8, 8];
+}
+/* === TWENTYFOUR CORE END === */
+
+/* ================= UI ================= */
+const STORE_KEY = 'fd_24_best_v1';
+const app = document.getElementById('app');
+const G = {
+  difficulty: 'easy', hand: [3, 3, 8, 8], expr: '', phase: 'playing',
+  limit: 60, timeLeft: 60, startAt: 0, round: 1,
+  attempts: 0, hints: 0, solved: 0, streak: 0, bestStreak: 0,
+  hintExpr: '', solution: '', userExpr: '', msg: '', shareMsg: '',
+  seen: new Set(), best: {},
+};
+
+function track(name, params) {
+  try { if (window.counters && window.counters.track) window.counters.track(name, params); } catch (_) {}
+}
+
+function loadBest() {
+  try { G.best = JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; } catch (_) { G.best = {}; }
+  G.bestStreak = G.best.streak || 0;
+}
+
+function saveBest() {
+  G.best = { streak: G.bestStreak };
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(G.best)); } catch (_) {}
+}
+
+let ticker = null;
+function startClock() {
+  if (ticker) clearInterval(ticker);
+  ticker = setInterval(tick, 100);
+}
+
+function tick() {
+  if (G.phase !== 'playing') return;
+  G.timeLeft = Math.max(0, G.limit - (Date.now() - G.startAt) / 1000);
+  paintTimer();
+  if (G.timeLeft <= 0) timeout();
+}
+
+// file:// 下 location.origin 是 "null"，分享兜底到线上地址
+function shareLink() {
+  if (location.protocol === 'file:') return 'https://airseai6.github.io/fusion-data-academy/puzzle/24/';
+  return location.origin + location.pathname;
+}
+
+function shareText() {
+  const fast = G.lastSeconds ? `，最快一手 ${G.lastSeconds} 秒` : '';
+  return `我在《24点 · 限时》连对 ${G.streak} 手${fast}。\n4 个数字凑 24，很多题只有中间步算出分数才解得开。\n来试：${shareLink()}`;
+}
+
+function newHand(options) {
+  const o = options || {};
+  G.hand = o.hand ? o.hand.slice() : generateHand(G.difficulty, Math.random, G.seen);
+  G.seen.add(handKey(G.hand));
+  if (G.seen.size > 60) G.seen.delete(G.seen.values().next().value);
+  G.expr = '';
+  G.phase = 'playing';
+  G.attempts = 0;
+  G.hints = 0;
+  G.hintExpr = '';
+  G.solution = '';
+  G.userExpr = '';
+  G.msg = '';
+  G.shareMsg = '';
+  G.timeLeft = G.limit;
+  G.startAt = Date.now();
+  track('game_start', { game: '24', difficulty: G.difficulty });
+  render();
+  startClock();
+  focusExpr();
+}
+
+function render() {
+  if (!app) return;
+  const playing = G.phase === 'playing';
+  app.innerHTML = `
+    <div class="timer">
+      <div class="tbar" id="tbar"><i id="tfill" style="width:100%"></i></div>
+      <span class="tnum" id="tnum"><b>60.0</b>s</span>
+    </div>
+
+    <div class="hud">
+      <div class="stats">
+        <span class="k">第</span><b>${G.round}</b><span class="k">题</span>
+        <span class="k">连对</span><b id="st-streak">${G.streak}</b>
+        <span class="k">尝试</span><b id="st-attempts">${G.attempts}</b>
+        <span class="k">提示</span><b id="st-hints">${G.hints}</b>
+        <span class="k">最强连对</span><b>${Math.max(G.bestStreak, G.streak)}</b>
+      </div>
+      <div class="settings">
+        <label>难度
+          <select id="difficulty">
+            <option value="easy" ${G.difficulty === 'easy' ? 'selected' : ''}>简单 1–9</option>
+            <option value="classic" ${G.difficulty === 'classic' ? 'selected' : ''}>经典 1–13</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="hand" id="hand">
+      ${G.hand.map((n, i) => `<button class="num" data-idx="${i}">${n}${repeatBadge(n)}</button>`).join('')}
+    </div>
+
+    <div class="exprrow">
+      <input id="expr" class="expr" type="text" inputmode="text" autocomplete="off" spellcheck="false"
+             placeholder="点数字和运算符，或直接输入 8/(3-8/3)" ${playing ? '' : 'disabled'}>
+      <button class="primary" id="btnSubmit" ${playing ? '' : 'disabled'}>提交</button>
+    </div>
+
+    <div class="pad" id="pad">
+      ${['+', '−', '×', '÷', '(', ')'].map((s) => `<button data-tok="${s}">${s}</button>`).join('')}
+      <button class="small" id="btnBack">退格</button>
+      <button class="small" id="btnClear">清空</button>
+    </div>
+
+    <div class="msg" id="msg">${G.msg}</div>
+    ${G.hintExpr && playing ? `<div class="hintbox" id="hintbox">提示一种解：<b>${G.hintExpr}</b><br>（提示已扣 5 秒，自己验一遍再提交）</div>` : ''}
+
+    ${playing ? `<div class="actions">
+      <button id="btnHint">提示一种解（−5 秒）</button>
+      <button id="btnSkip">换一题</button>
+      <button id="btnShare">复制分享文案</button>
+    </div>` : renderOver()}
+    <div class="share-msg" id="share-msg">${G.shareMsg}</div>
+    <div id="aria-live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
+  `;
+  bindEvents();
+  paint();
+}
+
+function renderOver() {
+  const won = G.phase === 'win';
+  const pool = G.difficulty === 'classic' ? { all: 1820, solvable: 1362 } : { all: 495, solvable: 404 };
+  const answer = G.solution || '—';
+  const fracs = G.solutionInfo ? G.solutionInfo.fracs : 0;
+  // 不能一律说「不用整数就走不通」：像 (5+5)+(6+8) 这种解根本没有分数
+  const why = fracs > 0
+    ? `为什么难：这条解要经过 ${fracs} 处分数中间值，只肯用整数的人会走不通；
+页面内部用「分子/分母」精确计算，所以 1/3 这种中间值不会被浮点误差吃掉。`
+    : `为什么难：这条解不用分数，难在 60 秒内从 4 个数的全部组合里挑对一条；
+穷举一遍要试几万种，人只能靠分解质因数之类的观察。`;
+  const head = won
+    ? `<h2>${G.hand.join(' · ')} → 24 ✓（${G.lastSeconds} 秒）</h2>
+       <p>你用的算式：<b style="color:var(--teal);font-family:Consolas,monospace">${G.userExpr}</b></p>`
+    : `<h2>时间到（60 秒）</h2>
+       <p>这手牌是有解的，只是这一手没来得及 —— 连续对已清零。</p>`;
+  return `<div class="result ${won ? '' : 'fail'}">
+    ${head}
+    <div class="math">一种解：${answer}
+${why}
+出题只从有解的手牌里挑：1–${G.difficulty === 'classic' ? 13 : 9} 的 ${pool.all} 种手牌中
+有 ${pool.solvable} 种能凑出 24，另外 ${pool.all - pool.solvable} 种穷举证明无解。</div>
+    <div class="sharebox">
+      <div class="sl">分享文案（不含解法）</div>
+      <pre>${shareText()}</pre>
+      <button id="btnShare2">复制分享文案</button>
+      <div class="share-msg">${G.shareMsg}</div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="btnAgain">下一题</button>
+      <button id="btnSwitchDiff">换个难度</button>
+    </div>
+  </div>`;
+}
+
+function paint() {
+  const input = document.getElementById('expr');
+  if (input && input.value !== G.expr) input.value = G.expr;
+  paintTiles();
+  const streak = document.getElementById('st-streak');
+  if (streak) streak.textContent = G.streak;
+  const attempts = document.getElementById('st-attempts');
+  if (attempts) attempts.textContent = G.attempts;
+  const hints = document.getElementById('st-hints');
+  if (hints) hints.textContent = G.hints;
+  const msg = document.getElementById('msg');
+  if (msg) msg.textContent = G.msg;
+  const share = document.getElementById('share-msg');
+  if (share) share.textContent = G.shareMsg;
+  paintTimer();
+}
+
+const countOf = (list, value) => list.filter((v) => v === value).length;
+
+/** 手牌里有重复数字时才显示「×N」角标（N = 还可用的张数）。 */
+function repeatBadge(value) {
+  const total = countOf(G.hand, value);
+  if (total < 2) return '';
+  const left = total - countOf(numbersIn(G.expr), value);
+  return `<i class="copies" data-v="${value}">×${Math.max(0, left)}</i>`;
+}
+
+/** 这张牌的数字还有剩余配额才能点，配额用完了才变灰（同值的牌可互换）。 */
+function paintTiles() {
+  const used = {};
+  for (const v of numbersIn(G.expr)) used[v] = (used[v] || 0) + 1;
+  const remaining = {};
+  for (const v of G.hand) remaining[v] = (remaining[v] || 0) + 1;
+  for (const v of Object.keys(remaining)) remaining[v] = Math.max(0, remaining[v] - (used[v] || 0));
+  app.querySelectorAll('.num').forEach((el, i) => {
+    const v = G.hand[i];
+    const enabled = G.phase === 'playing' && remaining[v] > 0;
+    el.disabled = !enabled;
+    el.classList.toggle('spent', G.phase === 'playing' && !enabled);
+    const badge = el.querySelector('.copies');
+    if (badge) badge.textContent = `×${remaining[v]}`;
+  });
+}
+
+function paintTimer() {
+  const fill = document.getElementById('tfill');
+  const num = document.getElementById('tnum');
+  const bar = document.getElementById('tbar');
+  if (!fill || !num || !bar) return;
+  const ratio = Math.max(0, Math.min(1, G.timeLeft / G.limit));
+  const shown = G.phase === 'fail' ? 0 : ratio;
+  fill.style.width = (shown * 100).toFixed(1) + '%';
+  // 结算后还显示「60 秒」会让人以为倒计时没停，改成显示本手用时 / 时间到
+  if (G.phase === 'win') num.innerHTML = `用时 <b>${G.lastSeconds}</b>s`;
+  else if (G.phase === 'fail') num.innerHTML = '<b>0.0</b>s';
+  else num.innerHTML = `<b>${G.timeLeft.toFixed(1)}</b>s`;
+  bar.classList.toggle('warn', ratio <= 0.25 && ratio > 0.13);
+  bar.classList.toggle('danger', ratio <= 0.13);
+  num.classList.toggle('danger', ratio <= 0.13);
+}
+
+function focusExpr() {
+  const el = document.getElementById('expr');
+  if (!el || el.disabled) return;
+  el.focus();
+  el.setSelectionRange(el.value.length, el.value.length);
+}
+
+function push(text) {
+  if (G.phase !== 'playing') return;
+  G.expr += text;
+  G.msg = '';
+  paint();
+  focusExpr();
+}
+
+function submit() {
+  if (G.phase !== 'playing') return;
+  const res = checkAnswer(G.expr, G.hand);
+  G.attempts += 1;
+  if (!res.ok) {
+    G.msg = res.error;
+    paint();
+    return;
+  }
+  win();
+}
+
+function win() {
+  G.phase = 'win';
+  G.solved += 1;
+  G.streak += 1;
+  G.lastSeconds = Math.max(0.1, Math.round((Date.now() - G.startAt) / 100) / 10);
+  G.userExpr = normalizeExpr(G.expr);                          // 结算里回显排版后的算式，而不是用户敲的原始字符
+  G.solutionInfo = bestSolutionInfo(G.hand) || { expr: G.userExpr, fracs: 0, divs: 0 };
+  G.solution = G.solutionInfo.expr;
+  if (G.streak > G.bestStreak) { G.bestStreak = G.streak; saveBest(); }
+  track('game_win', { game: '24', difficulty: G.difficulty, seconds: G.lastSeconds, attempts: G.attempts, hints: G.hints });
+  render();
+}
+
+function timeout() {
+  if (G.phase !== 'playing') return;
+  G.phase = 'fail';
+  G.streak = 0;
+  G.solutionInfo = bestSolutionInfo(G.hand) || { expr: '（这手牌其实无解，请换一题）', fracs: 0, divs: 0 };
+  G.solution = G.solutionInfo.expr;
+  track('game_fail', { game: '24', difficulty: G.difficulty, reason: 'timeout', attempts: G.attempts });
+  render();
+}
+
+function useHint() {
+  if (G.phase !== 'playing') return;
+  G.hints += 1;
+  G.hintExpr = G.hintExpr || bestSolution(G.hand) || '（这手牌无解，换一题）';
+  G.startAt -= 5000;                                          // 提示的代价：凭空多耗 5 秒
+  G.timeLeft = Math.max(0, G.limit - (Date.now() - G.startAt) / 1000);
+  track('twentyfour_hint', { game: '24', difficulty: G.difficulty, hints: G.hints });
+  render();
+  if (G.timeLeft <= 0) timeout();
+}
+
+function skip() {
+  if (G.phase !== 'playing') return;
+  track('twentyfour_skip', { game: '24', difficulty: G.difficulty });
+  G.round += 1;
+  newHand();
+}
+
+function switchDifficulty() {
+  G.difficulty = G.difficulty === 'easy' ? 'classic' : 'easy';
+  G.round += 1;
+  newHand();
+}
+
+function copyShare() {
+  const text = shareText();
+  const done = (ok) => {
+    G.shareMsg = ok ? '已复制 ✓' : '复制失败，请手动选中文案';
+    track('share', { game: '24', difficulty: G.difficulty, solved: G.phase === 'win' });
+    paint();
+    const box = document.querySelector('.sharebox .share-msg');
+    if (box) box.textContent = G.shareMsg;
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => done(true)).catch(() => done(false));
+  } else {
+    done(false);
+  }
+}
+
+function on(id, event, handler) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener(event, handler);
+}
+
+function bindEvents() {
+  app.querySelectorAll('.num').forEach((el) => {
+    el.addEventListener('click', () => push(G.hand[Number(el.dataset.idx)]));
+  });
+  app.querySelectorAll('.pad button[data-tok]').forEach((el) => {
+    el.addEventListener('click', () => push(el.dataset.tok));
+  });
+  on('btnBack', 'click', () => { G.expr = G.expr.slice(0, -1); paint(); focusExpr(); });
+  on('btnClear', 'click', () => { G.expr = ''; G.msg = ''; paint(); focusExpr(); });
+  on('btnSubmit', 'click', submit);
+  on('btnHint', 'click', useHint);
+  on('btnSkip', 'click', skip);
+  on('btnShare', 'click', copyShare);
+  on('btnShare2', 'click', copyShare);
+  on('btnAgain', 'click', () => { G.round += 1; newHand(); });
+  on('btnSwitchDiff', 'click', switchDifficulty);
+  on('difficulty', 'change', (e) => { G.difficulty = e.target.value; G.round = 1; newHand(); });
+  const input = document.getElementById('expr');
+  if (input) {
+    input.addEventListener('input', () => { G.expr = input.value; G.msg = ''; paintTiles(); const m = document.getElementById('msg'); if (m) m.textContent = ''; });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+    });
+  }
+}
+
+loadBest();
+window.TwentyFour = {
+  TARGET24, gcd, rat, ratAdd, ratSub, ratMul, ratDiv, ratToString, ratIsInt,
+  solve24, hasSolution, bestSolution, bestSolutionInfo, trimParens, normalizeExpr, tokenize, evalTokens,
+  evaluateExpression, numbersIn, sameMultiset, checkAnswer, poolFor, generateHand, handKey,
+};
+window.__24 = G;
+
+newHand();
+</script>
+</body>
+</html>
