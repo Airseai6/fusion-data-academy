@@ -70,6 +70,7 @@ body{
 #graph .node.fox:hover .disc{stroke:#B96A12}
 #graph .node.den:hover .disc{stroke:#1D664A}
 #graph .node.cut:hover .disc{stroke:#2A3644}
+#graph .node.atden .disc{stroke:#2F8F6B;stroke-width:5}
 #graph .node:focus{outline:none}
 #graph .node:focus-visible .disc{stroke:#1E6FD9;stroke-width:4}
 
@@ -507,6 +508,7 @@ function nodeSvg(level, n) {
   else if (isDen) cls.push('den');
   else if (isCut) cls.push('cut');
   if (isHint) cls.push('hintpoint');
+  if (isFox && isDen) cls.push('atden');      // 狐狸已经冲进洞口：留一圈绿边，别让洞口消失
   const state = isFox ? '狐狸在这里' : isDen ? '洞口' : isCut ? '已封路' : '可封路';
   // 图形里放符号（狐狸 / 洞口 / 已封），编号统一放到圆点下方，避免和符号叠在一起
   const numInside = !isFox && !isDen && !isCut;
