@@ -72,6 +72,11 @@
   「狐狸原地不动只要 deg 步」的反事实；逻辑单测 13/13（独立无记忆化暴力搜索复核、Menger 与枚举割对拍、
   少一步必输、单调性、40 张随机图交叉验证）、浏览器 E2E 33/33（file:// 与 http:// 各跑一遍，
   390px/1280px 无溢出、非法点击拦截、撤销/重置、输棋面板、分享、埋点）；入口 `/brain/` 与 `/puzzle/`。
+- G8《聚变堆叠 · 能量阶梯》（2026-10-27，分支 `feat/g8-fusion-stack`）：2048 式滑动合并，每格是一个核素，
+  合并即一次聚变、吃掉的能量是那一步真实的 Q 值（D-2 → He-4 → Be-8 → O-16 → S-32 → Ni-64，
+  +23.85 / −0.09 / +14.62 / +16.54 / +22.96 MeV）。⁸Be 那一步几乎不放能（质量数 8 空档，恒星因此走三 α 过程），
+  两个 ⁶⁴Ni 不允许融合（铁峰之后要吸能 −45.97 MeV）；目标累计 10⁹ eV = 1.00 GeV，续档 2.00 GeV；
+  撤销 / 重开 / 方向键 / WASD / 滑动 / 分享 / 埋点；逻辑单测 15/15 + 浏览器 E2E 35/35；入口 `/brain/` 与 `/puzzle/`。
 
 本地 E2E（真实浏览器点击，不以 HTTP 200 为准）：
 
@@ -97,6 +102,8 @@ node --test tests/river_logic_test.mjs
 node tests/e2e_river.mjs
 node --test tests/fox_logic_test.mjs
 node tests/e2e_fox.mjs
+node --test tests/fusion_logic_test.mjs
+node tests/e2e_fusion.mjs
 ```
 
 E2E 的 `[G]` 段覆盖 G1 验收：首页/puzzle 入口卡片、每日种子稳定、非法输入不扣次数、

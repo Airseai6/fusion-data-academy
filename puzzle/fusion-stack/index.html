@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>聚变堆叠 · 能量阶梯 | 2048 式滑动合成</title>
+<meta name="description" content="2048 式滑动合并，但每一格是一个核素：氘 → 氦-4 → 铍-8 → 氧-16 → 硫-32 → 镍-64。每次合并放出的是那次真实聚变的 Q 值（氘氘 23.85 MeV）；铍-8 那一步几乎不放能（质量数 8 空档），过了镍-64 再融合就要吸能——为什么聚变到铁峰就停了，滑一遍就懂。目标累计能量 10⁹ eV。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0F1720;--panel:#18232E;--panel2:#121B24;--line:#2A3946;--line2:#3D5062;
+  --ink:#EDF3F9;--dim:#9FB2C4;--dim2:#7B8B9C;
+  --fuel:#5BD9BE;--hot:#F0A94C;--plasma:#FF7A6B;--ok:#4ADE80;--bad:#F87171;--go:#7DD3FC;
+  --ge:#C4B5FD;--s:#FCD34D;--o:#FB923C;--be:#34D399;--he:#60A5FA;--ni:#E879B9;--d:#94A3B8;
+}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  min-height:100vh;display:flex;justify-content:center;padding:16px 12px 48px;-webkit-font-smoothing:antialiased;
+}
+.wrap{width:100%;max-width:560px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:18px;flex-wrap:wrap}
+.topbar .ep{font-size:11.5px;color:var(--dim);font-family:Consolas,monospace;letter-spacing:.08em}
+.topbar .ep b{color:var(--hot)}
+.topbar a{color:var(--dim);text-decoration:none;font-size:12.5px}
+.topbar a:hover{color:var(--ink)}
+.title{font-size:26px;font-weight:750;letter-spacing:.02em;margin-bottom:6px}
+.title small{font-size:13px;font-weight:500;color:var(--dim);margin-left:8px;letter-spacing:0}
+.lead{font-size:13.5px;line-height:1.85;color:#B4C2D2;margin-bottom:14px}
+.lead b{color:var(--fuel)}
+
+.hud{display:flex;gap:8px;margin-bottom:10px}
+.hud .box{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.hud .k{font-size:10.5px;color:var(--dim2);font-family:Consolas,monospace;letter-spacing:.05em;display:block;margin-bottom:3px}
+.hud .v{font-size:17px;font-weight:700;font-family:Consolas,monospace;letter-spacing:-.01em;white-space:nowrap}
+.hud .v small{font-size:11px;color:var(--dim);font-weight:500}
+.hud .box.energy .v{color:var(--fuel)}
+.hud .box.best .v{color:var(--hot)}
+
+.goalbar{margin-bottom:14px}
+.goalbar .lab{display:flex;justify-content:space-between;font-size:11px;color:var(--dim2);font-family:Consolas,monospace;margin-bottom:5px}
+.goalbar .lab b{color:var(--energy,#5BD9BE)}
+.track{height:9px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;overflow:hidden}
+.track i{display:block;height:100%;width:0;background:linear-gradient(90deg,#2F8F6B,#5BD9BE,#F0A94C);border-radius:99px;transition:width .18s linear}
+
+.boardwrap{position:relative;margin-bottom:12px}
+.board{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:7px;
+  background:var(--panel2);border:1px solid var(--line);border-radius:14px;
+  touch-action:none;user-select:none;-webkit-user-select:none;
+}
+.cell{position:relative;aspect-ratio:1/1;background:#1B2632;border-radius:9px}
+.cell.empty{background:#1D2836}
+.tile{
+  position:absolute;inset:0;border-radius:9px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1px;
+  border:1px solid rgba(255,255,255,.16);font-family:Consolas,monospace;
+  transition:background-color .12s linear;
+}
+.tile .a{font-size:clamp(15px,5.2vw,22px);font-weight:800;line-height:1;letter-spacing:-.02em}
+.tile .s{font-size:clamp(8.5px,2.5vw,10.5px);font-weight:600;opacity:.92;letter-spacing:.04em}
+.tile.lv1{background:#2C3B4D;color:#E2EAF3;border-color:#41556B}
+.tile.lv2{background:#1E4B6B;color:#BFE3F8;border-color:#2E6C93}
+.tile.lv3{background:#1F5A46;color:#C6F0DF;border-color:#2C7A60}
+.tile.lv4{background:#7A3B2A;color:#FFDCCB;border-color:#9C4E37}
+.tile.lv5{background:#7A5A16;color:#FFEFC2;border-color:#9C751F}
+.tile.lv6{background:#6B2A55;color:#FFD9F0;border-color:#8F3872;box-shadow:0 0 0 1px rgba(232,121,185,.35),0 0 14px rgba(232,121,185,.18)}
+.tile.pop{filter:brightness(1.28)}
+.tile.blocked{outline:2px dashed rgba(248,113,113,.7);outline-offset:-2px}
+
+.controls{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.controls button{
+  flex:1 1 0;min-width:0;min-height:42px;padding:9px 10px;font-family:inherit;font-size:13px;font-weight:600;
+  background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:9px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.controls button:hover{border-color:var(--line2)}
+.controls button:disabled{opacity:.45;cursor:default}
+.controls button.on{border-color:var(--fuel);color:var(--fuel)}
+
+.dpad{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,44px);gap:7px;margin-bottom:12px}
+.dpad button{
+  font-family:inherit;font-size:15px;font-weight:700;background:var(--panel);color:var(--dim);
+  border:1px solid var(--line);border-radius:9px;cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+.dpad button:active{background:#22303E;color:var(--ink)}
+.dpad button.up{grid-column:2;grid-row:1}
+.dpad button.left{grid-column:1;grid-row:2}
+.dpad button.down{grid-column:2;grid-row:2}
+.dpad button.right{grid-column:3;grid-row:2}
+
+.msg{min-height:20px;font-size:12.5px;color:var(--dim);font-family:Consolas,monospace;margin-bottom:14px}
+.msg.hot{color:var(--hot)}
+.msg.ok{color:var(--ok)}
+.msg.bad{color:var(--bad)}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.panel h2{font-size:14px;font-weight:700;margin-bottom:10px;letter-spacing:.01em}
+.panel h2 span{font-size:11px;font-weight:500;color:var(--dim2);margin-left:6px;font-family:Consolas,monospace}
+.chain{display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-family:Consolas,monospace}
+.chain .step{display:flex;align-items:center;gap:4px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px 7px}
+.chain .nuc{font-size:12px;font-weight:700}
+.chain .q{font-size:9.5px;color:var(--dim2)}
+.chain .arrow{color:var(--dim2);font-size:11px}
+.chain .step.gap{border-color:#7A5A16}
+.chain .step.gap .q{color:var(--hot)}
+.chain .step.top{border-color:#8F3872}
+
+table.qt{width:100%;border-collapse:collapse;font-size:11.5px;font-family:Consolas,monospace}
+table.qt th,table.qt td{padding:5px 4px;text-align:left;border-bottom:1px solid var(--line)}
+table.qt th{color:var(--dim2);font-weight:500;font-size:10.5px}
+table.qt td.num{text-align:right;white-space:nowrap}
+table.qt tr.gap td{color:var(--hot)}
+table.qt tr.top td{color:#F0A9D8}
+.note{font-size:11.5px;line-height:1.8;color:var(--dim);margin-top:10px}
+.note b{color:var(--ink)}
+#curve{display:block;width:100%;height:auto;margin:6px 0 2px}
+
+.overlay{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:14px;
+  background:rgba(10,16,22,.86);border-radius:14px;
+}
+.overlay.hidden{display:none}
+.card{width:100%;max-width:440px;background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:15px}
+.card h3{font-size:17px;margin-bottom:6px}
+.card h3.win{color:var(--ok)}
+.card h3.lose{color:var(--bad)}
+.card .sub{font-size:12px;color:var(--dim);line-height:1.7;margin-bottom:10px}
+.card .row{display:flex;gap:8px;margin-top:10px}
+.card .row button{flex:1;min-height:40px;font-family:inherit;font-size:13px;font-weight:600;border-radius:8px;border:1px solid var(--line2);background:var(--panel2);color:var(--ink);cursor:pointer}
+.card .row button.primary{background:rgba(91,217,190,.14);border-color:var(--fuel);color:var(--fuel)}
+
+.sharebox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:11px;margin-top:10px}
+.sharebox .sl{font-size:10.5px;color:var(--dim2);margin-bottom:6px}
+.sharebox pre{font-family:Consolas,monospace;font-size:11.5px;line-height:1.75;color:#CBD7E4;white-space:pre-wrap;word-break:break-word;margin-bottom:8px}
+.sharebox button{font-family:inherit;font-size:11.5px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);border-radius:7px;padding:6px 11px;cursor:pointer}
+.sharebox .share-msg{font-size:11.5px;color:var(--go);margin-top:6px;min-height:16px}
+
+.rules{display:grid;gap:7px;margin-bottom:14px}
+.rules .r{display:flex;gap:9px;font-size:12.5px;line-height:1.7;color:#B4C2D2}
+.rules .r .n{flex:0 0 18px;height:18px;border-radius:5px;background:var(--panel);border:1px solid var(--line);
+  font-family:Consolas,monospace;font-size:11px;color:var(--hot);display:flex;align-items:center;justify-content:center;margin-top:2px}
+.rules .r b{color:var(--ink)}
+
+/* 窄屏：媒体查询统一放最后 */
+@media (max-width:480px){
+  body{padding:12px 10px 40px}
+  .title{font-size:22px}
+  .title small{display:block;margin:4px 0 0;font-size:12px}
+  .lead{font-size:12.5px}
+  .hud .v{font-size:15px}
+  .board{gap:6px;padding:6px}
+  .dpad{grid-template-rows:repeat(2,48px)}
+}
+@media (max-width:360px){
+  .hud{flex-wrap:wrap}
+  .hud .box{flex:1 1 45%}
+  .tile .a{font-size:15px}
+  .tile .s{font-size:8px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <span class="ep">反直觉系列 · <b>第九关</b> · FUSION-STACK</span>
+    <a href="../">← 回到谜题目录</a>
+  </div>
+  <div class="title">聚变堆叠 · 能量阶梯<small>滑动合并，堆到 10⁹ eV</small></div>
+  <p class="lead">
+    2048 的规则，<b>核物理的账</b>：两个同种核滑到一起就是一次真实聚变，吃掉的是它的 Q 值。
+    氘氘放 23.85 MeV，铍-8 那一步几乎不放能 —— 滑着滑着，你会亲手撞上恒星也绕不开的那道坎。
+  </p>
+
+  <div class="hud">
+    <div class="box energy"><span class="k">累计能量</span><span class="v" id="energy">0 eV</span></div>
+    <div class="box"><span class="k">最高牌</span><span class="v" id="top">—</span></div>
+    <div class="box best"><span class="k">最好成绩</span><span class="v" id="best">0 eV</span></div>
+    <div class="box"><span class="k">步数</span><span class="v" id="moves">0</span></div>
+  </div>
+
+  <div class="goalbar">
+    <div class="lab"><span id="goallab">目标 10⁹ eV（1.00 GeV）</span><span id="pct">0%</span></div>
+    <div class="track"><i id="bar"></i></div>
+  </div>
+
+  <div class="boardwrap">
+    <div class="board" id="board" role="grid" aria-label="4×4 聚变堆叠棋盘"></div>
+    <div class="overlay hidden" id="overlay"><div class="card" id="card"></div></div>
+  </div>
+
+  <div class="controls">
+    <button id="btn-undo">撤销</button>
+    <button id="btn-restart">重开</button>
+    <button id="btn-table">聚变表</button>
+  </div>
+
+  <div class="dpad">
+    <button class="up" data-dir="up" aria-label="向上">↑</button>
+    <button class="left" data-dir="left" aria-label="向左">←</button>
+    <button class="down" data-dir="down" aria-label="向下">↓</button>
+    <button class="right" data-dir="right" aria-label="向右">→</button>
+  </div>
+
+  <div class="msg" id="msg">方向键 / WASD / 在棋盘上滑动。U 撤销，R 重开。</div>
+
+  <div class="panel" id="chainpanel">
+    <h2>聚变链<span>每次合并 = 一次聚变事件</span></h2>
+    <div class="chain" id="chain"></div>
+    <div class="note" id="chainnote"></div>
+  </div>
+
+  <div class="panel" id="tablepanel" style="display:none">
+    <h2>能量账本<span>Q 值与来源</span></h2>
+    <table class="qt" id="qtable"></table>
+    <svg id="curve" viewBox="0 0 640 250" role="img" aria-label="每核子结合能曲线"></svg>
+    <div class="note" id="tablenote"></div>
+  </div>
+
+  <div class="panel">
+    <h2>怎么玩</h2>
+    <div class="rules">
+      <div class="r"><span class="n">1</span><span>四个方向滑动，同种核撞在一起就<b>融合成下一个核素</b>，累加它的 Q 值。</span></div>
+      <div class="r"><span class="n">2</span><span>每滑一步会补一个新核（九成是<b>氘</b>，一成是氦灰）。</span></div>
+      <div class="r"><span class="n">3</span><span>⁶⁴Ni 是这一局的顶牌 —— <b>两个镍-64 不会融合</b>，那块之后要吸能。</span></div>
+      <div class="r"><span class="n">4</span><span>累计 <b>1.00 GeV</b> 通关，棋盘不动还能继续冲 <b>2.00 GeV</b>；堵死就熄火，可无限重开。</span></div>
+    </div>
+  </div>
+</div>
+
+<script src="../../analytics.js"></script>
+<script>
+/* === FUSION CORE START === */
+/* 纯逻辑：核素阶梯 / 半经验质量公式 / 滑动合并引擎。页面与单测共用这一份。 */
+
+const SIZE = 4;
+
+/* 阶梯：沿 N=Z 线每次合并让质量数翻倍；产物取该质量数最稳定的同量异位素
+   （真实路径里电荷靠 β 衰变补平，见下方 note）。B 单位 MeV。 */
+const LADDER = [
+  { level: 1, A: 2,  Z: 1,  sym: 'D',  cn: '氘',   B: 2.2246,   src: 'exp' },
+  { level: 2, A: 4,  Z: 2,  sym: 'He', cn: '氦-4', B: 28.2957,  src: 'exp' },
+  { level: 3, A: 8,  Z: 4,  sym: 'Be', cn: '铍-8', B: 56.4995,  src: 'exp' },
+  { level: 4, A: 16, Z: 8,  sym: 'O',  cn: '氧-16', B: 127.6193, src: 'exp' },
+  { level: 5, A: 32, Z: 16, sym: 'S',  cn: '硫-32', B: 271.7810, src: 'exp' },
+  { level: 6, A: 64, Z: 28, sym: 'Ni', cn: '镍-64', B: null,     src: 'semf' },
+];
+const MAX_LEVEL = LADDER.length;
+const TARGET_EV = 1e9;            // 10⁹ eV = 1 GeV（第一档通关目标）
+/* 第二档目标：实测 bot 终局中位约 2.4 GeV（见 tests 里的难度模拟），
+   再往上就只靠运气了，所以只设到 2 GeV，不虚标 10 GeV。 */
+const GOALS_EV = [1e9, 2e9];
+const MERGE_MEV_TO_EV = 1e6;
+
+/* Bethe–Weizsäcker 半经验质量公式（标准系数，MeV） */
+const SEMF = { aV: 15.75, aS: 17.8, aC: 0.711, aA: 23.7, aP: 11.18 };
+
+function pairingTerm(A, Z) {
+  const N = A - Z;
+  if (A % 2 === 1) return 0;
+  return (Z % 2 === 0 && N % 2 === 0) ? SEMF.aP / Math.sqrt(A) : -SEMF.aP / Math.sqrt(A);
+}
+
+/** 半经验公式给出的总结合能（MeV） */
+function semfBinding(A, Z) {
+  if (A <= 0 || Z < 0 || Z > A) return 0;
+  const N = A - Z;
+  return SEMF.aV * A
+    - SEMF.aS * Math.pow(A, 2 / 3)
+    - SEMF.aC * Z * (Z - 1) / Math.pow(A, 1 / 3)
+    - SEMF.aA * (N - Z) * (N - Z) / A
+    + pairingTerm(A, Z);
+}
+
+/** 阶梯核素的结合能：实验值优先，缺的用公式（并在返回里标来源） */
+function laddersBinding(entry) {
+  if (entry.B !== null && entry.B !== undefined) return { B: entry.B, src: entry.src };
+  return { B: semfBinding(entry.A, entry.Z), src: 'semf' };
+}
+
+for (const e of LADDER) e.B = laddersBinding(e).B;
+
+/** 合并两个 level 核 → level+1 核，放出的能量（MeV） */
+function fusionQ(level) {
+  if (level < 1 || level >= MAX_LEVEL) return null;
+  const a = LADDER[level - 1], b = LADDER[level];
+  return b.B - 2 * a.B;
+}
+
+/** 顶牌之后那一步（两个顶牌融合），只用于解释「为什么停了」 */
+function beyondTopQ() {
+  const top = LADDER[MAX_LEVEL - 1];
+  const A = top.A * 2;
+  const Z = mostBoundZ(A);           // 该质量数最稳定同量异位素
+  return { A, Z, q: semfBinding(A, Z) - 2 * top.B };
+}
+
+/** 给定质量数，取结合能最大的 Z（稳定谷） */
+function mostBoundZ(A) {
+  let bestZ = 0, bestB = -Infinity;
+  for (let Z = 0; Z <= A; Z++) {
+    const b = semfBinding(A, Z);
+    if (b > bestB) { bestB = b; bestZ = Z; }
+  }
+  return bestZ;
+}
+
+/** 每核子结合能曲线上的点（用于结算图） */
+function bindingCurve(aMin, aMax) {
+  const pts = [];
+  for (let A = Math.max(2, aMin); A <= aMax; A++) {
+    const Z = mostBoundZ(A);
+    const B = semfBinding(A, Z);
+    pts.push({ A, Z, per: B / A });
+  }
+  return pts;
+}
+
+/* ── 棋盘引擎 ── */
+function emptyBoard(size) { return new Array(size * size).fill(0); }
+
+/** 按滑动方向给出每条线的索引序列，序列头部是「先落地」的一端 */
+function linesOf(size, dir) {
+  const lines = [];
+  for (let i = 0; i < size; i++) {
+    const line = [];
+    for (let j = 0; j < size; j++) {
+      const r = dir === 'left' || dir === 'right' ? i : j;
+      const c = dir === 'left' || dir === 'right' ? j : i;
+      line.push(r * size + c);
+    }
+    if (dir === 'right' || dir === 'down') line.reverse();
+    lines.push(line);
+  }
+  return lines;
+}
+
+/** 压缩一条线并合并相邻同级核；返回新值序列与合并事件 */
+function collapseLine(values) {
+  const v = values.filter(x => x !== 0);
+  const out = [];
+  const merges = [];
+  let blockedPair = 0;
+  for (let i = 0; i < v.length; i++) {
+    const cur = v[i];
+    if (i + 1 < v.length && v[i + 1] === cur) {
+      if (cur >= MAX_LEVEL) { blockedPair++; out.push(cur, v[i + 1]); i++; continue; }
+      out.push(cur + 1);
+      merges.push({ from: cur, to: cur + 1, q: fusionQ(cur) });
+      i++;
+    } else {
+      out.push(cur);
+    }
+  }
+  while (out.length < values.length) out.push(0);
+  return { out, merges, blockedPair };
+}
+
+/** 推进一步。返回新棋盘、合并事件、本次能量（MeV）与是否真的动了 */
+function moveBoard(board, dir, size) {
+  const n = size || SIZE;
+  const next = new Array(n * n).fill(0);
+  const merges = [];
+  let blockedPair = 0;
+  let moved = false;
+  for (const line of linesOf(n, dir)) {
+    const values = line.map(i => board[i]);
+    const res = collapseLine(values);
+    blockedPair += res.blockedPair;
+    for (const m of res.merges) merges.push(m);
+    line.forEach((idx, k) => {
+      next[idx] = res.out[k];
+      if (board[idx] !== res.out[k]) moved = true;
+    });
+  }
+  const q = merges.reduce((s, m) => s + m.q, 0);
+  return { board: next, merges, q, moved, blockedPair };
+}
+
+/** 还有没有合法走法 */
+function canMove(board, size) {
+  const n = size || SIZE;
+  for (let i = 0; i < n * n; i++) if (board[i] === 0) return true;
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      const cur = board[r * n + c];
+      if (cur >= MAX_LEVEL) continue;
+      if (c + 1 < n && board[r * n + c + 1] === cur) return true;
+      if (r + 1 < n && board[(r + 1) * n + c] === cur) return true;
+    }
+  }
+  return false;
+}
+
+/** 空位下标列表 */
+function emptyCells(board) {
+  const out = [];
+  for (let i = 0; i < board.length; i++) if (board[i] === 0) out.push(i);
+  return out;
+}
+
+/** 按 90% 氘 / 10% 氦灰 的规则补一个核，返回新棋盘与被补的位置 */
+function spawnTile(board, rng) {
+  const empties = emptyCells(board);
+  if (!empties.length) return { board, at: -1, level: 0 };
+  const r = typeof rng === 'function' ? rng() : Math.random();
+  const idx = empties[Math.min(empties.length - 1, Math.floor(r * empties.length))];
+  const r2 = typeof rng === 'function' ? rng() : Math.random();
+  const level = r2 < 0.9 ? 1 : 2;
+  const next = board.slice();
+  next[idx] = level;
+  return { board: next, at: idx, level };
+}
+
+/** 初始棋盘：两个核 */
+function initialBoard(rng) {
+  let b = emptyBoard(SIZE);
+  b = spawnTile(b, rng).board;
+  b = spawnTile(b, rng).board;
+  return b;
+}
+
+/** 能量 → 带 SI 前缀的读法（物理写法：1.02 GeV 而不是 1020 MeV） */
+function formatEnergy(ev) {
+  const sign = ev < 0 ? '−' : '';
+  const x = Math.abs(ev);
+  if (x >= 1e9) return sign + (x / 1e9).toFixed(2) + ' GeV';
+  if (x >= 1e6) return sign + (x / 1e6).toFixed(2) + ' MeV';
+  if (x >= 1e3) return sign + (x / 1e3).toFixed(1) + ' keV';
+  return sign + Math.round(x) + ' eV';
+}
+
+/** 同 Q 值的科学写法（MeV，两位小数，负号用真正的减号） */
+function formatMev(mev) {
+  const sign = mev < 0 ? '−' : '+';
+  return sign + Math.abs(mev).toFixed(2) + ' MeV';
+}
+
+const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+/** "目标 1.00 GeV（10⁹ eV）" —— 目标值用 SI 前缀 + 科学计数法各写一遍 */
+function goalLabel(goalEv) {
+  const [mant, exp] = Math.round(goalEv).toExponential(0).split('e');
+  const sup = String(Math.abs(Number(exp))).split('').map(d => SUP[Number(d)]).join('');
+  const head = mant === '1' ? '10' : mant + '×10';
+  return `目标 ${formatEnergy(goalEv)}（${head}${sup} eV）`;
+}
+
+function progressPct(ev, goalEv) {
+  const goal = goalEv || TARGET_EV;
+  return Math.max(0, Math.min(100, (ev / goal) * 100));
+}
+
+/** 下一档目标；已是最后一档返回 null */
+function nextGoal(goalEv) {
+  const i = GOALS_EV.indexOf(goalEv);
+  return (i >= 0 && i + 1 < GOALS_EV.length) ? GOALS_EV[i + 1] : null;
+}
+
+/** 棋盘上最高牌的 level */
+function topLevel(board) {
+  return board.reduce((m, v) => (v > m ? v : m), 0);
+}
+/* === FUSION CORE END === */
+
+/* ================= 页面 ================= */
+const STORE_KEY = 'fd.fusion-stack.v1';
+const G = {
+  board: emptyBoard(SIZE),
+  energyEv: 0,          // 累计能量（eV）
+  goalEv: TARGET_EV,    // 当前档位目标（eV）
+  moves: 0,
+  status: 'playing',    // playing | win | lose
+  history: [],
+  lastQ: 0,
+  blockedHint: false,
+  shareMsg: '',
+  tableOpen: false,
+  best: { ev: 0, top: 0, games: 0 },
+  popCells: [],
+};
+
+function track(name, params) {
+  try { if (window.counters && window.counters.track) window.counters.track(name, params); } catch (_) {}
+}
+
+function loadBest() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    if (raw && typeof raw === 'object') G.best = Object.assign(G.best, raw);
+  } catch (_) {}
+}
+function saveBest() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(G.best)); } catch (_) {}
+}
+
+function shareLink() {
+  if (location.protocol === 'file:') return 'https://airseai6.github.io/fusion-data-academy/puzzle/fusion-stack/';
+  return location.origin + location.pathname;
+}
+
+function shareText() {
+  const top = LADDER[topLevel(G.board) - 1];
+  const done = G.status === 'win';
+  const head = done
+    ? `我在《聚变堆叠》堆到 ${formatEnergy(G.energyEv)}，顶牌 ${top ? top.cn : '—'}，用了 ${G.moves} 步。`
+    : `我在《聚变堆叠》堆了 ${formatEnergy(G.energyEv)}（顶牌 ${top ? top.cn : '—'}），${G.moves} 步熄火。`;
+  return `${head}\n2048 的规则，核物理的账：铍-8 那一步几乎不放能，过了镍-64 再融合要吸能。\n来试：${shareLink()}`;
+}
+
+/* ── 状态重置 ── */
+function newGame(silent) {
+  G.board = initialBoard();
+  G.energyEv = 0;
+  G.goalEv = TARGET_EV;
+  G.moves = 0;
+  G.status = 'playing';
+  G.history = [];
+  G.lastQ = 0;
+  G.blockedHint = false;
+  G.shareMsg = '';
+  G.popCells = [];
+  G.best.games += 1;
+  saveBest();
+  if (!silent) track('fusion_start', { game: 'fusion-stack' });
+  render();
+}
+
+/* ── 一步 ── */
+function step(dir) {
+  if (G.status !== 'playing') return;
+  const res = moveBoard(G.board, dir, SIZE);
+  if (!res.moved) {
+    if (res.blockedPair > 0) note('两个 ⁶⁴Ni 撞在一起也不会融合 —— 铁峰之后要吸能。', 'hot');
+    return;
+  }
+  G.history.push({ board: G.board.slice(), energyEv: G.energyEv, moves: G.moves });
+  if (G.history.length > 40) G.history.shift();
+
+  G.board = res.board;
+  G.moves += 1;
+  G.lastQ = res.q;
+  G.energyEv += res.q * MERGE_MEV_TO_EV;
+  G.popCells = [];
+
+  if (res.merges.length) {
+    const gained = res.q * MERGE_MEV_TO_EV;
+    track('fusion_merge', {
+      game: 'fusion-stack', merges: res.merges.length,
+      from: res.merges[0].from, q_mev: Number(res.q.toFixed(3)),
+    });
+    if (Math.abs(gained) < 1e6) {
+      note('⁸Be：这一步只放出 ' + formatMev(res.q) + ' —— 质量数 8 空档，恒星在这里卡住。', 'hot');
+    } else {
+      note(`${res.merges.length} 次聚变，+${formatEnergy(gained)}`, 'ok');
+    }
+  } else {
+    note('', '');
+  }
+
+  const spawned = spawnTile(G.board);
+  G.board = spawned.board;
+  if (spawned.at >= 0) G.popCells = [spawned.at];
+
+  G.popCells = G.popCells.concat(findMergedCells(res.board));
+  updateBest();
+  checkEnd();
+  render();
+}
+
+function findMergedCells() { return []; }   // 保留钩子：动画用，未启用（避免入场动画影响 headless 截图）
+
+function updateBest() {
+  if (G.energyEv > G.best.ev) { G.best.ev = G.energyEv; saveBest(); }
+  const t = topLevel(G.board);
+  if (t > G.best.top) { G.best.top = t; saveBest(); }
+}
+
+function checkEnd() {
+  if (G.energyEv >= G.goalEv && G.status === 'playing') {
+    G.status = 'win';
+    track('fusion_target', { game: 'fusion-stack', moves: G.moves, energy_ev: Math.round(G.energyEv) });
+    return;
+  }
+  if (!canMove(G.board, SIZE)) {
+    G.status = 'lose';
+    track('fusion_gameover', { game: 'fusion-stack', moves: G.moves, energy_ev: Math.round(G.energyEv) });
+  }
+}
+
+function undo() {
+  if (G.status === 'win') { G.status = 'playing'; }        // 通关后也能退回来继续刷
+  const prev = G.history.pop();
+  if (!prev) { note('没有可撤销的步骤了。', ''); return; }
+  G.board = prev.board;
+  G.energyEv = prev.energyEv;
+  G.moves = prev.moves;
+  G.status = 'playing';
+  G.popCells = [];
+  track('fusion_undo', { game: 'fusion-stack' });
+  note('已撤销一步。', '');
+  render();
+}
+
+function continueGame() {
+  const next = nextGoal(G.goalEv);
+  if (!next) return;
+  G.goalEv = next;
+  G.status = 'playing';
+  track('fusion_continue', { game: 'fusion-stack', goal_ev: next, moves: G.moves });
+  note(`目标抬到 ${formatEnergy(next)} —— 棋盘不动，接着堆。`, 'hot');
+  render();
+}
+
+/** 调试/测试入口：直接摆一个局面（不算正式玩法） */
+function loadState(board, energyEv) {
+  G.board = board.slice();
+  G.energyEv = energyEv || 0;
+  G.moves = 0;
+  G.history = [];
+  G.status = 'playing';
+  G.popCells = [];
+  checkEnd();
+  render();
+}
+
+/* ── 渲染 ── */
+function render() {
+  renderBoard();
+  renderHud();
+  renderChain();
+  renderOverlay();
+  document.getElementById('btn-undo').disabled = G.history.length === 0;
+  document.getElementById('btn-table').classList.toggle('on', G.tableOpen);
+  const tablePanel = document.getElementById('tablepanel');
+  tablePanel.style.display = G.tableOpen ? '' : 'none';
+  if (G.tableOpen) renderTable();
+}
+
+function renderBoard() {
+  const board = document.getElementById('board');
+  const cells = [];
+  for (let i = 0; i < G.board.length; i++) {
+    const lv = G.board[i];
+    if (!lv) { cells.push('<div class="cell empty" data-i="' + i + '"></div>'); continue; }
+    const e = LADDER[lv - 1];
+    const pop = G.popCells.indexOf(i) >= 0 ? ' pop' : '';
+    cells.push(
+      `<div class="cell" data-i="${i}"><div class="tile lv${lv}${pop}" role="gridcell">` +
+      `<span class="a">${e.A}</span><span class="s">${e.sym}</span></div></div>`
+    );
+  }
+  board.innerHTML = cells.join('');
+}
+
+function renderHud() {
+  document.getElementById('energy').textContent = formatEnergy(G.energyEv);
+  document.getElementById('best').textContent = formatEnergy(G.best.ev);
+  document.getElementById('moves').textContent = G.moves;
+  const t = topLevel(G.board);
+  document.getElementById('top').textContent = t ? LADDER[t - 1].cn : '—';
+  const pct = progressPct(G.energyEv, G.goalEv);
+  document.getElementById('bar').style.width = pct.toFixed(1) + '%';
+  document.getElementById('pct').textContent = pct.toFixed(0) + '%';
+  document.getElementById('goallab').textContent = goalLabel(G.goalEv);
+}
+
+function note(text, kind) {
+  const el = document.getElementById('msg');
+  el.textContent = text || '方向键 / WASD / 在棋盘上滑动。U 撤销，R 重开。';
+  el.className = 'msg' + (kind ? ' ' + kind : '');
+}
+
+function renderChain() {
+  const html = [];
+  LADDER.forEach((e, i) => {
+    const q = i > 0 ? fusionQ(i) : null;
+    const cls = ['step'];
+    if (q !== null && q < 1) cls.push('gap');
+    if (e.level === MAX_LEVEL) cls.push('top');
+    html.push(`<div class="${cls.join(' ')}"><span class="nuc">${e.sym}-${e.A}</span>` +
+      `<span class="q">${q === null ? '燃料' : formatMev(q)}</span></div>`);
+    if (i < MAX_LEVEL - 1) html.push('<span class="arrow">→</span>');
+  });
+  document.getElementById('chain').innerHTML = html.join('');
+  const gapQ = fusionQ(2);          // 2α → ⁸Be 那一步（level 2 级融合）
+  const b = beyondTopQ();
+  document.getElementById('chainnote').innerHTML =
+    `⁸Be 那一步只有 <b>${formatMev(gapQ)}</b>：这就是恒星的<b>质量数 8 空档</b>，单个 ⁸Be 活不到 10⁻¹⁶ s，` +
+    `所以真实恒星绕路走三 α 过程（3 ⁴He → ¹²C + 7.27 MeV）。<br>` +
+    `而两个 ⁶⁴Ni 融合成 A=${b.A} 时要 <b>${formatMev(b.q)}</b> —— 吸能。铁峰之后，聚变不再放能。`;
+}
+
+function renderTable() {
+  const rows = ['<tr><th>步骤</th><th>反应</th><th class="num">Q (MeV)</th><th>来源</th></tr>'];
+  for (let lv = 1; lv < MAX_LEVEL; lv++) {
+    const a = LADDER[lv - 1], b = LADDER[lv];
+    const q = fusionQ(lv);
+    const cls = q < 1 ? ' class="gap"' : (lv + 1 === MAX_LEVEL ? ' class="top"' : '');
+    const src = (a.src === 'exp' && b.src === 'exp') ? '实验质量' : '公式外推';
+    rows.push(`<tr${cls}><td>${a.sym}×2</td><td>2 ${a.sym}-${a.A} → ${b.sym}-${b.A}</td>` +
+      `<td class="num">${formatMev(q)}</td><td>${src}</td></tr>`);
+  }
+  const b = beyondTopQ();
+  rows.push(`<tr class="top"><td>终止</td><td>2 Ni-64 → A=${b.A}</td><td class="num">${formatMev(b.q)}</td><td>公式外推</td></tr>`);
+  document.getElementById('qtable').innerHTML = rows.join('');
+  document.getElementById('curve').innerHTML = curveSvg();
+  document.getElementById('tablenote').innerHTML =
+    `<b>模型边界（重要）</b>：Q 值是<b>每次聚变事件的理论值</b>，单位 MeV。实验中 D+T 反应放 17.59 MeV，其中 14.07 MeV 由中子带走 —— ` +
+    `本作只算总 Q，不分能量载体，也不计入堆内损失与增殖层。<br>` +
+    `阶梯按「质量数翻倍」抽象，产物取该质量数最稳定的同量异位素（真实路径里电荷由 β 衰变补平）；` +
+    `小核用实验质量，⁶⁴Ni 及以上用 Bethe–Weizsäcker 半经验公式外推，误差约 ±5 MeV。` +
+    `曲线为公式给出的每核子结合能，峰值在 A≈56–62（铁/镍峰）。`;
+}
+
+function curveSvg() {
+  const pts = bindingCurve(2, 130);
+  const W = 640, H = 250, L = 44, R = 14, T = 16, B = 34;
+  const yMin = 0, yMax = 9.2;
+  const x = A => L + ((A - 2) / (130 - 2)) * (W - L - R);
+  const y = v => T + (1 - (v - yMin) / (yMax - yMin)) * (H - T - B);
+  const path = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.A).toFixed(1)},${y(p.per).toFixed(1)}`).join(' ');
+  const marks = LADDER.map((e, i) => {
+    const p = pts.find(q => q.A === e.A);
+    if (!p) return '';
+    // 小核在左侧挤在一起：奇数号标在上方、偶数号标在下方，避免互相压住
+    const dy = i % 2 === 0 ? -11 : 20;
+    return `<circle cx="${x(p.A).toFixed(1)}" cy="${y(p.per).toFixed(1)}" r="4" fill="#F0A94C"/>` +
+      `<text x="${x(p.A).toFixed(1)}" y="${(y(p.per) + dy).toFixed(1)}" font-size="15" fill="#F0A94C" text-anchor="middle">${e.sym}</text>`;
+  }).join('');
+  const peak = pts.reduce((m, p) => (p.per > m.per ? p : m), pts[0]);
+  return `<path d="${path}" fill="none" stroke="#5BD9BE" stroke-width="2.5"/>` +
+    marks +
+    `<circle cx="${x(peak.A).toFixed(1)}" cy="${y(peak.per).toFixed(1)}" r="4.5" fill="#F87171"/>` +
+    `<text x="${x(peak.A).toFixed(1)}" y="${(y(peak.per) - 12).toFixed(1)}" font-size="15" fill="#F87171" text-anchor="middle">峰 A=${peak.A}</text>` +
+    `<line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" stroke="#2A3946"/>` +
+    `<line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" stroke="#2A3946"/>` +
+    `<text x="${L - 6}" y="${T + 12}" font-size="14" fill="#7B8B9C" text-anchor="end">9</text>` +
+    `<text x="${L - 6}" y="${H - B}" font-size="14" fill="#7B8B9C" text-anchor="end">0</text>` +
+    `<text x="${L - 4}" y="${(T + (H - T - B) / 2).toFixed(1)}" font-size="14" fill="#7B8B9C" text-anchor="middle" transform="rotate(-90 ${L - 18} ${(T + (H - T - B) / 2).toFixed(1)})">B/A (MeV)</text>` +
+    `<text x="${L}" y="${H - B + 18}" font-size="14" fill="#7B8B9C">2</text>` +
+    `<text x="${W - R}" y="${H - B + 18}" font-size="14" fill="#7B8B9C" text-anchor="end">130</text>` +
+    `<text x="${(W + L) / 2}" y="${H - 2}" font-size="14" fill="#7B8B9C" text-anchor="middle">质量数 A</text>`;
+}
+
+function renderOverlay() {
+  const overlay = document.getElementById('overlay');
+  if (G.status === 'playing') { overlay.classList.add('hidden'); return; }
+  const win = G.status === 'win';
+  const top = LADDER[topLevel(G.board) - 1];
+  const b = beyondTopQ();
+  document.getElementById('card').innerHTML = `
+    <h3 class="${win ? 'win' : 'lose'}">${win ? '目标达成：' + formatEnergy(G.goalEv) : '反应堆熄火'}</h3>
+    <div class="sub">
+      ${win
+        ? `累计 <b>${formatEnergy(G.energyEv)}</b>，${G.moves} 步，顶牌 ${top ? top.cn : '—'}。你的每一次合并都是真实的 Q 值 —— ${formatEnergy(G.energyEv)} 里大约有 ${(G.energyEv / 2.384E7).toFixed(0)} 次氘氘聚变的份量。`
+        : `棋盘堵死了：没有相邻同级核，或者只剩无法融合的 ⁶⁴Ni。累计 <b>${formatEnergy(G.energyEv)}</b>，${G.moves} 步。`}
+    </div>
+    <div class="sub">
+      ${win
+        ? `再往上就会撞到铁峰：两个 ⁶⁴Ni 融合成 A=${b.A} 要 <b>${formatMev(b.q)}</b>，所以真实恒星到铁就结束，重元素只能靠中子俘获。`
+        : `提示：把大核往一角堆，别在中场乱合并；⁶⁴Ni 占地又不能再融合，尽量把它们挤到边上。`}
+    </div>
+    <div class="sharebox">
+      <div class="sl">分享文案（不含解法）</div>
+      <pre id="sharetext">${shareText()}</pre>
+      <button id="btn-share">复制文案</button>
+      <div class="share-msg" id="share-msg">${G.shareMsg}</div>
+    </div>
+    <div class="row">
+      <button class="primary" id="btn-again">${win && nextGoal(G.goalEv) ? '继续冲击 ' + formatEnergy(nextGoal(G.goalEv)) : '再来一局'}</button>
+      <button id="btn-review">看聚变表</button>
+    </div>`;
+  overlay.classList.remove('hidden');
+  const again = document.getElementById('btn-again');
+  if (again) again.onclick = () => { (win && nextGoal(G.goalEv)) ? continueGame() : newGame(); };
+  const review = document.getElementById('btn-review');
+  if (review) review.onclick = () => { toggleTable(true); };
+  const share = document.getElementById('btn-share');
+  if (share) share.onclick = copyShare;
+}
+
+function toggleTable(force) {
+  G.tableOpen = typeof force === 'boolean' ? force : !G.tableOpen;
+  render();
+  if (G.tableOpen) document.getElementById('tablepanel').scrollIntoView({ block: 'nearest' });
+}
+
+async function copyShare() {
+  const text = shareText();
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    ok = true;
+  } catch (_) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch (_e) { ok = false; }
+  }
+  G.shareMsg = ok ? '已复制 ✓' : '复制失败，请手动选中文案';
+  track('fusion_share', { game: 'fusion-stack', won: G.status === 'win' });
+  const box = document.getElementById('share-msg');
+  if (box) box.textContent = G.shareMsg;
+}
+
+/* ── 输入 ── */
+const KEYMAP = {
+  ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+  w: 'up', s: 'down', a: 'left', d: 'right', W: 'up', S: 'down', A: 'left', D: 'right',
+};
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'u' || e.key === 'U') { undo(); return; }
+  if (e.key === 'r' || e.key === 'R') { newGame(); return; }
+  const dir = KEYMAP[e.key];
+  if (!dir) return;
+  e.preventDefault();
+  step(dir);
+});
+
+document.querySelectorAll('.dpad button').forEach(b => {
+  b.addEventListener('click', () => step(b.dataset.dir));
+});
+
+let touchStart = null;
+const boardEl = document.getElementById('board');
+boardEl.addEventListener('touchstart', e => {
+  const t = e.changedTouches[0];
+  touchStart = { x: t.clientX, y: t.clientY };
+}, { passive: true });
+boardEl.addEventListener('touchend', e => {
+  if (!touchStart) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y;
+  touchStart = null;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 22) return;
+  if (Math.abs(dx) > Math.abs(dy)) step(dx > 0 ? 'right' : 'left');
+  else step(dy > 0 ? 'down' : 'up');
+}, { passive: true });
+
+document.getElementById('btn-undo').onclick = undo;
+document.getElementById('btn-restart').onclick = () => newGame();
+document.getElementById('btn-table').onclick = () => toggleTable();
+
+/* ── 启动 ── */
+loadBest();
+newGame(true);
+note('方向键 / WASD / 在棋盘上滑动。U 撤销，R 重开。', '');
+
+// 给 E2E / 调试用的镜子（只读观察，页面内部不依赖它）
+window.__fusion = G;
+window.__fusionApi = { step, undo, newGame, continueGame, loadState, toggleTable, formatEnergy, goalLabel, nextGoal, fusionQ, LADDER, MAX_LEVEL, TARGET_EV, GOALS_EV, canMove, moveBoard };
+</script>
+</body>
+</html>
