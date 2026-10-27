@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>围堵狐狸 · 顶点割 | 环形路与树形路</title>
+<meta name="description" content="你在调度中心封路，狐狸每回合沿路网跑一步、并且永远挑最难缠的方向。把它按死，等于在图上找到一个顶点割；而 Menger 定理告诉你最少要封几个点 —— 用 AND/OR 搜索穷举所有封法与所有逃法，步数是能证明的。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#121A24;--panel:#1B2530;--panel2:#151E28;--line:#2A3745;--line2:#3D4C5C;
+  --ink:#EDF2F8;--dim:#9FB0C2;--dim2:#7C8B9C;
+  --hide:#C9852E;--hide-soft:#F0A94C;--cut:#5A6C7E;--ok:#4ADE80;--bad:#F87171;--go:#5BD9BE;--map:#F4EFE4;
+}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  min-height:100vh;display:flex;justify-content:center;padding:18px 14px 54px;-webkit-font-smoothing:antialiased;
+}
+.wrap{width:100%;max-width:720px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
+.topbar .ep{font-size:12px;color:var(--dim);font-family:Consolas,monospace;letter-spacing:.08em}
+.topbar .ep b{color:var(--hide-soft)}
+.topbar a{color:var(--dim);text-decoration:none;font-size:13px}
+.topbar a:hover{color:var(--ink)}
+.title{font-size:28px;font-weight:750;letter-spacing:.02em;margin-bottom:8px}
+.lead{font-size:14px;line-height:1.9;color:#B4C2D2;margin-bottom:16px}
+.lead b{color:var(--hide-soft)}
+
+.levelbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.levelbar button{
+  flex:1 1 0;min-width:0;min-height:46px;padding:8px 12px;
+  font-family:inherit;font-size:13.5px;font-weight:600;text-align:left;
+  background:var(--panel);color:var(--dim);border:1px solid var(--line);border-radius:10px;
+  cursor:pointer;transition:.15s;-webkit-tap-highlight-color:transparent;line-height:1.35;
+}
+.levelbar button .lv{display:block;font-size:11px;font-weight:500;color:var(--dim2);font-family:Consolas,monospace;letter-spacing:.06em}
+.levelbar button:hover{border-color:var(--line2);color:var(--ink)}
+.levelbar button.on{background:rgba(240,169,76,.12);border-color:var(--hide-soft);color:var(--ink)}
+.levelbar button.on .lv{color:var(--hide-soft)}
+.levelbar button:disabled{cursor:default;opacity:.55}
+
+.hud{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.stats{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--dim);font-family:Consolas,monospace}
+.stats b{color:var(--ink);font-size:13px}
+.stats .k{color:var(--dim2)}
+.goal{font-size:11.5px;color:var(--dim2);font-family:Consolas,monospace}
+
+.mapcard{background:var(--map);border:1px solid #D9D1BF;border-radius:14px;padding:8px 8px 4px;margin-bottom:12px;box-shadow:0 2px 14px rgba(0,0,0,.28)}
+#graph{display:block;width:100%;height:auto;touch-action:manipulation}
+#graph .edge{stroke:#B9AE97;stroke-width:2.5}
+#graph .edge.hot{stroke:var(--hide);stroke-width:3}
+#graph .node{cursor:pointer}
+#graph .node .disc{stroke:#8C8269;stroke-width:2;fill:#FFFFFF;transition:fill .12s,stroke .12s}
+#graph .node .hit{fill:transparent}
+#graph .node .lab{font-family:Consolas,monospace;font-size:13px;font-weight:700;fill:#4A5460;pointer-events:none;user-select:none}
+#graph .node .glyph{font-size:19px;pointer-events:none;user-select:none}
+#graph .node .cutx{font-size:15px;font-weight:800;fill:#C7D3DE}
+#graph .node .hole{fill:#12302A;pointer-events:none}
+#graph .node .lab.below{font-size:11.5px;fill:#5E5340;font-weight:600}
+#graph .node.fox .disc{fill:#F7A23B;stroke:#B96A12;stroke-width:2.5}
+#graph .node.fox .lab{fill:#3A2308}
+#graph .node.den .disc{fill:#2F8F6B;stroke:#1D664A;stroke-width:2.5}
+#graph .node.den .lab{fill:#EAF7F0}
+#graph .node.cut .disc{fill:#41505F;stroke:#2A3644;stroke-width:2.5}
+#graph .node.cut .lab{fill:#B9C6D3}
+#graph .node.fox .lab.below,#graph .node.den .lab.below,#graph .node.cut .lab.below{fill:#6B5F4A;font-weight:700}
+#graph .node.hintpoint .disc{stroke:#C9852E;stroke-width:4;fill:#FFF3DC}
+#graph .node:hover .disc{stroke:#4A5460}
+#graph .node.fox:hover .disc{stroke:#B96A12}
+#graph .node.den:hover .disc{stroke:#1D664A}
+#graph .node.cut:hover .disc{stroke:#2A3644}
+#graph .node:focus{outline:none}
+#graph .node:focus-visible .disc{stroke:#1E6FD9;stroke-width:4}
+
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:#6C6353;font-family:Consolas,monospace;padding:2px 6px 6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid rgba(0,0,0,.25)}
+
+.msg{font-size:13px;line-height:1.75;color:var(--hide-soft);margin:2px 0 10px;min-height:0}
+.msg:empty{display:none}
+.hintbox{background:rgba(240,169,76,.10);border-left:3px solid var(--hide-soft);border-radius:8px;padding:11px 14px;font-size:13px;line-height:1.9;color:#E7D3B4;margin:10px 0}
+.hintbox b{color:var(--hide-soft);font-family:Consolas,monospace;font-size:13.5px}
+
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin:6px 0 4px}
+.actions button{
+  font-family:inherit;font-size:13.5px;min-height:44px;padding:9px 16px;border-radius:9px;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;
+  transition:.15s;-webkit-tap-highlight-color:transparent;
+}
+.actions button:hover:not(:disabled){border-color:var(--hide-soft)}
+.actions button:disabled{opacity:.35;cursor:not-allowed}
+.actions button.primary{background:var(--hide-soft);border-color:var(--hide-soft);color:#2A1B06;font-weight:650}
+
+.result{background:var(--panel);border:1px solid rgba(74,222,128,.55);border-radius:12px;padding:18px;margin:14px 0}
+.result.lose{border-color:rgba(248,113,113,.6)}
+.result h2{font-size:20px;margin-bottom:8px;color:var(--ok)}
+.result.lose h2{color:var(--bad)}
+.result p{font-size:13.5px;line-height:1.95;color:#C0CEDE;margin-bottom:10px}
+.result p b{color:var(--hide-soft)}
+.result .math{font-size:12.5px;line-height:1.95;color:#A9BACD;background:var(--panel2);border-radius:8px;padding:12px 14px;font-family:Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+.result .math b{color:var(--go)}
+.sharebox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;margin:12px 0}
+.sharebox .sl{font-size:11px;color:var(--dim2);margin-bottom:8px}
+.sharebox pre{font-family:Consolas,monospace;font-size:12px;line-height:1.8;color:#CBD7E4;white-space:pre-wrap;word-break:break-all;margin-bottom:9px}
+.sharebox button{font-family:inherit;font-size:12px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);border-radius:7px;padding:7px 12px;cursor:pointer}
+.sharebox button:hover{border-color:var(--hide-soft)}
+.share-msg{font-size:12px;color:var(--go);margin-top:8px;min-height:18px}
+
+details.rules{margin-top:18px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;line-height:1.95;color:#A9BACD}
+details.rules summary{cursor:pointer;color:var(--dim);font-size:13px;margin-bottom:8px}
+details.rules b{color:var(--hide-soft)}
+details.rules p{margin-bottom:9px}
+details.rules .mono{font-family:Consolas,monospace;font-size:12.5px}
+.footlinks{margin-top:22px;text-align:center;font-size:13px;line-height:1.9}
+.footlinks a{color:var(--hide-soft);text-decoration:none;border-bottom:1px solid rgba(240,169,76,.3)}
+.footlinks .sep{color:#3D4C5C;margin:0 10px}
+
+@media (max-width:560px){
+  body{padding:14px 10px 46px}
+  .title{font-size:23px}
+  .lead{font-size:13px}
+  .stats{gap:10px;font-size:11.5px}
+  .stats b{font-size:12.5px}
+  .levelbar button{font-size:12.5px;padding:7px 10px}
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .actions button{width:100%}
+  .result{padding:14px}
+  .legend{font-size:11px;gap:9px}
+}
+</style>
+<script src="../../analytics.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <span class="ep">反直觉系列 · <b>第八关</b></span>
+    <a href="../../brain/">← 回大脑保健操</a>
+  </div>
+  <h1 class="title">围堵狐狸 · 顶点割</h1>
+  <p class="lead">
+    你在调度中心封路，狐狸每一回合沿路网跑一步 —— 它<b>不会失误</b>，你封哪一条，它就换一条。
+    能把它按死，说明这些路口真的把它和洞口彻底<b>切开了</b>。
+  </p>
+
+  <div id="app"></div>
+
+  <details class="rules" id="rules">
+    <summary>规则 / 为什么这是图论题</summary>
+    <p><b>规则一：</b>狐狸每回合必须沿一条边走一步，<b>不能停在原地</b>。走法由它自己挑 —— 挑的是让你收工最晚的那条。</p>
+    <p><b>规则二：</b>你每回合封一个路口（<b>不能封</b>狐狸脚下那个，也不能封洞口）。封掉的路口永久作废，狐狸不能再走进去。</p>
+    <p><b>规则三：</b>狐狸<b>无路可走</b>＝你赢；狐狸<b>踏进洞口</b>＝它赢。步数按你封路的次数算。</p>
+    <p><b>为什么这是图论：</b>你能赢，等价于你放下的那组封路点构成了「狐狸与洞口之间的<b>顶点割</b>（vertex cut）」——
+      删掉它们，图上就不存在从狐狸到洞口的路径。围堵不是靠追，靠的是<b>切断</b>。</p>
+    <p><b>为什么「最少步数」要搜索而不是算最短路：</b>单方最短路只算自己怎么走；这里有个会还手的对手。
+      狐狸每步都挑「让你收工更晚」的方向，所以要在<b>博弈树</b>上做 AND/OR 搜索（你取 min、狐狸取 max）。
+      搜索穷尽了所有封法与所有逃法，得到的步数才是真正的下界 —— 少一步都不行。</p>
+    <p class="mono">下界还能更直接：Menger 定理说「狐狸到洞口互不重叠的路径有 k 条 ⇒ 任何顶点割至少 k 个点」。
+      所以每一关的答案都不会小于 k，这是你不用搜索就能算出的<b>硬下界</b>。</p>
+  </details>
+
+  <div class="footlinks">
+    <a href="../../brain/">← 回大脑保健操</a><span class="sep">|</span><a href="../river/">玩《过河》←</a><span class="sep">|</span><a href="../">回小游戏区</a>
+  </div>
+</div>
+
+<script>
+/* === FOX CORE START === */
+/* 模型：图 G=(V,E)。状态 = (狐狸所在点 fox, 已封路口位集 blocked)。
+   一个回合 = 玩家封 1 个点（1 步）+ 狐狸沿一条未封边移动 1 步。
+   胜负：狐狸无路可走 → 玩家赢；狐狸进 den → 玩家输。 */
+
+const LEVELS = [
+  {
+    id: 'ring',
+    name: '环 · 环城路',
+    tag: '入门',
+    type: 'cycle',
+    den: 0,
+    fox: 3,
+    nodes: [
+      { id: 0, x: 180, y: 40 }, { id: 1, x: 275, y: 95 }, { id: 2, x: 275, y: 205 },
+      { id: 3, x: 180, y: 260 }, { id: 4, x: 85, y: 205 }, { id: 5, x: 85, y: 95 },
+    ],
+    edges: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]],
+    note: '六个路口的环路，狐狸和洞口正对面 —— 两条路，先堵哪条？',
+  },
+  {
+    id: 'tree',
+    name: '树 · 三岔口',
+    tag: '进阶',
+    type: 'tree',
+    den: 0,
+    fox: 2,
+    nodes: [
+      { id: 0, x: 40, y: 150 }, { id: 1, x: 108, y: 150 }, { id: 2, x: 180, y: 150 },
+      { id: 3, x: 252, y: 150 }, { id: 4, x: 322, y: 150 },
+      { id: 5, x: 108, y: 66 }, { id: 6, x: 180, y: 66 }, { id: 7, x: 252, y: 66 },
+      { id: 8, x: 322, y: 232 },
+    ],
+    edges: [[0, 1], [1, 2], [2, 3], [3, 4], [1, 5], [2, 6], [3, 7], [4, 8]],
+    note: '树没有环，所以每条路都只有一条 —— 狐狸只能往岔里退，你得一间一间关门。',
+  },
+  {
+    id: 'grid',
+    name: '网格 · 街巷',
+    tag: '挑战',
+    type: 'grid',
+    den: 4,
+    fox: 2,
+    nodes: [
+      { id: 0, x: 55, y: 70 }, { id: 1, x: 138, y: 70 }, { id: 2, x: 221, y: 70 }, { id: 3, x: 304, y: 70 },
+      { id: 4, x: 55, y: 150 }, { id: 5, x: 138, y: 150 }, { id: 6, x: 221, y: 150 }, { id: 7, x: 304, y: 150 },
+      { id: 8, x: 55, y: 230 }, { id: 9, x: 138, y: 230 }, { id: 10, x: 221, y: 230 }, { id: 11, x: 304, y: 230 },
+    ],
+    edges: [
+      [0, 1], [1, 2], [2, 3], [4, 5], [5, 6], [6, 7], [8, 9], [9, 10], [10, 11],
+      [0, 4], [4, 8], [1, 5], [5, 9], [2, 6], [6, 10], [3, 7], [7, 11],
+    ],
+    note: '十二个街口、六个环：狐狸到洞口只有 3 步，但它能在环里绕 —— 先封哪一条，决定它绕多久。',
+  },
+];
+
+const levelById = (id) => LEVELS.filter((l) => l.id === id)[0] || null;
+
+/** 邻接表（按 level 缓存）。 */
+function adjOf(level) {
+  if (!level._adj) {
+    const adj = level.nodes.map(() => []);
+    for (const e of level.edges) { adj[e[0]].push(e[1]); adj[e[1]].push(e[0]); }
+    for (const list of adj) list.sort((a, b) => a - b);
+    level._adj = adj;
+  }
+  return level._adj;
+}
+
+const bitOf = (v) => 1 << v;
+const isBlocked = (mask, v) => (mask & (1 << v)) !== 0;
+
+function popcount(mask) {
+  let n = 0;
+  for (let m = mask; m; m >>= 1) n += m & 1;
+  return n;
+}
+
+/** 狐狸这一步能走到的点（不含已封的）。 */
+function foxMoves(level, fox, blocked) {
+  return adjOf(level)[fox].filter((v) => !isBlocked(blocked, v));
+}
+
+/** 玩家能封的点：不能是狐狸脚下、不能是洞口、不能已经封过。 */
+function legalPlacements(level, fox, blocked) {
+  const out = [];
+  for (let v = 0; v < level.nodes.length; v++) {
+    if (v === fox || v === level.den || isBlocked(blocked, v)) continue;
+    out.push(v);
+  }
+  return out;
+}
+
+function initialState(level) {
+  return { fox: level.fox, blocked: 0 };
+}
+
+/** 从洞口做 BFS：每个点到洞口的最少步数（图上距离）。 */
+function denDistances(level) {
+  const adj = adjOf(level);
+  const dist = new Array(level.nodes.length).fill(Infinity);
+  dist[level.den] = 0;
+  const q = [level.den];
+  for (let i = 0; i < q.length; i++) {
+    for (const v of adj[q[i]]) {
+      if (dist[v] === Infinity) { dist[v] = dist[q[i]] + 1; q.push(v); }
+    }
+  }
+  return dist;
+}
+
+/** Menger 定理的算法侧：狐狸到洞口「内部不相交」的路径条数（顶点容量 1 的最大流）。 */
+function disjointPathCount(level) {
+  const n = level.nodes.length;
+  const S = level.fox;
+  const T = level.den;
+  const N = 2 * n;
+  const INF = 99;
+  const cap = [];
+  for (let i = 0; i < N; i++) cap.push(new Array(N).fill(0));
+  for (let v = 0; v < n; v++) cap[v][v + n] = (v === S || v === T) ? INF : 1;
+  for (const e of level.edges) {
+    cap[e[0] + n][e[1]] = INF;
+    cap[e[1] + n][e[0]] = INF;
+  }
+  const src = S + n;
+  const sink = T;
+  let flow = 0;
+  for (let guard = 0; guard < 64; guard++) {
+    const prev = new Array(N).fill(-1);
+    const q = [src];
+    prev[src] = src;
+    for (let i = 0; i < q.length; i++) {
+      for (let v = 0; v < N; v++) {
+        if (prev[v] === -1 && cap[q[i]][v] > 0) { prev[v] = q[i]; q.push(v); }
+      }
+    }
+    if (prev[sink] === -1) break;
+    let push = INF;
+    for (let v = sink; v !== src; v = prev[v]) push = Math.min(push, cap[prev[v]][v]);
+    for (let v = sink; v !== src; v = prev[v]) { cap[prev[v]][v] -= push; cap[v][prev[v]] += push; }
+    flow += push;
+  }
+  return flow;
+}
+
+/** 反事实：如果狐狸原地不动，玩家只要封住它所有非洞口邻点即可 —— 恰好 deg 步。 */
+function staticNeed(level) {
+  const around = adjOf(level)[level.fox];
+  if (around.indexOf(level.den) >= 0) return Infinity;   // 洞口就在旁边，封不住
+  return around.length;
+}
+
+/** AND/OR 搜索：玩家 min、狐狸 max。返回封路步数，Infinity 表示狐狸必然逃脱。 */
+function makeSolver(level) {
+  const INF = Infinity;
+  const memo = new Map();
+  let visited = 0;
+
+  function foxTurn(fox, blocked) {
+    const key = 'F' + fox + ':' + blocked;
+    const hit = memo.get(key);
+    if (hit !== undefined) return hit;
+    visited += 1;
+    let worst = 0;                                  // 无路可走 = 已被围住
+    for (const m of foxMoves(level, fox, blocked)) {
+      const cost = m === level.den ? INF : playerTurn(m, blocked);
+      if (cost > worst) worst = cost;
+      if (worst === INF) break;
+    }
+    memo.set(key, worst);
+    return worst;
+  }
+
+  function playerTurn(fox, blocked) {
+    // 已经无处可逃 = 已经赢下这一局（0 步），不用再封
+    if (foxMoves(level, fox, blocked).length === 0) return 0;
+    const key = 'P' + fox + ':' + blocked;
+    const hit = memo.get(key);
+    if (hit !== undefined) return hit;
+    visited += 1;
+    let best = INF;
+    for (const v of legalPlacements(level, fox, blocked)) {
+      const cost = 1 + foxTurn(fox, blocked | bitOf(v));
+      if (cost < best) best = cost;
+      if (best === 1) break;                        // 1 步是理论最小值
+    }
+    memo.set(key, best);
+    return best;
+  }
+
+  return { foxTurn, playerTurn, states: () => ({ visited, memo: memo.size }) };
+}
+
+const SOLVER_CACHE = new Map();
+const ANALYSIS_CACHE = new Map();
+
+function solverOf(level) {
+  if (!SOLVER_CACHE.has(level.id)) SOLVER_CACHE.set(level.id, makeSolver(level));
+  return SOLVER_CACHE.get(level.id);
+}
+
+/** 关卡的全部分析数据（搜索一次，结果缓存）。 */
+function analyseLevel(level) {
+  if (ANALYSIS_CACHE.has(level.id)) return ANALYSIS_CACHE.get(level.id);
+  const solver = makeSolver(level);
+  const start = initialState(level);
+  const best = solver.playerTurn(start.fox, start.blocked);
+  const deg = adjOf(level).map((l) => l.length);
+  const data = {
+    optimal: Number.isFinite(best) ? best : null,
+    states: solver.states(),
+    vertices: level.nodes.length,
+    edges: level.edges.length,
+    disjoint: disjointPathCount(level),
+    denDist: denDistances(level),
+    degFox: deg[level.fox],
+    junctions: deg.filter((d) => d >= 3).length,
+    maxDeg: Math.max.apply(null, deg),
+    cycles: level.edges.length - level.nodes.length + 1,
+    staticNeed: staticNeed(level),
+    reachable: Number.isFinite(best),
+  };
+  ANALYSIS_CACHE.set(level.id, data);
+  return data;
+}
+
+/** 狐狸的走法：能进洞就进洞；否则挑「让玩家收工最晚」的一步，平手时挑更靠近洞口的。 */
+function foxChoice(level, fox, blocked) {
+  const moves = foxMoves(level, fox, blocked);
+  if (!moves.length) return null;
+  const solver = solverOf(level);
+  const dist = denDistances(level);
+  let best = null;
+  for (const m of moves) {
+    const cost = m === level.den ? Infinity : solver.playerTurn(m, blocked);
+    const cand = { move: m, cost, dist: dist[m] };
+    if (!best) { best = cand; continue; }
+    if (cost > best.cost) best = cand;
+    else if (cost === best.cost && (cand.dist < best.dist || (cand.dist === best.dist && m < best.move))) best = cand;
+  }
+  return best ? best.move : null;
+}
+
+/** 提示：所有能让「剩余步数」最小的封法（不叫答案，只说这一步）。 */
+function hintAt(level, fox, blocked) {
+  const solver = solverOf(level);
+  const now = solver.playerTurn(fox, blocked);
+  if (!Number.isFinite(now)) return null;
+  let best = Infinity;
+  let picks = [];
+  for (const v of legalPlacements(level, fox, blocked)) {
+    const cost = 1 + solver.foxTurn(fox, blocked | bitOf(v));
+    if (cost < best) { best = cost; picks = [v]; }
+    else if (cost === best) picks.push(v);
+  }
+  if (!picks.length) return null;
+  return { vertex: picks[0], picks, remaining: best, alternatives: picks.length - 1 };
+}
+/* === FOX CORE END === */
+
+/* ================= UI ================= */
+const STORE_KEY = 'fd_fox_best_v1';
+const app = document.getElementById('app');
+const G = {
+  levelId: LEVELS[0].id,
+  level: LEVELS[0],
+  fox: LEVELS[0].fox,
+  blocked: 0,
+  steps: 0,
+  hints: 0,
+  phase: 'playing',
+  history: [],
+  msg: '',
+  hint: null,
+  shareMsg: '',
+  lastMove: null,
+  best: {},
+};
+
+function track(name, params) {
+  try { if (window.counters && window.counters.track) window.counters.track(name, params); } catch (_) {}
+}
+
+function loadBest() {
+  try { G.best = JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; } catch (_) { G.best = {}; }
+}
+function saveBest() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(G.best)); } catch (_) {}
+}
+function recordBest(id, steps) {
+  const prev = G.best[id];
+  if (prev === undefined || steps < prev) { G.best[id] = steps; saveBest(); return true; }
+  return false;
+}
+
+// file:// 下 location.origin 是 "null"，分享兜底到线上地址
+function shareLink() {
+  if (location.protocol === 'file:') return 'https://airseai6.github.io/fusion-data-academy/puzzle/fox-hunt/';
+  return location.origin + location.pathname;
+}
+
+function shareText() {
+  const a = analyseLevel(G.level);
+  const won = G.phase === 'win';
+  const head = won
+    ? `我在《围堵狐狸》·${G.level.name} 用 ${G.steps} 步把狐狸围死了（最优 ${a.optimal} 步）。`
+    : `我在《围堵狐狸》·${G.level.name} 追了 ${G.steps} 步，还是让它溜进洞口了。`;
+  return `${head}\n用了 ${G.hints} 次提示。狐狸每一步都不会失误，所以赢了就是真断了它的路。\n来试：${shareLink()}`;
+}
+
+/* ── 状态切换 ── */
+function resetLevel(id, options) {
+  const o = options || {};
+  const level = levelById(id) || LEVELS[0];
+  const start = initialState(level);
+  G.levelId = level.id;
+  G.level = level;
+  G.fox = start.fox;
+  G.blocked = start.blocked;
+  G.steps = 0;
+  G.hints = 0;
+  G.phase = 'playing';
+  G.history = [];
+  G.msg = '';
+  G.hint = null;
+  G.lastMove = null;
+  G.shareMsg = '';
+  if (!o.silent) track('foxhunt_start', { game: 'fox-hunt', level: level.id });
+  render();
+}
+
+/* ── 渲染 ── */
+function nodeSvg(level, n) {
+  const isFox = n.id === G.fox;
+  const isDen = n.id === level.den;
+  const isCut = isBlocked(G.blocked, n.id);
+  const isHint = G.hint && G.hint.vertex === n.id;
+  const cls = ['node'];
+  if (isFox) cls.push('fox');
+  else if (isDen) cls.push('den');
+  else if (isCut) cls.push('cut');
+  if (isHint) cls.push('hintpoint');
+  const state = isFox ? '狐狸在这里' : isDen ? '洞口' : isCut ? '已封路' : '可封路';
+  // 图形里放符号（狐狸 / 洞口 / 已封），编号统一放到圆点下方，避免和符号叠在一起
+  const numInside = !isFox && !isDen && !isCut;
+  const numY = numInside ? n.y + 1 : n.y + 33;
+  return `<g class="${cls.join(' ')}" data-node="${n.id}" role="button" tabindex="0"
+      aria-label="${n.id + 1} 号点，${state}">
+    <circle class="hit" cx="${n.x}" cy="${n.y}" r="26"></circle>
+    <circle class="disc" cx="${n.x}" cy="${n.y}" r="20"></circle>
+    ${isDen ? `<circle class="hole" cx="${n.x}" cy="${n.y}" r="7"></circle>` : ''}
+    ${isFox ? `<text class="glyph" x="${n.x}" y="${n.y + 7}" text-anchor="middle">🦊</text>` : ''}
+    ${isCut ? `<text class="glyph cutx" x="${n.x}" y="${n.y + 6}" text-anchor="middle">✕</text>` : ''}
+    <text class="lab${numInside ? '' : ' below'}" x="${n.x}" y="${numY}" text-anchor="middle" dominant-baseline="middle">${n.id + 1}</text>
+  </g>`;
+}
+
+function graphSvg() {
+  const level = G.level;
+  const edges = level.edges.map((e) => {
+    const a = level.nodes[e[0]];
+    const b = level.nodes[e[1]];
+    return `<line class="edge" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"></line>`;
+  }).join('');
+  const nodes = level.nodes.map((n) => nodeSvg(level, n)).join('');
+  return `<svg id="graph" viewBox="0 0 360 300" role="img"
+      aria-label="${level.name}：${level.nodes.length} 个点、${level.edges.length} 条边">
+    <g>${edges}</g><g>${nodes}</g>
+  </svg>`;
+}
+
+function hudHtml() {
+  const a = analyseLevel(G.level);
+  const best = G.best[G.levelId];
+  const optCell = G.phase === 'playing'
+    ? '<span class="k">最优</span><b>?</b>'
+    : `<span class="k">最优</span><b>${a.optimal}</b>`;
+  return `<div class="hud">
+    <div class="stats">
+      <span class="k">步数</span><b id="steps">${G.steps}</b>
+      ${optCell}
+      <span class="k">已封</span><b id="cuts">${popcount(G.blocked)}</b>
+      <span class="k">提示</span><b id="hints">${G.hints}</b>
+      ${best ? `<span class="k">最少记录</span><b>${best}</b>` : ''}
+    </div>
+    <span class="goal">目标：把狐狸所有出口封死</span>
+  </div>`;
+}
+
+function levelbarHtml() {
+  return `<div class="levelbar">${LEVELS.map((l) => `
+    <button data-level="${l.id}" class="${l.id === G.levelId ? 'on' : ''}">
+      <span class="lv">${l.tag}</span>${l.name}
+    </button>`).join('')}</div>`;
+}
+
+function resultHtml() {
+  const a = analyseLevel(G.level);
+  const won = G.phase === 'win';
+  const diff = G.steps - a.optimal;
+  const verdict = diff === 0 ? '正好最优' : `比最优多 ${diff} 步`;
+  const lower = a.disjoint === 1
+    ? '狐狸到洞口只有 1 条互不重叠的路（Menger：割至少 1 个点）'
+    : `狐狸到洞口有 <b>${a.disjoint}</b> 条互不重叠的路（Menger：任何顶点割至少要 ${a.disjoint} 个点）`;
+  const staticLine = a.staticNeed === Infinity
+    ? '如果狐狸站着不动也不用封：洞口就在它旁边。'
+    : `如果狐狸站着不动，只要 <b>${a.staticNeed}</b> 步（封住它全部 ${a.degFox} 个邻点即可）—— 但它会还手，所以实际要 <b>${a.optimal}</b> 步。`;
+  const head = won
+    ? `<h2>围住了 ✓ ${G.steps} 步（${verdict}）</h2>
+       <p>${G.level.name}：狐狸最后一条路被你在第 <b>${G.steps}</b> 步封死（最优 ${a.optimal} 步）。${G.hints ? `你用了 <b>${G.hints}</b> 次提示。` : '没有用提示。'}</p>`
+    : `<h2>狐狸溜进洞了 ✕</h2>
+       <p>第 <b>${G.steps}</b> 步封完之后，它还有路可走 —— 顺序错了，先封哪一条决定它往哪边跑。这一关最优是 <b>${a.optimal}</b> 步。</p>`;
+  return `<div class="result${won ? '' : ' lose'}" id="result">
+    ${head}
+    <div class="math">图：<b>${a.vertices}</b> 个路口 / <b>${a.edges}</b> 条边，有 <b>${a.cycles}</b> 个独立环、<b>${a.junctions}</b> 个岔口（度数 ≥3）。
+${lower}。
+狐狸起点到洞口 ${a.denDist[G.level.fox]} 步，它自己就有 <b>${a.degFox}</b> 个方向可走。
+AND/OR 搜索访问 <b>${a.states.memo}</b> 个状态（玩家 min、狐狸 max）后确认：最少 <b>${a.optimal}</b> 步。
+${staticLine}</div>
+    <div class="sharebox">
+      <div class="sl">分享文案（不含具体封法）</div>
+      <pre id="sharetext">${shareText()}</pre>
+      <button id="btnShare2">复制分享文案</button>
+      <div class="share-msg">${G.shareMsg}</div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="btnRetry">再试一次</button>
+      <button id="btnNextLevel">换一关</button>
+      ${won ? '' : '<button id="btnHintLose">上一手该怎么封</button>'}
+    </div>
+    ${won ? '' : `<div class="hintbox" id="losetip" hidden></div>`}
+  </div>`;
+}
+
+function render() {
+  if (!app) return;
+  const playing = G.phase === 'playing';
+  const hintHtml = G.hint && playing
+    ? `<div class="hintbox" id="hintbox">这一步：封 <b>${G.hint.vertex + 1}</b> 号点 —— 封完还要 <b>${G.hint.remaining}</b> 步才能把它围死${G.hint.alternatives ? `（另有 ${G.hint.alternatives} 个封法同样最优）` : ''}。<br>先自己想想它为什么往那边跑。</div>`
+    : '';
+  app.innerHTML = `
+    ${levelbarHtml()}
+    ${hudHtml()}
+    ${playing ? '' : resultHtml()}
+    <div class="mapcard">
+      ${graphSvg()}
+      <div class="legend">
+        <span><i style="background:#F7A23B"></i>狐狸</span>
+        <span><i style="background:#2F8F6B"></i>洞口</span>
+        <span><i style="background:#FFFFFF"></i>可封路口</span>
+        <span><i style="background:#41505F"></i>已封</span>
+      </div>
+    </div>
+    <div class="msg" id="msg" role="alert">${G.msg}</div>
+    ${hintHtml}
+    ${playing ? `<div class="actions">
+      <button id="btnHint">给个提示</button>
+      <button id="btnUndo" ${G.history.length ? '' : 'disabled'}>撤销一步</button>
+      <button id="btnReset">重置</button>
+      <button id="btnShare">复制分享文案</button>
+    </div>` : ''}
+    <div class="share-msg" id="share-msg">${playing ? G.shareMsg : ''}</div>
+    <div id="aria-live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">${G.msg}</div>
+  `;
+  bindEvents();
+}
+
+/* ── 交互 ── */
+function say(msg) {
+  G.msg = msg;
+  const el = document.getElementById('msg');
+  if (el) el.textContent = msg;
+  const live = document.getElementById('aria-live');
+  if (live) live.textContent = msg;
+}
+
+/** 玩家封一个路口，然后狐狸立刻还手一步。 */
+function blockAt(v) {
+  if (G.phase !== 'playing') return;
+  const level = G.level;
+  if (v === G.fox) { say('狐狸脚下那一格封不了 —— 挑别的路口。'); return; }
+  if (v === level.den) { say('洞口封不了 —— 它正是你要守住的地方，只能把路堵死。'); return; }
+  if (isBlocked(G.blocked, v)) { say('这个路口已经封过了。'); return; }
+
+  const before = { fox: G.fox, blocked: G.blocked, steps: G.steps };
+  G.blocked = G.blocked | bitOf(v);
+  G.steps += 1;
+  G.history.push(before);
+  G.hint = null;
+  track('foxhunt_block', { game: 'fox-hunt', level: level.id, step: G.steps, vertex: v });
+
+  const from = G.fox;
+  const move = foxChoice(level, G.fox, G.blocked);
+  if (move === null) { win(); return; }
+  G.fox = move;
+  G.lastMove = { from, to: move };
+  if (move === level.den) { lose(); return; }
+  say(`你封了 ${v + 1} 号点，狐狸从 ${from + 1} 号跑到 ${move + 1} 号 —— 它挑了能拖最久的一步。`);
+  render();
+}
+
+function win() {
+  G.phase = 'win';
+  const a = analyseLevel(G.level);
+  const improved = recordBest(G.levelId, G.steps);
+  track('foxhunt_win', { game: 'fox-hunt', level: G.levelId, steps: G.steps, optimal: a.optimal, hints: G.hints, best: improved });
+  G.msg = '';
+  render();
+}
+
+function lose() {
+  G.phase = 'lose';
+  track('foxhunt_lose', { game: 'fox-hunt', level: G.levelId, steps: G.steps, remaining: foxMoves(G.level, G.fox, G.blocked).length });
+  G.msg = '';
+  render();
+}
+
+function undo() {
+  if (!G.history.length) return;
+  const prev = G.history.pop();
+  G.fox = prev.fox;
+  G.blocked = prev.blocked;
+  G.steps = prev.steps;
+  G.phase = 'playing';
+  G.hint = null;
+  G.lastMove = null;
+  G.msg = '';
+  track('foxhunt_undo', { game: 'fox-hunt', level: G.levelId, step: G.steps });
+  render();
+  say('已退回一步。');
+}
+
+function useHint() {
+  if (G.phase !== 'playing') return;
+  const h = hintAt(G.level, G.fox, G.blocked);
+  if (!h) { say('这一局已经封不出结果了 —— 重置再来。'); return; }
+  G.hints += 1;
+  G.hint = h;
+  track('foxhunt_hint', { game: 'fox-hunt', level: G.levelId, step: G.steps, hints: G.hints });
+  render();
+}
+
+function doReset() {
+  track('foxhunt_reset', { game: 'fox-hunt', level: G.levelId, step: G.steps });
+  resetLevel(G.levelId, { silent: true });
+}
+
+function copyShare(btnId) {
+  const text = shareText();
+  const done = (ok) => {
+    G.shareMsg = ok ? '已复制 ✓' : '复制失败，请手动选中文案';
+    track('share', { game: 'fox-hunt', level: G.levelId, won: G.phase === 'win' });
+    const box = document.querySelector('.sharebox .share-msg') || document.getElementById('share-msg');
+    if (box) box.textContent = G.shareMsg;
+    const b = document.getElementById(btnId);
+    if (b) b.textContent = G.shareMsg;
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => done(true)).catch(() => done(false));
+  } else {
+    done(false);
+  }
+}
+
+/** 输棋后「该从哪一步改」：往前找回最后一个还能赢的状态，给一次提示。 */
+function reviewLastMove() {
+  const box = document.getElementById('losetip');
+  if (!box || !G.history.length) return;
+  for (let i = G.history.length - 1; i >= 0; i--) {
+    const st = G.history[i];
+    const h = hintAt(G.level, st.fox, st.blocked);
+    if (!h) continue;                                  // 这一步已经回天无术，继续往前找
+    box.hidden = false;
+    box.innerHTML = `第 ${st.steps + 1} 步更该封 <b>${h.vertex + 1}</b> 号点 —— 那个封法之后还要 <b>${h.remaining}</b> 步才能围死它。点「撤销一步」可以一步一步退回去重来。`;
+    G.hints += 1;
+    track('foxhunt_hint', { game: 'fox-hunt', level: G.levelId, step: st.steps, hints: G.hints, mode: 'review' });
+    return;
+  }
+  box.hidden = false;
+  box.innerHTML = '这一局从第一步起就已经没救了，只能重置。';
+}
+
+function bindEvents() {
+  app.querySelectorAll('#graph .node[data-node]').forEach((el) => {
+    const v = Number(el.dataset.node);
+    el.addEventListener('click', () => blockAt(v));
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); blockAt(v); }
+    });
+  });
+  app.querySelectorAll('.levelbar button[data-level]').forEach((el) => {
+    el.addEventListener('click', () => resetLevel(el.dataset.level));
+  });
+  const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+  on('btnHint', useHint);
+  on('btnUndo', undo);
+  on('btnReset', doReset);
+  on('btnShare', () => copyShare('btnShare'));
+  on('btnShare2', () => copyShare('btnShare2'));
+  on('btnRetry', () => resetLevel(G.levelId));
+  on('btnNextLevel', () => {
+    const idx = LEVELS.findIndex((l) => l.id === G.levelId);
+    resetLevel(LEVELS[(idx + 1) % LEVELS.length].id);
+  });
+  on('btnHintLose', reviewLastMove);
+}
+
+/* ── 暴露给测试 ── */
+window.Fox = {
+  LEVELS, levelById, adjOf, foxMoves, legalPlacements, initialState, denDistances,
+  disjointPathCount, staticNeed, makeSolver, solverOf, analyseLevel, foxChoice, hintAt,
+  popcount, bitOf, isBlocked, resetLevel, blockAt, undo, useHint, doReset, reviewLastMove,
+};
+window.__fox = G;
+
+loadBest();
+resetLevel(LEVELS[0].id);
+</script>
+</body>
+</html>
