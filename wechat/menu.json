@@ -1,58 +1,25 @@
 {
   "button": [
     {
-      "name": "玩一关",
+      "name": "开始",
       "sub_button": [
-        {
-          "type": "view",
-          "name": "游戏大厅",
-          "url": "https://airseai6.github.io/fusion-data-academy/wechat/"
-        },
-        {
-          "type": "view",
-          "name": "每日一题",
-          "url": "https://airseai6.github.io/fusion-data-academy/puzzle/digits/"
-        },
-        {
-          "type": "view",
-          "name": "挑战营",
-          "url": "https://airseai6.github.io/fusion-data-academy/wechat/#follow"
-        }
+        { "type": "click", "name": "今日一题", "key": "PLAY_TODAY" },
+        { "type": "click", "name": "全部游戏", "key": "PLAY_ALL" },
+        { "type": "click", "name": "随便看看", "key": "FEATURED" }
       ]
     },
     {
-      "name": "领资料",
+      "name": "看看",
       "sub_button": [
-        {
-          "type": "click",
-          "name": "打印包",
-          "key": "PRINT_PACK"
-        },
-        {
-          "type": "click",
-          "name": "20 集目录",
-          "key": "FUSION_CATALOG"
-        },
-        {
-          "type": "click",
-          "name": "教师合作",
-          "key": "COOP"
-        }
+        { "type": "click", "name": "精选内容", "key": "FEATURED" },
+        { "type": "click", "name": "聚变目录", "key": "FUSION_CATALOG" }
       ]
     },
     {
-      "name": "关于",
+      "name": "联系",
       "sub_button": [
-        {
-          "type": "view",
-          "name": "全部游戏",
-          "url": "https://airseai6.github.io/fusion-data-academy/brain/"
-        },
-        {
-          "type": "click",
-          "name": "联系我",
-          "key": "CONTACT"
-        }
+        { "type": "click", "name": "合作交流", "key": "COOP" },
+        { "type": "click", "name": "关于我", "key": "ABOUT" }
       ]
     }
   ]
