@@ -95,4 +95,6 @@
 - **G1《数字侦探》**：已上线，live E2E 通过；
 - **G2《最后一颗 · Nim 取子》**：已实现并上线（`puzzle/nim/index.html`，commit `66ecca3`），
   live E2E 8/8（赢/输/模式切换/提示/移动端）；逻辑单测 7/7（含 misère DP 最优性）。
+- **G3《汉诺塔 · 最少步》**：已实现并上线（`puzzle/hanoi/index.html`，commit `6d43084`），
+  live E2E 6/6（最优 7 步完成/非法移动/提示/层数切换/移动端）；逻辑单测 5/5（含 BFS 最优路径）。
 
