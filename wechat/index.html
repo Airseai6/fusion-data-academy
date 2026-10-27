@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>大脑保健操 · 9 个免费数学小游戏</title>
+<meta name="description" content="每天 3 分钟，玩一个反直觉数学游戏。抓狐狸、数字侦探、Nim、汉诺塔、十五数码、24点、过河、围堵狐狸、聚变堆叠，全部免费。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0F14;--panel:#141A22;--panel2:#0E141B;--line:#232C38;
+  --ink:#E8EDF4;--dim:#96A5B8;--dim2:#7A8798;
+  --amber:#FFB347;--teal:#5BD9BE;--violet:#B79CFF;--fox:#FF8A4C;--ok:#4ADE80;
+}
+body{
+  background:radial-gradient(circle at 50% -20%,#1b2532 0,#0B0F14 55%) fixed;
+  color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  min-height:100vh;display:flex;justify-content:center;padding:20px 14px 48px;-webkit-font-smoothing:antialiased;
+}
+.wrap{width:100%;max-width:760px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:26px;font-size:12px;color:var(--dim)}
+.top a{color:var(--dim);text-decoration:none}
+.top a:hover{color:var(--ink)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:.02em;color:var(--ink)}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 16px var(--amber)}
+.kicker{font-size:11px;letter-spacing:.18em;color:var(--amber);font-family:Consolas,monospace;margin-bottom:10px}
+h1{font-size:30px;line-height:1.25;letter-spacing:.01em;margin-bottom:12px}
+h1 em{font-style:normal;color:var(--amber)}
+.lead{font-size:14px;line-height:1.9;color:#B6C3D2;margin-bottom:22px}
+.cta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:26px}
+.cta a,.cta button{
+  display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 18px;border-radius:10px;
+  text-decoration:none;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;border:1px solid var(--line);
+  background:var(--panel);color:var(--ink);transition:.15s;
+}
+.cta a.primary{background:var(--amber);border-color:var(--amber);color:#1A1004}
+.cta a.primary:hover{background:#ffc56d}
+.cta a:hover{border-color:var(--teal)}
+.cta .ghost{font-weight:500}
+
+.games{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:10px 0 24px}
+.card{
+  display:flex;flex-direction:column;gap:7px;position:relative;overflow:hidden;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 15px 14px;
+  text-decoration:none;color:var(--ink);transition:.15s;min-height:132px;
+}
+.card:hover{border-color:var(--teal);transform:translateY(-1px)}
+.card:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 100% 0,rgba(91,217,190,.10),transparent 55%);pointer-events:none}
+.card .icon{font-size:22px;line-height:1}
+.card .name{font-size:16px;font-weight:700}
+.card .desc{font-size:12px;line-height:1.75;color:var(--dim);flex:1}
+.card .tag{font-size:10px;color:var(--teal);font-family:Consolas,monospace;letter-spacing:.04em}
+.card .arrow{position:absolute;right:13px;bottom:11px;color:var(--dim2);font-size:16px;transition:.15s}
+.card:hover .arrow{color:var(--teal);transform:translateX(2px)}
+.card.digits:before{background:radial-gradient(circle at 100% 0,rgba(91,217,190,.12),transparent 55%)}
+.card.nim:before{background:radial-gradient(circle at 100% 0,rgba(255,179,71,.12),transparent 55%)}
+.card.hanoi:before{background:radial-gradient(circle at 100% 0,rgba(183,156,255,.12),transparent 55%)}
+.card.fifteen:before{background:radial-gradient(circle at 100% 0,rgba(96,165,250,.12),transparent 55%)}
+.card.fusion:before{background:radial-gradient(circle at 100% 0,rgba(255,138,76,.12),transparent 55%)}
+
+.follow{
+  display:flex;gap:14px;align-items:center;justify-content:space-between;
+  background:linear-gradient(135deg,rgba(255,179,71,.10),rgba(255,179,71,.02));
+  border:1px solid rgba(255,179,71,.35);border-radius:16px;padding:18px;margin:22px 0;
+}
+.follow .copy{flex:1;min-width:0}
+.follow .copy .k{font-size:11px;color:var(--amber);font-family:Consolas,monospace;letter-spacing:.1em;margin-bottom:6px}
+.follow .copy .t{font-size:16px;font-weight:700;margin-bottom:6px}
+.follow .copy .d{font-size:12.5px;line-height:1.8;color:#B6C3D2}
+.follow .copy b{color:var(--amber)}
+.qr{
+  flex:0 0 92px;width:92px;height:92px;border-radius:10px;border:1px dashed rgba(255,179,71,.55);
+  background:#0D1117;display:flex;align-items:center;justify-content:center;text-align:center;
+  font-size:9px;line-height:1.6;color:var(--dim2);padding:8px;
+}
+.follow small{display:block;color:var(--dim2);font-size:10px;margin-top:6px}
+
+.camp{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:22px 0}
+.camp h3{font-size:17px;margin-bottom:6px}
+.camp p{font-size:13px;line-height:1.9;color:#B6C3D2;margin-bottom:10px}
+.camp p b{color:var(--teal)}
+.camp .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.camp .step{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.camp .step b{display:block;color:var(--amber);font-size:18px;margin-bottom:3px}
+.camp .step span{font-size:11px;color:var(--dim)}
+.camp a{color:var(--teal);text-decoration:none;font-size:13px}
+
+footer{margin-top:28px;color:var(--dim2);font-size:11.5px;line-height:1.9;text-align:center}
+footer a{color:var(--dim);text-decoration:none}
+@media (max-width:560px){
+  body{padding:14px 10px 40px}
+  h1{font-size:25px}
+  .games{gap:9px}
+  .card{padding:13px 12px;min-height:126px}
+  .card .name{font-size:15px}
+  .follow{align-items:flex-start}
+  .qr{flex-basis:78px;width:78px;height:78px}
+  .camp .steps{grid-template-columns:1fr}
+}
+</style>
+<script src="../analytics.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <span class="brand"><span class="dot"></span>大脑保健操</span>
+    <a href="../brain/">回全部游戏 →</a>
+  </div>
+
+  <div class="kicker">每天 3 分钟 · 拆掉一个想当然</div>
+  <h1>9 个免费数学游戏，<br><em>玩着玩着就懂了。</em></h1>
+  <p class="lead">
+    这里没有背公式。每一关都是一个“你以为很简单、试了才发现不对”的数学直觉陷阱：
+    抓狐狸、数字侦探、Nim、汉诺塔、十五数码、24点、过河、围堵狐狸、聚变堆叠。<br>
+    手机直接玩，不用注册。
+  </p>
+
+  <div class="cta">
+    <a class="primary" href="../puzzle/digits/">从《数字侦探》开始 →</a>
+    <a class="ghost" href="#follow">关注公众号领打印包</a>
+  </div>
+
+  <div class="games">
+    <a class="card digits" href="../puzzle/digits/?from=wechat" data-game="digits">
+      <span class="icon">🔢</span><span class="name">数字侦探</span>
+      <span class="desc">6 次猜出 4 位数，用 A/B 反馈把 5040 种可能缩到 1 个。</span>
+      <span class="tag">每日一题 · 信息论</span><span class="arrow">→</span>
+    </a>
+    <a class="card nim" href="../puzzle/nim/?from=wechat" data-game="nim">
+      <span class="icon">🪨</span><span class="name">最后一颗</span>
+      <span class="desc">三堆石子，取最后一颗的人赢或输。困难 AI 用二进制异或，让你越走越绝望。</span>
+      <span class="tag">博弈论 · 必败态</span><span class="arrow">→</span>
+    </a>
+    <a class="card hanoi" href="../puzzle/hanoi/?from=wechat" data-game="hanoi">
+      <span class="icon">🗼</span><span class="name">汉诺塔</span>
+      <span class="desc">3–6 层，最少步数 2ⁿ−1。看起来像手速题，其实是递归。</span>
+      <span class="tag">递归 · 指数增长</span><span class="arrow">→</span>
+    </a>
+    <a class="card fifteen" href="../puzzle/fifteen/?from=wechat" data-game="fifteen">
+      <span class="icon">🧩</span><span class="name">十五数码</span>
+      <span class="desc">一半的滑块局面永远解不开。开局数一下逆序数，三秒知道有没有救。</span>
+      <span class="tag">不变量 · 图论</span><span class="arrow">→</span>
+    </a>
+    <a class="card" href="../puzzle/24/?from=wechat" data-game="24">
+      <span class="icon">🕐</span><span class="name">24点</span>
+      <span class="desc">4 个数字、60 秒，用 +−×÷ 凑 24。有些牌必须经过分数，只肯用整数就走不通。</span>
+      <span class="tag">搜索 · 分数陷阱</span><span class="arrow">→</span>
+    </a>
+    <a class="card" href="../puzzle/river/?from=wechat" data-game="river">
+      <span class="icon">⛵</span><span class="name">过河</span>
+      <span class="desc">狼羊菜、传教士与野人。看起来是常识题，其实是在状态图上找最短路。</span>
+      <span class="tag">图搜索 · BFS</span><span class="arrow">→</span>
+    </a>
+    <a class="card" href="../puzzle/fox-hunt/?from=wechat" data-game="fox-hunt">
+      <span class="icon">🦊</span><span class="name">围堵狐狸</span>
+      <span class="desc">在环、树、网格上封路围堵狐狸。每多封一个点，它就更难逃。</span>
+      <span class="tag">顶点割 · 追逃</span><span class="arrow">→</span>
+    </a>
+    <a class="card fusion" href="../puzzle/fusion-stack/?from=wechat" data-game="fusion-stack">
+      <span class="icon">⚛️</span><span class="name">聚变堆叠</span>
+      <span class="desc">2048 式滑动，但每一格是核素。合并就是一次聚变，能量按真实 Q 值累计。</span>
+      <span class="tag">聚变 · 能量阶梯</span><span class="arrow">→</span>
+    </a>
+    <a class="card" href="../?from=wechat" data-game="puzzle">
+      <span class="icon">🧠</span><span class="name">抓狐狸</span>
+      <span class="desc">经典路径图追逃：第一关有必胜策略，第二关你亲自证明环上无解。</span>
+      <span class="tag">图论 · 追逃策略</span><span class="arrow">→</span>
+    </a>
+  </div>
+
+  <div class="follow" id="follow">
+    <div class="copy">
+      <div class="k">关注公众号</div>
+      <div class="t">楠楠北北的大转盘</div>
+      <div class="d">
+        回复 <b>「打印」</b> 领《9 个数学游戏家庭打印包》<br>
+        回复 <b>「数学」</b> 进入游戏大厅<br>
+        回复 <b>「聚变」</b> 领 20 集目录
+      </div>
+      <small>二维码图待替换：wechat-qr.png（后台下载后放到 /wechat/ 目录）</small>
+    </div>
+    <div class="qr">公众号<br>二维码<br>待替换</div>
+  </div>
+
+  <div class="camp">
+    <h3>想和孩子一起玩？</h3>
+    <p>
+      我们正在开 <b>「21 天亲子思维挑战营」</b>：每天 1 个游戏 + 1 个思考题，
+      微信群陪跑，周末直播答疑。适合 6–12 岁，家长不需要懂数学。
+    </p>
+    <div class="steps">
+      <div class="step"><b>1</b><span>关注公众号</span></div>
+      <div class="step"><b>2</b><span>回复「营」</span></div>
+      <div class="step"><b>3</b><span>领取早鸟名额</span></div>
+    </div>
+    <p style="margin-bottom:0">机构/老师想要课堂包？回复 <b>「合作」</b> 获取 9 节课教案与授权方案。</p>
+  </div>
+
+  <footer>
+    免费 · 无登录 · 手机可玩 · 反直觉数学系列<br>
+    <a href="../brain/">全部游戏</a> · <a href="../lab/">交互实验室</a> · <a href="../">返回首页</a>
+  </footer>
+</div>
+<script>
+// 轻量来源标记：公众号菜单/文章/二维码分别带 ?from=
+(function(){
+  try{
+    var from = new URLSearchParams(location.search).get('from') || 'direct';
+    document.querySelectorAll('[data-game]').forEach(function(a){
+      var u = new URL(a.href, location.href);
+      u.searchParams.set('from', from + '_' + a.dataset.game);
+      a.href = u.href;
+    });
+    if (window.counters && window.counters.track) window.counters.track('wechat_landing', { from: from });
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

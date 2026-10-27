@@ -1,0 +1,59 @@
+{
+  "button": [
+    {
+      "name": "玩一关",
+      "sub_button": [
+        {
+          "type": "view",
+          "name": "游戏大厅",
+          "url": "https://airseai6.github.io/fusion-data-academy/wechat/"
+        },
+        {
+          "type": "view",
+          "name": "每日一题",
+          "url": "https://airseai6.github.io/fusion-data-academy/puzzle/digits/"
+        },
+        {
+          "type": "view",
+          "name": "挑战营",
+          "url": "https://airseai6.github.io/fusion-data-academy/wechat/#follow"
+        }
+      ]
+    },
+    {
+      "name": "领资料",
+      "sub_button": [
+        {
+          "type": "click",
+          "name": "打印包",
+          "key": "PRINT_PACK"
+        },
+        {
+          "type": "click",
+          "name": "20 集目录",
+          "key": "FUSION_CATALOG"
+        },
+        {
+          "type": "click",
+          "name": "教师合作",
+          "key": "COOP"
+        }
+      ]
+    },
+    {
+      "name": "关于",
+      "sub_button": [
+        {
+          "type": "view",
+          "name": "全部游戏",
+          "url": "https://airseai6.github.io/fusion-data-academy/brain/"
+        },
+        {
+          "type": "click",
+          "name": "联系我",
+          "key": "CONTACT"
+        }
+      ]
+    }
+  ]
+}
