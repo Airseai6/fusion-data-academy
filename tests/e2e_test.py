@@ -296,20 +296,33 @@ def run(root: Path, headed=False):
         print("\n[G] 数字侦探 · G1 Bulls & Cows")
         game_url = web + "/puzzle/digits/"
 
-        # G1) 首页入口卡片可点进游戏
+        # G1) 首页 → 大脑保健操 → 数字侦探（架构调整后：首页不再直链游戏，
+        #     改为经 /brain/ hub 中转，所以测两层跳转）
         page.goto(web + "/index.html")
         page.wait_for_timeout(200)
-        card = page.query_selector('a.card[href="./puzzle/digits/"]')
+        card = page.query_selector('a.card[href="./brain/"]')
         if card:
-            ok("首页有数字侦探入口卡片")
+            ok("首页有「大脑保健操」入口卡片")
             card.click()
             page.wait_for_timeout(400)
-            if "数字侦探" in page.title():
-                ok("首页卡片可进入数字侦探")
+            if "大脑保健操" in page.title():
+                ok("首页卡片可进入大脑保健操")
+                # 第二层：hub → 数字侦探
+                sub = page.query_selector('a.card[href="../puzzle/digits/"]')
+                if sub:
+                    ok("大脑保健操有数字侦探卡片")
+                    sub.click()
+                    page.wait_for_timeout(500)
+                    if "数字侦探" in page.title():
+                        ok("大脑保健操可跳到数字侦探")
+                    else:
+                        bad("hub 跳转标题不对", page.title())
+                else:
+                    bad("大脑保健操缺数字侦探卡片")
             else:
                 bad("首页卡片跳转标题不对", page.title())
         else:
-            bad("首页缺数字侦探入口卡片")
+            bad("首页缺「大脑保健操」入口卡片")
 
         # G2) 说明页 + 每日种子稳定
         page.goto(game_url)

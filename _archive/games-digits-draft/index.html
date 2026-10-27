@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>反直觉 · 数字侦探（Bulls &amp; Cows）</title>
+<meta name="description" content="6 次机会猜出 4 位数字。每次告诉你几个数字对了、几个位置也对了 —— 用排除法把候选集缩到 1。每天一题，免费玩。">
+<meta property="og:title" content="反直觉 · 数字侦探">
+<meta property="og:description" content="6 次机会，4 位数字。用信息论赢下来。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0B0F14; --panel:#141A22; --line:#232C38; --line2:#3A4757;
+  --ink:#E8EDF4; --dim:#96A5B8; --dim2:#7A8798;
+  --amber:#FFB347; --fox:#FF8A4C; --teal:#5BD9BE;
+  --ok:#4ADE80; --bad:#F87171; --warn:#FBBF24;
+}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  min-height:100vh; display:flex; flex-direction:column; align-items:center;
+  padding:18px 14px 28px; -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+.wrap{width:100%;max-width:460px;display:flex;flex-direction:column;flex:1}
+
+/* ── 顶栏 ── */
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:16px;flex-wrap:wrap}
+.brand{font-size:11px;letter-spacing:.18em;color:var(--dim2);font-family:Consolas,monospace}
+.brand b{color:var(--fox)}
+.mode{font-size:11px;font-family:Consolas,monospace;color:var(--teal);
+  border:1px solid rgba(91,217,190,.35);padding:3px 9px;border-radius:3px}
+.mode.practice{color:var(--amber);border-color:rgba(255,179,71,.35)}
+
+/* ── 标题 ── */
+h1{font-size:22px;font-weight:700;margin-bottom:6px;letter-spacing:.02em}
+.sub{font-size:13px;color:var(--dim);line-height:1.75;margin-bottom:16px}
+.sub b{color:var(--ink)}
+
+/* ── 次数条 ── */
+.tries{display:flex;gap:5px;margin-bottom:14px}
+.tries i{flex:1;height:4px;border-radius:2px;background:var(--line2);transition:.2s}
+.tries i.used{background:var(--fox)}
+.tries i.now{background:var(--amber);box-shadow:0 0 8px rgba(255,179,71,.5)}
+.tries i.win{background:var(--ok)}
+.tries i.lose{background:var(--bad)}
+
+/* ── 输入格 ── */
+.slots{display:flex;gap:10px;justify-content:center;margin-bottom:15px}
+.slot{
+  width:60px;height:74px;border-radius:8px;
+  background:#161E28;border:2px solid var(--line2);
+  display:flex;align-items:center;justify-content:center;
+  font-family:Consolas,monospace;font-size:34px;font-weight:700;color:var(--ink);
+  box-shadow:inset 0 3px 12px rgba(0,0,0,.5);
+  transition:.12s;
+}
+.slot.filled{border-color:var(--amber);color:var(--amber)}
+.slot.cursor{border-color:var(--amber);box-shadow:inset 0 3px 12px rgba(0,0,0,.4),0 0 14px rgba(255,179,71,.3)}
+.slot.bad{border-color:var(--bad);animation:shake .32s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+/* ── 键盘 ── */
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.key{
+  height:52px;border-radius:7px;border:1px solid var(--line2);
+  background:#161E28;color:var(--ink);
+  font-family:Consolas,monospace;font-size:21px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:.1s;user-select:none;
+}
+.key:active{transform:scale(.95);background:#1E2836}
+.key.del{color:var(--bad);font-size:15px}
+.key.sub{background:var(--fox);border-color:var(--fox);color:#180D06;font-size:16px;font-weight:700}
+.key.sub:active{background:#FFA06E}
+.key:disabled{opacity:.3;cursor:not-allowed;transform:none}
+
+/* ── 提示 ── */
+.msg{min-height:20px;text-align:center;font-size:12.5px;color:var(--bad);margin-bottom:10px;
+  font-family:Consolas,monospace;letter-spacing:.02em}
+.msg.ok{color:var(--ok)}
+.msg.info{color:var(--dim)}
+
+/* ── 历史 ── */
+.hist{flex:1;min-height:80px}
+.hrow{
+  display:flex;align-items:center;gap:10px;padding:9px 12px;
+  border-radius:7px;background:var(--panel);border:1px solid var(--line);
+  margin-bottom:6px;font-family:Consolas,monospace;
+  animation:slide .2s ease-out;
+}
+@keyframes slide{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+.hrow .num{font-size:20px;font-weight:700;letter-spacing:.16em;color:var(--ink);flex:1}
+.hrow .fb{display:flex;gap:6px}
+.hrow .chip{
+  font-size:12px;padding:3px 9px;border-radius:4px;font-weight:700;
+  background:rgba(74,222,128,.14);color:var(--ok);border:1px solid rgba(74,222,128,.3);
+}
+.hrow .chip.b{background:rgba(255,179,71,.14);color:var(--amber);border-color:rgba(255,179,71,.3)}
+.hrow .chip.z{background:rgba(122,135,152,.1);color:var(--dim2);border-color:var(--line2)}
+.hrow .day{font-size:10px;color:var(--dim2);opacity:.6}
+
+/* ── 结算 ── */
+.over{text-align:center;padding:18px 0}
+.over .big{font-size:42px;margin:6px 0 14px}
+.over h2{font-size:20px;margin-bottom:12px}
+.over .ans{font-family:Consolas,monospace;font-size:30px;font-weight:700;
+  color:var(--amber);letter-spacing:.22em;margin:8px 0 18px}
+.explain{
+  background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--teal);
+  border-radius:7px;padding:14px 16px;margin:16px 0;text-align:left;
+  font-size:13px;line-height:1.9;color:#C2CEDC;
+}
+.explain b{color:var(--teal)}
+.explain .k{color:var(--amber);font-family:Consolas,monospace}
+
+/* ── 按钮 ── */
+.btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:14px}
+button{
+  font-family:inherit;font-size:14px;padding:12px 22px;border-radius:7px;
+  border:1px solid var(--line2);background:var(--panel);color:var(--ink);
+  cursor:pointer;transition:.15s;
+}
+button:hover{border-color:var(--amber)}
+button.primary{background:var(--fox);border-color:var(--fox);color:#180D06;font-weight:700}
+button.primary:hover{background:#FFA06E}
+
+/* ── 分享条 ── */
+.share-tip{
+  margin-top:14px;padding:12px 14px;border-radius:7px;
+  background:rgba(91,217,190,.06);border:1px dashed rgba(91,217,190,.3);
+  font-size:12px;line-height:1.8;color:var(--dim);text-align:left;
+}
+.share-tip b{color:var(--teal)}
+
+/* ── 页脚 ── */
+.foot{margin-top:22px;font-size:11.5px;color:var(--dim2);text-align:center;line-height:1.9}
+.foot a{color:var(--dim);text-decoration:none;border-bottom:1px dotted var(--line2)}
+.foot a:hover{color:var(--amber)}
+
+/* ── 移动端 ── */
+@media (max-width:420px){
+  body{padding:14px 11px 22px}
+  h1{font-size:20px}
+  .slot{width:52px;height:64px;font-size:30px}
+  .key{height:48px;font-size:19px}
+  .hrow .num{font-size:18px}
+}
+@media (max-height:680px){
+  .slot{height:58px;font-size:26px}
+  .key{height:44px}
+  .hist{min-height:60px}
+}
+</style>
+<script src="../../analytics.js"></script>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════
+   核心：Bulls & Cows 反馈计算
+   ══════════════════════════════════════════════════════════
+   A = 数字对 + 位置对
+   B = 数字对 + 位置错（每个数字只算一次）
+   ══════════════════════════════════════════════════════════ */
+function feedback(secret, guess) {
+  const s = secret.split(''), g = guess.split('');
+  const usedS = [false, false, false, false];
+  const usedG = [false, false, false, false];
+  let A = 0, B = 0;
+
+  // 第一轮：位置也对
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === g[i]) { A++; usedS[i] = true; usedG[i] = true; }
+  }
+  // 第二轮：数字对但位置错（跳过已用的）
+  for (let i = 0; i < g.length; i++) {
+    if (usedG[i]) continue;
+    for (let j = 0; j < s.length; j++) {
+      if (!usedS[j] && s[j] === g[i]) { B++; usedS[j] = true; break; }
+    }
+  }
+  return { A, B };
+}
+
+/* ══════════════════════════════════════════════════════════
+   随机与种子
+   ══════════════════════════════════════════════════════════ */
+function hashStr(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * 生成谜底
+ * @param seedStr 种子字符串；null = 纯随机（练习模式）
+ * @param allowRepeat 允许重复数字
+ */
+function makeSecret(seedStr, allowRepeat) {
+  const rand = seedStr ? mulberry32(hashStr(seedStr)) : Math.random;
+  let digits;
+  if (allowRepeat) {
+    digits = [];
+    for (let i = 0; i < 4; i++) digits.push(Math.floor(rand() * 10));
+  } else {
+    const pool = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    // Fisher-Yates 前 4 个
+    for (let i = 0; i < 4; i++) {
+      const j = i + Math.floor(rand() * (10 - i));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    digits = pool.slice(0, 4);
+  }
+  return digits.join('');
+}
+
+/** 今天的日期键（本地时区，YYYY-MM-DD） */
+function todayKey() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/* ══════════════════════════════════════════════════════════
+   状态
+   ══════════════════════════════════════════════════════════ */
+const MAX_TRIES = 6;
+const LS_KEY = 'fd.digits.v1';
+
+const G = {
+  mode: 'daily',        // daily | practice
+  hard: false,          // 允许重复
+  secret: '',
+  guess: '',
+  history: [],          // [{guess, A, B}]
+  phase: 'play',        // play | win | lose
+  msg: '',
+  msgType: '',
+  shake: false,
+  seenToday: {},        // 已完成的日期
+};
+
+function loadStore() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+    G.seenToday = d.done || {};
+    G.hard = !!d.hard;
+  } catch (e) { G.seenToday = {}; }
+}
+function saveStore() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ done: G.seenToday, hard: G.hard }));
+  } catch (e) {}
+}
+
+/* ══════════════════════════════════════════════════════════
+   开局
+   ══════════════════════════════════════════════════════════ */
+function newGame(mode, hard) {
+  G.mode = mode || G.mode;
+  if (typeof hard === 'boolean') G.hard = hard;
+  G.secret = makeSecret(
+    G.mode === 'daily' ? 'fd-digits-' + todayKey() + (G.hard ? '-hard' : '') : null,
+    G.hard
+  );
+  G.guess = '';
+  G.history = [];
+  G.phase = 'play';
+  G.msg = '';
+  G.msgType = '';
+  track('game_start', { difficulty: G.hard ? 'hard' : 'normal' });
+  saveStore();
+  render();
+}
+
+function track(name, props) {
+  try {
+    if (window.counters) {
+      window.counters.track(name, Object.assign({ game: 'digits' }, props || {}));
+    }
+  } catch (e) {}
+}
+
+/* ══════════════════════════════════════════════════════════
+   输入
+   ══════════════════════════════════════════════════════════ */
+function press(d) {
+  if (G.phase !== 'play') return;
+  if (G.guess.length >= 4) return;
+  G.guess += d;
+  G.msg = '';
+  G.msgType = '';
+  render();
+}
+
+function backspace() {
+  if (G.phase !== 'play') return;
+  G.guess = G.guess.slice(0, -1);
+  G.msg = '';
+  G.msgType = '';
+  render();
+}
+
+function submit() {
+  if (G.phase !== 'play') return;
+
+  // 非法：长度
+  if (G.guess.length !== 4) {
+    fail('需要 4 位数字（还差 ' + (4 - G.guess.length) + ' 位）');
+    return;
+  }
+  // 非法：重复（非困难模式）
+  if (!G.hard && new Set(G.guess.split('')).size !== 4) {
+    fail('这一局不允许重复数字');
+    return;
+  }
+  // 非法：重复猜同一个
+  if (G.history.some(h => h.guess === G.guess)) {
+    fail('这个数已经猜过了');
+    return;
+  }
+
+  const { A, B } = feedback(G.secret, G.guess);
+  G.history.push({ guess: G.guess, A, B });
+  G.guess = '';
+
+  // 赢
+  if (A === 4) {
+    G.phase = 'win';
+    G.seenToday[todayKey()] = { win: true, tries: G.history.length, hard: G.hard };
+    saveStore();
+    track('game_win', { difficulty: G.hard ? 'hard' : 'normal', tries: G.history.length });
+    render();
+    return;
+  }
+  // 输
+  if (G.history.length >= MAX_TRIES) {
+    G.phase = 'lose';
+    G.seenToday[todayKey()] = { win: false, tries: MAX_TRIES, hard: G.hard };
+    saveStore();
+    track('game_fail', { difficulty: G.hard ? 'hard' : 'normal' });
+    render();
+    return;
+  }
+  render();
+}
+
+function fail(text) {
+  G.msg = text;
+  G.msgType = '';
+  G.shake = true;
+  render();
+  setTimeout(() => { G.shake = false; }, 340);
+}
+
+/* ══════════════════════════════════════════════════════════
+   渲染
+   ══════════════════════════════════════════════════════════ */
+const app = document.getElementById('app');
+
+function triesBar() {
+  const used = G.history.length;
+  let html = '';
+  for (let i = 0; i < MAX_TRIES; i++) {
+    let cls = '';
+    if (i < used) cls = G.phase === 'win' ? 'used win' : (G.phase === 'lose' ? 'used lose' : 'used');
+    else if (i === used && G.phase === 'play') cls = 'now';
+    html += `<i class="${cls}"></i>`;
+  }
+  return `<div class="tries">${html}</div>`;
+}
+
+function slots() {
+  let html = '';
+  for (let i = 0; i < 4; i++) {
+    const ch = G.guess[i] || '';
+    const cls = ['slot'];
+    if (ch) cls.push('filled');
+    if (i === G.guess.length && G.phase === 'play') cls.push('cursor');
+    if (G.shake) cls.push('bad');
+    html += `<div class="${cls.join(' ')}">${ch}</div>`;
+  }
+  return `<div class="slots">${html}</div>`;
+}
+
+function pad() {
+  const keys = ['1','2','3','4','5','6','7','8','9','del','0','sub'];
+  return '<div class="pad">' + keys.map(k => {
+    if (k === 'del') return `<div class="key del" data-k="del">删除</div>`;
+    if (k === 'sub') {
+      const dis = (G.guess.length !== 4 || G.phase !== 'play') ? 'disabled' : '';
+      return `<div class="key sub" data-k="sub" ${dis ? 'style="opacity:.35;cursor:not-allowed"' : ''}>提交</div>`;
+    }
+    return `<div class="key" data-k="${k}">${k}</div>`;
+  }).join('') + '</div>';
+}
+
+function hist() {
+  if (!G.history.length) {
+    return '<div class="hist"><div style="text-align:center;color:#5A6572;font-size:12px;padding:20px 0;font-family:Consolas,monospace">还没有猜测记录</div></div>';
+  }
+  const rows = G.history.map((h, i) => {
+    const aCls = h.A > 0 ? 'chip' : 'chip z';
+    const bCls = h.B > 0 ? 'chip b' : 'chip z';
+    return `<div class="hrow">
+      <span class="day">${i + 1}</span>
+      <span class="num">${h.guess}</span>
+      <span class="fb">
+        <span class="${aCls}">${h.A}A</span>
+        <span class="${bCls}">${h.B}B</span>
+      </span>
+    </div>`;
+  }).join('');
+  return `<div class="hist">${rows}</div>`;
+}
+
+function render() {
+  if (G.phase === 'play') return renderPlay();
+  return renderOver();
+}
+
+function renderPlay() {
+  const modeLabel = G.mode === 'daily' ? '每日 · ' + todayKey() : '练习模式';
+  const done = G.seenToday[todayKey()];
+  const doneTip = (G.mode === 'daily' && done && !G.history.length)
+    ? `<div class="sub" style="color:var(--amber)">今天已经玩过了（${done.win ? '✓ 赢' : '✗ 输'}，第 ${done.tries} 次）。可以再练一局。</div>`
+    : '';
+
+  app.innerHTML = `
+    <div class="top">
+      <span class="brand">反直觉 · <b>数字侦探</b></span>
+      <span class="mode ${G.mode === 'practice' ? 'practice' : ''}">${modeLabel}</span>
+    </div>
+    <h1>6 次，猜出这 4 位数</h1>
+    <div class="sub">
+      每次反馈：<b>A</b> = 数字和位置都对，<b>B</b> = 数字对但位置错。<br>
+      ${G.hard ? '困难模式：数字<b>可以重复</b>。' : '默认：4 位数字<b>不重复</b>。'}
+    </div>
+    ${doneTip}
+    ${triesBar()}
+    ${slots()}
+    <div class="msg ${G.msgType}">${G.msg || '&nbsp;'}</div>
+    ${pad()}
+    ${hist()}
+    <div class="btns">
+      <button id="btn-new">重新开始</button>
+      <button id="btn-mode">${G.mode === 'daily' ? '练习模式' : '每日一题'}</button>
+      <button id="btn-hard">${G.hard ? '普通难度' : '困难难度'}</button>
+    </div>
+    <div class="foot">
+      每日一题：同一天全世界同一道题。<br>
+      <a href="../">← 回反直觉合集</a>
+    </div>
+  `;
+  bindPad();
+  document.getElementById('btn-new').onclick = () => newGame();
+  document.getElementById('btn-mode').onclick = () => newGame(G.mode === 'daily' ? 'practice' : 'daily');
+  document.getElementById('btn-hard').onclick = () => newGame(G.mode, !G.hard);
+}
+
+function bindPad() {
+  app.querySelectorAll('.key').forEach(el => {
+    el.onclick = () => {
+      const k = el.dataset.k;
+      if (k === 'del') backspace();
+      else if (k === 'sub') submit();
+      else press(k);
+    };
+  });
+}
+
+function renderOver() {
+  const win = G.phase === 'win';
+  const tries = G.history.length;
+
+  const explain = win
+    ? (tries <= 3
+        ? `<b>你用了 ${tries} 次</b> —— 接近理论下限。<br>4 位不重复数字共有 <span class="k">5040</span> 种可能，每次猜测平均能排除约 <span class="k">10</span> 倍，所以 <span class="k">log₁₀(5040) ≈ 3.7</span> 次是信息论下界。`
+        : `<b>你用了 ${tries} 次</b>。想更少？<br>优先猜那些"无论结果如何都能砍掉最多候选"的数 —— 数学上叫<b>最大熵猜测</b>。`
+      )
+    : `答案是 <span class="k">${G.secret}</span>。<br>4 位不重复共 <span class="k">5040</span> 种，6 次足够覆盖。<br>下一次试试：前两轮专挑<b>覆盖面广</b>的数字（如 1234、5678），先把数字集合确定下来。`;
+
+  const shareText = win
+    ? `我在《反直觉 · 数字侦探》用 ${tries}/6 猜出了 4 位数（${G.hard ? '困难' : '普通'}）。你能几次？ ai​rseai6.github.io/fusion-data-academy/games/digits/`.replace('\u200b','')
+    : `《反直觉 · 数字侦探》今天这道我卡在第 6 次了。你来试试？ airseai6.github.io/fusion-data-academy/games/digits/`;
+
+  app.innerHTML = `
+    <div class="top">
+      <span class="brand">反直觉 · <b>数字侦探</b></span>
+      <span class="mode ${G.mode === 'practice' ? 'practice' : ''}">${G.mode === 'daily' ? '每日 · ' + todayKey() : '练习模式'}</span>
+    </div>
+    <div class="over">
+      <div class="big">${win ? '🎯' : '💤'}</div>
+      <h2>${win ? `猜中了 —— ${tries} 次` : '6 次用完了'}</h2>
+      <div class="ans">${G.secret}</div>
+      <div class="explain">${explain}</div>
+      <div class="share-tip">
+        <b>分享这句话：</b><br>
+        ${shareText}
+      </div>
+      <div class="btns">
+        <button class="primary" id="btn-again">再来一局</button>
+        <button id="btn-share">复制分享文案</button>
+      </div>
+      <div class="btns">
+        <button id="btn-daily">每日一题</button>
+        <button id="btn-practice">练习模式</button>
+      </div>
+      <div class="foot">
+        <a href="../">← 回反直觉合集</a>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('btn-again').onclick = () => newGame(G.mode);
+  document.getElementById('btn-daily').onclick = () => newGame('daily');
+  document.getElementById('btn-practice').onclick = () => newGame('practice');
+  document.getElementById('btn-share').onclick = () => {
+    copyText(shareText);
+    track('share', { difficulty: G.hard ? 'hard' : 'normal', win: win });
+    const btn = document.getElementById('btn-share');
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => { btn.textContent = '复制分享文案'; }, 1600);
+  };
+}
+
+function copyText(t) {
+  try {
+    if (navigator.clipboard) { navigator.clipboard.writeText(t); return; }
+  } catch (e) {}
+  const ta = document.createElement('textarea');
+  ta.value = t;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  document.body.removeChild(ta);
+}
+
+/* ══════════════════════════════════════════════════════════
+   启动
+   ══════════════════════════════════════════════════════════ */
+loadStore();
+newGame('daily');
+
+/* ── 物理键盘（桌面端）── */
+document.addEventListener('keydown', e => {
+  if (G.phase !== 'play') return;
+  if (/^[0-9]$/.test(e.key)) press(e.key);
+  else if (e.key === 'Backspace') { e.preventDefault(); backspace(); }
+  else if (e.key === 'Enter') submit();
+});
+</script>
+</body>
+</html>
