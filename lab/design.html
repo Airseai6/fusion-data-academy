@@ -176,6 +176,15 @@ details.deep[open] summary::after{transform:rotate(180deg)}
 }
 .go button:hover{background:var(--amber);color:#0A0E14;box-shadow:0 0 20px rgba(255,179,71,.3)}
 .go button:disabled{opacity:.35;cursor:not-allowed;border-color:#4A5768;color:#7C8798}
+/* 跨页出口 / CTA */
+.go-links{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+.go-links a{
+  font-size:13.5px;color:var(--dim);text-decoration:none;
+  border:1px solid var(--line);padding:9px 20px;border-radius:3px;transition:.16s;
+  font-family:Consolas,monospace;letter-spacing:.04em
+}
+.go-links a:hover{color:var(--amber);border-color:var(--amber)}
+.cta-line{text-align:center;font-size:12.5px;color:#5A6472;margin-top:16px;line-height:1.9}
 footer{
   max-width:680px;margin:0 auto;padding:0 24px 70px;
   font-family:Consolas,monospace;font-size:11.5px;color:#3A424E;
@@ -263,6 +272,7 @@ body.has-resume{padding-top:57px}
 .rb-no:hover{border-color:#4A5A6E;color:#B8C4D4}
 
 </style>
+<script src="../analytics.js"></script>
 </head>
 <body>
 
@@ -716,6 +726,13 @@ act2: {
           <div class="ro"><div class="ro-k">Q 值</div><div class="ro-v" id="ro-Q2">—</div></div>
           <div class="ro"><div class="ro-k">磁体成本</div><div class="ro-v" id="ro-mag" style="font-size:16px">—</div></div>
           <div class="ro"><div class="ro-k">技术路线</div><div class="ro-v" id="ro-tech" style="font-size:15px">—</div></div>
+        </div>
+        <div class="cq bad" id="ip-warn" style="display:none;margin:0 0 14px">
+          <div class="cq-h">
+            <span class="t">电流超限</span>
+            <span class="s bad">不可行</span>
+          </div>
+          <div class="cq-t" id="ip-warn-t">—</div>
         </div>
         <div class="cq" id="b-cq" style="margin-bottom:0">
           <div class="cq-h"><span class="t">评估</span><span class="s" id="b-cq-s">—</span></div>
@@ -1638,6 +1655,12 @@ act8: {
       <button id="go-act8">重新设计</button>
     </div>
 
+    <div class="go-links">
+      <a href="./shot.html">前作：第一次放电 →</a>
+      <a href="./index.html">返回实验室</a>
+    </div>
+    <p class="cta-line">关注公众号「楠楠北北的大转盘」回复「聚变」拿 20 集目录</p>
+
     <div class="replay-tip">
       ${grade === 'A'
         ? '优秀的设计。试试用更小的装置、更强的磁场达到同样的 Q —— 那是另一条路。'
@@ -1990,16 +2013,31 @@ function setupSize(nextId) {
     const cs = document.getElementById('size-cq-s');
     const bar = document.getElementById('size-bar');
     const tx = document.getElementById('size-cq-t');
+    const goBtn = document.getElementById('go-act1');
+    const aEl = document.getElementById('ro-A');
     cq.className = 'cq';
     bar.style.width = Math.min(q / 5 * 100, 100).toFixed(0) + '%';
+
+    // ── P1：退化几何拦截。a ≥ R₀ 等价于 A ≤ 1；本页把 A < 1.5 一律视为不可行几何 ──
+    const geoOK = A >= 1.5;
+    if (aEl) aEl.style.color = geoOK ? PAPER : RUST;
+    if (!geoOK) {
+      cq.classList.add('bad'); cs.className = 's bad'; cs.textContent = '不可行几何';
+      bar.style.background = RUST;
+      bar.style.width = '100%';
+      tx.innerHTML = `<b>环径比 A = ${A.toFixed(2)} &lt; 1.5 不是可行几何。</b><br>
+        A = R₀ / a；A ≤ 1 意味着 a ≥ R₀，等离子体把中心柱整个吞掉了，平衡无解。<br>
+        常规托卡马克 A ≈ 2.5–4，球形托卡马克下限约 A ≈ 1.2–1.5；本模型要求 A ≥ 1.5。<br>
+        <span style="color:var(--dim)">把 a 调小，或把 R₀ 调大——A 回到 1.5 以上才能继续。</span>`;
+      if (goBtn) goBtn.disabled = true;
+      return;
+    }
 
     if (q >= 5) {
       cq.classList.add('good'); cs.className = 's good'; cs.textContent = '达标';
       bar.style.background = TEAL;
       tx.innerHTML = `Q = <b>${q.toFixed(2)}</b>，目标达成。<br>
         成本指数 <b>${c.toFixed(0)}</b>——记住这个数，后面每次改动都要跟它对比。`;
-      const b = document.getElementById('go-act1');
-      if (b) setTimeout(() => { b.disabled = false; }, 400);
     } else if (q >= 3) {
       cq.classList.add('warn'); cs.className = 's warn'; cs.textContent = '还差';
       bar.style.background = AMBER;
@@ -2011,6 +2049,7 @@ function setupSize(nextId) {
       tx.innerHTML = `Q = ${q.toFixed(2)}。这个尺寸撑不起目标。<br>
         <span style="color:var(--dim)">把 R₀ 往上推。</span>`;
     }
+    if (goBtn) goBtn.disabled = q < 5;   // Q 达标且几何可行才放行
   }
 
   sr.addEventListener('input', update);
@@ -2131,12 +2170,28 @@ function setupB(nextId) {
         磁体绕完就是这个场强。<br>
         <span style="color:var(--dim)">（这一条路，值得，但要想清楚。）</span>`;
     }
+
+    // ── P1：电流上限拦截。Ip_auto() 超过 30 MA 即判定不可行，禁用继续 ──
+    const ip = Ip_auto();
+    const over = ip > 30;
+    const warn = document.getElementById('ip-warn');
+    if (warn) {
+      warn.style.display = over ? '' : 'none';
+      if (over) {
+        const wt = document.getElementById('ip-warn-t');
+        if (wt) wt.innerHTML = `<b>I_p = ${ip.toFixed(1)} MA &gt; 30 MA</b>——这个尺寸与磁场的组合
+          给出的等离子体电流超出本装置工程上限（约 30 MA）。<br>
+          线圈电源与偏滤器都撑不住，<b>「继续」已禁用</b>。<br>
+          <span style="color:var(--dim)">回到第一幕：把 a 调小或把 R₀ 调大，
+          A ≥ 1.5 之后电流才会回到合理区间。</span>`;
+      }
+    }
+    const gb = document.getElementById('go-act2');
+    if (gb) gb.disabled = over;
   }
 
   sb.addEventListener('input', update);
   update();
-  const b = document.getElementById('go-act2');
-  if (b) setTimeout(() => { b.disabled = false; }, 500);
 }
 
 /* ══════════════════════════════════════════════════════════════

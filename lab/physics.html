@@ -206,6 +206,37 @@ footer{
 }
 
 </style>
+<style id="exit-cta-style">
+.exit-cta{
+  max-width:640px;margin:44px auto 0;padding:24px 22px;border-radius:10px;
+  background:linear-gradient(135deg,rgba(91,217,190,.08),rgba(255,179,71,.06));
+  border:1px solid rgba(91,217,190,.28);text-align:left;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+}
+.exit-cta h3{font-size:15px;margin:0 0 14px;color:#5BD9BE;letter-spacing:.04em}
+.exit-cta .row{display:flex;gap:12px;flex-wrap:wrap}
+.exit-cta a{
+  flex:1 1 200px;display:flex;flex-direction:column;gap:5px;
+  padding:14px 16px;border-radius:8px;text-decoration:none;
+  background:#0E141B;border:1px solid #2E3B4D;transition:.15s;
+}
+.exit-cta a:hover{border-color:#5BD9BE;background:#121A24}
+.exit-cta a .t{font-size:14.5px;color:#F2EDE0;font-weight:600}
+.exit-cta a .d{font-size:12.5px;color:#8D9AAC;line-height:1.6}
+.exit-cta .qr{
+  display:flex;align-items:center;gap:14px;margin-top:16px;
+  padding-top:16px;border-top:1px dashed #2E3B4D;
+}
+.exit-cta .qr .ph{
+  width:88px;height:88px;flex:0 0 88px;border-radius:8px;
+  background:#0A0F14;border:1px dashed #3A4757;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:#6B7889;text-align:center;line-height:1.4;padding:6px;
+}
+.exit-cta .qr .txt{font-size:12.5px;color:#8D9AAC;line-height:1.8}
+.exit-cta .qr .txt b{color:#F2EDE0}
+</style>
+<script src="../analytics.js"></script>
 </head>
 <body>
 
@@ -836,5 +867,27 @@ window.addEventListener('resize', () => {
 
 /* 页面加载后立即显示，不做淡入（保证首屏立即可读） */
 </script>
+
+<div class="exit-cta">
+  <h3>沙盒摸完手感了 —— 去真的值一次班？</h3>
+  <div class="row">
+    <a href="shot.html">
+      <span class="t">《第一次放电》→</span>
+      <span class="d">你是夜班操作员，一台托卡马克等着你点火。7 幕，约 30 分钟，结局分 A/B/C。</span>
+    </a>
+    <a href="design.html">
+      <span class="t">《造一台》→</span>
+      <span class="d">从零设计一台聚变装置，在物理和成本之间取舍。9 幕，约 40 分钟。</span>
+    </a>
+  </div>
+  <div class="qr">
+    <div class="ph">二维码<br>待替换</div>
+    <div class="txt">
+      关注公众号，回复「<b>聚变</b>」<br>
+      拿 20 集完整视频合集 + 全部互动作品
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

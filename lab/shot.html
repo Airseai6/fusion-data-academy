@@ -241,6 +241,28 @@ details.deep[open] summary::after{transform:rotate(180deg)}
 .go button:disabled{opacity:.35;cursor:not-allowed;border-color:#4A5768;color:#7C8798}
 .go button:disabled:hover{background:#131A24;color:#7C8798;box-shadow:none}
 
+/* ══════════ 跨页链接 / CTA / 跳过按钮 ══════════ */
+.go .link-btn{
+  display:inline-block;padding:13px 30px;border:1px solid var(--teal);
+  border-radius:3px;color:var(--teal);text-decoration:none;
+  font-family:Consolas,monospace;font-size:14px;letter-spacing:.1em;
+  background:#0F1715;transition:.15s
+}
+.go .link-btn:hover{background:#123028;box-shadow:0 0 16px rgba(78,201,176,.28)}
+.cta-line{
+  margin:26px auto 0;max-width:560px;text-align:center;font-size:13px;
+  color:#9AA5B1;line-height:1.9
+}
+.cta-line b{color:var(--amber);font-weight:600}
+.skip-row{text-align:center;margin:30px 0 0}
+.skip-btn{
+  background:transparent;border:1px dashed #3A4658;color:#7C8798;
+  padding:9px 20px;border-radius:3px;cursor:pointer;font-family:Consolas,monospace;
+  font-size:12.5px;letter-spacing:.06em;transition:.15s
+}
+.skip-btn:hover{border-color:#5A6F88;color:#B8C4D4}
+.skip-btn:disabled{opacity:.4;cursor:not-allowed}
+
 /* 内容立即可见（不做入场动画，保证任何环境下都可读） */
 .fade{}
 
@@ -351,6 +373,7 @@ body.has-resume{padding-top:57px}
 }
 
 </style>
+<script src="../analytics.js"></script>
 </head>
 <body>
 
@@ -764,6 +787,10 @@ k = 0.943 V/T    (R² = 0.9987)</div>
       </div>
     </details>
 
+    <div class="skip-row">
+      <button id="skip-act1" class="skip-btn">跳过空载测试（信任 -10）</button>
+    </div>
+
     <div class="go"><button id="go-act1" disabled>继续</button></div>
   `,
   after: 'setupCoils',
@@ -974,9 +1001,9 @@ act3: {
         <div class="ctrl">
           <div class="ctrl-head">
             <span class="ctrl-name">电流剖面（峰化度）</span>
-            <span class="ctrl-val" id="qpeak-val">2.40</span>
+            <span class="ctrl-val" id="qpeak-val">3.00</span>
           </div>
-          <input type="range" id="qpeak" min="1" max="3" step="0.05" value="2.4">
+          <input type="range" id="qpeak" min="1" max="3" step="0.05" value="3">
           <div class="ctrl-hint">往左＝摊开（中心电流少）／往右＝集中（中心电流多）</div>
         </div>
         <canvas id="cv-q" height="270"></canvas>
@@ -1476,7 +1503,7 @@ act6: {
 act7: {
   n: '七幕', t: '交报告',
   render: () => {
-    const trust = S.trust;
+    const trust = Math.max(0, Math.min(100, S.trust));
     const found = S.flags.foundPF4;
     const grade = trust >= 75 ? 'A' : trust >= 50 ? 'B' : 'C';
     const gradeCol = grade === 'A' ? 'var(--teal)'
@@ -1686,6 +1713,15 @@ act7: {
       <button id="go-act7">再来一次</button>
     </div>
 
+    <div class="go" style="margin-top:18px">
+      <a class="link-btn" href="./design.html">下一部：造一台 →</a>
+      <a class="link-btn" href="./index.html">返回实验室</a>
+    </div>
+
+    <div class="cta-line">
+      全 20 集目录 · 关注公众号 <b>「楠楠北北的大转盘」</b>，回复 <b>「聚变」</b> 获取
+    </div>
+
     <div class="replay-tip">
       ${grade === 'A'
         ? '你拿到了最高评级。换个升流策略试试，结局会不一样。'
@@ -1717,7 +1753,7 @@ act7: {
    成绩卡生成（Canvas → PNG 下载/长按保存）
    ══════════════════════════════════════════════════════════════ */
 function makeShareCard() {
-  const trust = S.trust;
+  const trust = Math.max(0, Math.min(100, S.trust));
   const grade = trust >= 75 ? 'A' : trust >= 50 ? 'B' : 'C';
   const gc = grade === 'A' ? '#5BD9BE' : grade === 'B' ? '#FFB347' : '#E07A5A';
 
@@ -1988,6 +2024,31 @@ function setupCoils(nextId) {
       }
     };
   });
+
+  // 跳过空载测试：信任 -10，PF4 的系统误差会被带进后面的位置重建
+  const skip = document.getElementById('skip-act1');
+  if (skip) skip.onclick = () => {
+    if (found) return;
+    found = true;
+    S.trust -= 10;
+    S.flags.foundPF4 = false;
+    document.getElementById('coil-grid').style.pointerEvents = 'none';
+    document.getElementById('coil-grid').style.opacity = '.45';
+    document.getElementById('coil-st').textContent = '已跳过';
+    const cq = document.getElementById('coil-cq');
+    cq.className = 'cq bad';
+    const cqs = document.getElementById('coil-cq-s');
+    cqs.className = 's bad';
+    cqs.textContent = '未检查';
+    document.getElementById('coil-cq-t').innerHTML =
+      `你跳过了空载测试。<br><br>
+       <b>系统误差会被带进位置重建</b>——PF4 那一路的 6% 偏差还在，
+       后面所有由它算出来的量都带着这个偏差。<br><br>
+       <span style="color:var(--dim)">老陈说过：「很多人会直接跳过。」</span>`;
+    document.getElementById('go-act1').disabled = false;
+    skip.disabled = true;
+    skip.textContent = '已跳过空载测试';
+  };
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -2103,12 +2164,15 @@ function setupRamp(nextId) {
     }
   }
 
-  sl.addEventListener('input', update);
-  update();
-
-  // 只负责"启用"按钮，onclick 由 renderScene 统一绑定
-  const btn = document.getElementById('go-act2');
-  if (btn) setTimeout(() => { btn.disabled = false; }, 800);
+  // 必须亲手碰过滑杆，二幕的决策点才成立（不能自动放行）
+  let touched = false;
+  sl.addEventListener('input', () => {
+    touched = true;
+    update();
+    const btn = document.getElementById('go-act2');
+    if (btn) btn.disabled = false;
+  });
+  update();        // 初始化渲染，保持按钮禁用直到玩家拖动
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -2233,11 +2297,10 @@ function setupQ(nextId) {
 
     if (saw) {
       cq.classList.add('bad'); cs.className = 's bad'; cs.textContent = '核心在抽搐';
-      tx.innerHTML = `<b>q(0) = ${q0.toFixed(2)}，低于 1。</b><br>
+      tx.innerHTML = `<b>q(0) = ${q0.toFixed(2)}，低于 1 —— 锯齿。</b><br>
         右边那条温度曲线开始周期性崩塌——每次崩塌，核心的一小块热量会被甩出去。<br>
-        不是致命的。但你的数据里从此多了一个周期性扰动，
-        均值和标准差都会被污染。<br>
-        <span style="color:var(--dim)">（把峰化度往左拖。）</span>`;
+        <b style="color:var(--rust)">锯齿会污染标准差：先调回 q(0) ≥ 1，才能继续。</b><br>
+        <span style="color:var(--dim)">（把峰化度往左拖，让电流摊开一点。）</span>`;
     } else if (q0 < 1.15) {
       cq.classList.add('warn'); cs.className = 's warn'; cs.textContent = '刚刚脱险';
       tx.innerHTML = `<b>q(0) = ${q0.toFixed(2)}，勉强在 1 以上。</b><br>
@@ -2253,9 +2316,9 @@ function setupQ(nextId) {
         <span style="color:var(--dim)">老陈说过：你不是在赢，你是在换。</span>`;
     }
 
-    // 稳定后启用按钮
+    // q(0) < 1（锯齿）时禁止继续；拖回 q(0) ≥ 1 才放行
     const btn = document.getElementById('go-act3');
-    if (btn && !saw) setTimeout(() => { btn.disabled = false; }, 400);
+    if (btn) btn.disabled = saw;
   }
 
   sl.addEventListener('input', update);
@@ -2604,6 +2667,12 @@ function setupData(nextId) {
   // 结果缓存
   const R = {};
 
+  // 第 2 步的去噪选择如何影响“信号噪声”误差项
+  function noisePct() {
+    const extra = R.denoise === 'b' ? 0.30 : R.denoise === 'c' ? 3.00 : 0;
+    return 0.40 + extra;
+  }
+
   const STEPS = [
     /* 1 标定 */
     () => ({
@@ -2677,11 +2746,12 @@ function setupData(nextId) {
       <div class="sys" style="margin-bottom:16px">误差来源
 ────────────────────────
 标定系数     1.20%
-信号噪声     0.40%
+信号噪声     ${noisePct().toFixed(2)}%
 窗口选择     0.90%</div>`,
       btn: '合成误差并给出结论',
       run: () => {
-        R.err = Math.sqrt(1.20 ** 2 + 0.40 ** 2 + 0.90 ** 2);   // ≈1.56%
+        // 去噪选择直接决定“信号噪声”项：a=0.40%，b=0.70%，c=3.40%
+        R.err = Math.sqrt(1.20 ** 2 + noisePct() ** 2 + 0.90 ** 2);
       }
     }),
   ];
@@ -2754,13 +2824,21 @@ function setupData(nextId) {
     };
     out.innerHTML = map[step] ? map[step]() : '';
     if (step === 5) {
-      out.innerHTML = `<div class="cq good" style="margin:0">
-        <div class="cq-h"><span class="t">最终结论</span><span class="s good">可以交</span></div>
+      const errBad = R.err > 2.5;      // 去噪不当 → 误差显著变大
+      const errWarn = R.err > 1.8;
+      const denoiseNote = R.denoise === 'c'
+        ? '<br><br><span style="color:var(--rust)">第 2 步你选了“不处理”：随机噪声直接进了统计量，误差被放大了 3 个百分点。</span>'
+        : R.denoise === 'b'
+        ? '<br><br><span style="color:var(--amber)">第 2 步只做了低通：随机噪声多留下 0.3 个百分点。</span>'
+        : '';
+      out.innerHTML = `<div class="cq ${errBad ? 'bad' : errWarn ? 'warn' : 'good'}" style="margin:0">
+        <div class="cq-h"><span class="t">最终结论</span>
+          <span class="s ${errBad ? 'bad' : errWarn ? 'warn' : 'good'}">${errBad ? '误差偏大' : errWarn ? '可用（需说明）' : '可以交'}</span></div>
         <div class="cq-t">
           <b>B_θ = ${R.mean.toFixed(3)} ± ${(R.mean * R.err / 100).toFixed(4)} T</b><br>
           （相对误差 ±${R.err.toFixed(2)}%）<br><br>
           主不稳定模：<b>${R.mode}</b>，频率 ${R.f0} kHz<br><br>
-          这份数据可以进数据库了。
+          ${errBad ? '误差太大，进数据库前必须加注噪声来源。' : errWarn ? '数据可用，但要标注去噪步骤带来的不确定性。' : '这份数据可以进数据库了。'}${denoiseNote}
         </div></div>`;
       const btn = document.getElementById('go-act6');
       if (btn) setTimeout(() => { btn.disabled = false; }, 600);

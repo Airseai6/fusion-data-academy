@@ -182,6 +182,7 @@ button.small{padding:9px 18px;font-size:13px}
   .verdict td:first-child{width:100px}
 }
 </style>
+<script src="../analytics.js"></script>
 </head>
 <body>
 <div class="wrap" id="app"></div>
@@ -374,6 +375,7 @@ function renderIntro() {
 
 /* ── 第一关：逐日玩 ── */
 function startPlay() {
+  if (window.counters) counters.track('puzzle_l1_start');
   G.phase = 'play';
   G.possible = new Set([...Array(G.n).keys()]);
   G.fox = Math.floor(Math.random() * G.n);
@@ -438,6 +440,7 @@ function renderPlay() {
 
 function onCheck(i) {
   if (G.phase !== 'play') return;
+  if (window.counters) counters.track('puzzle_l1_check', { day: G.day, hole: i + 1 });
 
   // ★ 允许重复查：没有任何 disabled / early return
   G.history.push(i);
@@ -445,6 +448,7 @@ function onCheck(i) {
 
   // 查中？
   if (G.fox === i) {
+    if (window.counters) counters.track('puzzle_l1_win', { days: G.history.length });
     G.phase = 'win';
     render();
     return;
@@ -462,6 +466,7 @@ function onCheck(i) {
   G.day++;
 
   if (G.day > G.maxDay) {
+    if (window.counters) counters.track('puzzle_l1_dead', { day: G.day });
     G.phase = 'lose';
     G.attempts++;
     render();
@@ -472,6 +477,7 @@ function onCheck(i) {
 
 /* ── 第二关：策略模式 ── */
 function startStrategy() {
+  if (window.counters) counters.track('puzzle_l2_start');
   G.phase = 'strategy';
   G.seq = [];
   G.lastVerdict = null;
@@ -501,6 +507,7 @@ function clearSeq() {
 function submitSeq() {
   if (G.seq.length === 0) return;
   G.submissions++;
+  if (window.counters) counters.track('puzzle_l2_submit', { subs: G.submissions, len: G.seq.length });
   const v = evaluateSequence(G.seq, G.n, G.cyclic);
   const rows = counterExamples(G.seq, G.n, G.cyclic);
   G.lastVerdict = { ...v, rows };
@@ -621,6 +628,7 @@ function renderLose() {
 }
 
 function goReveal() {
+  if (window.counters) counters.track('puzzle_reveal_view', { subs: G.submissions });
   G.phase = 'reveal';
   render();
 }
