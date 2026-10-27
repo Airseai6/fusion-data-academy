@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>大脑保健操 · 3 分钟练一下直觉</title>
+<meta name="description" content="每天 3 分钟，一道反直觉的数学题。抓狐狸、数字侦探、最后一颗 —— 每一关都会让你发现：直觉是错的，而数学是对的。免费，手机可玩。">
+<meta property="og:title" content="大脑保健操">
+<meta property="og:description" content="每天 3 分钟，一道反直觉的数学题。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0F14; --panel:#141A22; --panel2:#111821; --line:#232C38; --line2:#3A4757;
+  --ink:#E8EDF4; --dim:#96A5B8; --dim2:#7A8798;
+  --amber:#FFB347; --fox:#FF8A4C; --teal:#5BD9BE; --violet:#A78BFA;
+}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  min-height:100vh; -webkit-font-smoothing:antialiased;
+  padding:32px 18px 60px;
+}
+.wrap{max-width:720px;margin:0 auto}
+
+/* ── 页头 ── */
+.head{margin-bottom:36px}
+.eyebrow{
+  font-family:Consolas,monospace;font-size:11px;letter-spacing:.22em;
+  color:var(--dim2);margin-bottom:14px;
+}
+h1{font-size:clamp(30px,6vw,42px);font-weight:800;letter-spacing:.02em;margin-bottom:12px}
+h1 .hl{color:var(--fox)}
+.lead{
+  font-size:15px;line-height:1.95;color:#B4C2D2;max-width:560px;
+}
+.lead b{color:var(--ink);font-weight:600}
+
+/* ── 统计条 ── */
+.stats{
+  display:flex;gap:26px;margin:26px 0 34px;padding:16px 20px;
+  background:var(--panel);border:1px solid var(--line);border-radius:9px;
+  flex-wrap:wrap;
+}
+.stat{display:flex;flex-direction:column;gap:3px}
+.stat .v{font-family:Consolas,monospace;font-size:19px;font-weight:700;color:var(--amber)}
+.stat .k{font-size:11.5px;color:var(--dim2);letter-spacing:.04em}
+
+/* ── 游戏卡 ── */
+.games{display:flex;flex-direction:column;gap:14px}
+.card{
+  display:block;text-decoration:none;color:inherit;
+  background:var(--panel);border:1px solid var(--line);border-radius:11px;
+  padding:22px 24px;transition:.18s;position:relative;overflow:hidden;
+}
+.card::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--accent,var(--line2));opacity:.9;
+}
+.card:hover{
+  border-color:var(--accent,var(--line2));
+  background:#171F29;transform:translateY(-1px);
+  box-shadow:0 6px 24px rgba(0,0,0,.28);
+}
+.card-top{
+  display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;
+}
+.icon{font-size:22px;line-height:1}
+.name{font-size:17px;font-weight:700;letter-spacing:.01em}
+.badge{
+  font-family:Consolas,monospace;font-size:10.5px;padding:3px 9px;border-radius:4px;
+  background:rgba(122,135,152,.12);color:var(--dim2);border:1px solid var(--line2);
+  letter-spacing:.05em;
+}
+.badge.soon{color:var(--amber);border-color:rgba(255,179,71,.35);background:rgba(255,179,71,.08)}
+.desc{font-size:13.5px;line-height:1.85;color:#A8B6C8;margin-bottom:14px}
+.meta{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--dim2);font-family:Consolas,monospace}
+.meta span{display:flex;align-items:center;gap:5px}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.arrow{
+  position:absolute;right:22px;top:50%;transform:translateY(-50%);
+  font-size:19px;color:var(--dim2);transition:.18s;
+}
+.card:hover .arrow{color:var(--accent,var(--ink));transform:translateY(-50%) translateX(3px)}
+.card.disabled{opacity:.55;cursor:default}
+.card.disabled:hover{transform:none;box-shadow:none;background:var(--panel)}
+
+/* ── 说明 ── */
+.note{
+  margin-top:38px;padding:22px 24px;border-radius:10px;
+  background:var(--panel2);border:1px solid var(--line);
+}
+.note h3{font-size:14px;margin-bottom:12px;color:var(--teal);letter-spacing:.03em}
+.note p{font-size:13px;line-height:2;color:#9AA8B9}
+.note p+p{margin-top:10px}
+.note .k{color:var(--amber);font-family:Consolas,monospace}
+
+/* ── 页脚 ── */
+.foot{
+  margin-top:40px;padding-top:22px;border-top:1px solid var(--line);
+  font-size:12px;color:var(--dim2);line-height:2.1;
+}
+.foot a{
+  color:var(--amber);text-decoration:none;
+  border-bottom:1px solid rgba(255,179,71,.28);
+  transition:.15s;
+}
+.foot a:hover{color:#FFD08A;border-bottom-color:var(--amber)}
+.foot .row{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px}
+
+@media (max-width:520px){
+  body{padding:24px 14px 48px}
+  .card{padding:18px 18px 18px 20px}
+  .arrow{display:none}
+  .stats{gap:18px;padding:14px 16px}
+  .stat .v{font-size:17px}
+}
+</style>
+<script src="../analytics.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div class="eyebrow">BRAIN GYM · 大脑保健操</div>
+    <h1>每天 3 分钟，<span class="hl">练一下直觉</span></h1>
+    <p class="lead">
+      每一关都是同一个套路：<b>你以为很简单 → 你试了 → 你输了 → 你明白为什么。</b><br>
+      不是考知识，是拆掉一个你以为对的直觉。免费，手机可玩，不用注册。
+    </p>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="v">2</span><span class="k">已上线</span></div>
+    <div class="stat"><span class="v">≈3</span><span class="k">分钟 / 局</span></div>
+    <div class="stat"><span class="v">0</span><span class="k">门槛</span></div>
+    <div class="stat"><span class="v">∞</span><span class="k">练习模式</span></div>
+  </div>
+
+  <div class="games">
+
+    <a class="card" href="../puzzle/" style="--accent:var(--fox)">
+      <div class="card-top">
+        <span class="icon">🦊</span>
+        <span class="name">抓狐狸</span>
+        <span class="badge">2 关</span>
+      </div>
+      <p class="desc">
+        五个洞，一只狐狸，她每天只能挪到相邻的洞。第一关有解 ——
+        第二关你会亲手证明它<b>无解</b>。
+      </p>
+      <div class="meta">
+        <span><i class="dot" style="background:var(--fox)"></i>路径 Pₙ 有解（2n−4 步）</span>
+        <span><i class="dot" style="background:var(--amber)"></i>环 Cₙ 无解</span>
+      </div>
+      <span class="arrow">→</span>
+    </a>
+
+    <a class="card" href="../puzzle/digits/" style="--accent:var(--teal)">
+      <div class="card-top">
+        <span class="icon">🔢</span>
+        <span class="name">数字侦探</span>
+        <span class="badge">每日一题</span>
+      </div>
+      <p class="desc">
+        6 次猜出 4 位数。每次告诉你几个数字对了、几个位置也对了 ——
+        用排除法把 5040 种可能缩到 1 个。
+      </p>
+      <div class="meta">
+        <span><i class="dot" style="background:var(--teal)"></i>信息论 · 候选集收缩</span>
+        <span><i class="dot" style="background:var(--dim2)"></i>困难模式可重复</span>
+      </div>
+      <span class="arrow">→</span>
+    </a>
+
+    <div class="card disabled" style="--accent:var(--violet)">
+      <div class="card-top">
+        <span class="icon">⬤</span>
+        <span class="name">最后一颗</span>
+        <span class="badge soon">即将上线</span>
+      </div>
+      <p class="desc">
+        三堆石子，轮流从任意一堆取走至少一颗，拿到最后一颗的赢。<br>
+        但你会发现自己怎么走都输 —— 因为异或为 0 的位置，本来就不该走到。
+      </p>
+      <div class="meta">
+        <span><i class="dot" style="background:var(--violet)"></i>博弈论 · 二进制异或</span>
+        <span><i class="dot" style="background:var(--dim2)"></i>必败态 P-position</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="note">
+    <h3>为什么叫「大脑保健操」</h3>
+    <p>
+      因为它和保健操一样：<b>不指望你练成运动员，只指望你别僵住。</b>
+      每天 3 分钟，拆掉一个错直觉，比刷 30 分钟短视频有用。
+    </p>
+    <p>
+      每个游戏都有可证明的数学结论 —— 不是"设计得难"，是<span class="k">数学上就该这么难</span>。
+      你输了不是你笨，是直觉在这个问题上不成立。
+    </p>
+  </div>
+
+  <div class="foot">
+    <div class="row">
+      <span>← 回 <a href="../">Fusion Data Academy</a></span>
+      <span><a href="../lab/">交互实验室</a>（聚变三部作品）</span>
+    </div>
+    <div>
+      © 2026 Fusion Data Academy · 静态页面，无 cookies，匿名使用统计只存在你自己的浏览器里
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* 简单埋点：记录从 hub 点进哪个游戏 */
+document.querySelectorAll('.card[href]').forEach(el => {
+  el.addEventListener('click', () => {
+    try {
+      if (window.counters) {
+        const name = el.querySelector('.name')?.textContent || 'unknown';
+        window.counters.track('game_enter', { game: name, from: 'brain-hub' });
+      }
+    } catch (e) {}
+  });
+});
+</script>
+</body>
+</html>

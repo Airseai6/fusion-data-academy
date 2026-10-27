@@ -50,6 +50,16 @@
     margin-top: 26px; padding: 14px 18px; border-left: 3px solid #1f6feb;
     background: #161b22; border-radius: 0 8px 8px 0; font-size: 13.5px; color: #8b949e;
   }
+
+/* ── 全站链接配色（深色主题专用）── */
+a{color:#FFB347;text-decoration:none;border-bottom:1px solid rgba(255,179,71,.25);transition:.15s}
+a:hover{color:#FFD08A;border-bottom-color:#FFB347}
+a:visited{color:#E0A040}
+a.card,a.card:visited{color:inherit;border-bottom:none}
+.contact a{color:#FFB347;font-family:Consolas,monospace;font-size:13.5px;letter-spacing:.01em;
+  border-bottom:1px solid rgba(255,179,71,.3)}
+.contact a:hover{color:#FFD08A;border-bottom-color:#FFB347;background:rgba(255,179,71,.06)}
+.contact span{color:#7A8798}
 </style>
 <script src="analytics.js"></script>
 </head>
@@ -147,26 +157,15 @@
           <li>造一台 — 9 scenes, ≈40 min</li>
         </ul>
       </a>
-      <a class="card" href="./puzzle/" style="text-decoration:none;color:inherit;display:block">
-        <div class="kind">Puzzle · 中文</div>
-        <h3>反直觉 · 抓狐狸</h3>
-        <p>A counter-intuitive three-minute game: a fox moves between adjacent holes.
-           Level 2 asks you to prove a strategy — and the graph theory says you cannot.</p>
-        <ul class="plain">
-          <li>Two levels, no luck required</li>
-          <li>Hunt the Rabbit / Princess and Monster</li>
-          <li>≈3 min per play</li>
-        </ul>
-      </a>
-      <a class="card" href="./puzzle/digits/" style="text-decoration:none;color:inherit;display:block">
-        <div class="kind">Puzzle · 中文</div>
-        <h3>反直觉 · 数字侦探</h3>
-        <p>Bulls &amp; Cows: guess the four-digit code in six tries. Every A/B answer
-           shrinks the candidate set — a three-minute lesson in information theory.</p>
-        <ul class="plain">
-          <li>Daily puzzle — same for everyone</li>
-          <li>Practice · normal / hard</li>
-          <li>≈3 min per play</li>
+      <a class="card" href="./brain/" style="text-decoration:none;color:inherit;display:block">
+        <div class="kind">Brain Gym · 大脑保健操 · 中文</div>
+        <h3>大脑保健操</h3>
+        <p>Three-minute logic puzzles that break an intuition you did not know you had.
+           Each one is short, free, and ends with a proof — not a trick.</p>
+        <ul>
+          <li>抓狐狸 — 路径有解，环上无解</li>
+          <li>数字侦探 — 6 次猜 4 位，信息论下界</li>
+          <li>最后一颗 — Nim 博弈，异或必败态（即将上线）</li>
         </ul>
       </a>
     </div>
