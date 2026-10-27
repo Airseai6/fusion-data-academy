@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>反直觉 · 十五数码 | 奇偶不变量</title>
+<meta name="description" content="3×3 与 4×4 滑块拼图。把 1–15 排好序，每次只能把空格旁边的数字滑进来。一半的排列永远解不开——用逆序数的奇偶性一眼判定。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0F14;--panel:#141A22;--panel2:#0E141B;--line:#232C38;--line2:#3A4757;
+  --ink:#E8EDF4;--dim:#96A5B8;--dim2:#7A8798;
+  --teal:#5BD9BE;--amber:#FFB347;--ok:#4ADE80;--bad:#F87171;--accent:#60A5FA;
+}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  min-height:100vh;display:flex;justify-content:center;padding:18px 14px 54px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{width:100%;max-width:820px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
+.topbar .ep{font-size:12px;color:var(--dim);font-family:Consolas,monospace;letter-spacing:.08em}
+.topbar .ep b{color:var(--teal)}
+.topbar a{color:var(--dim);text-decoration:none;font-size:13px}
+.topbar a:hover{color:var(--ink)}
+.title{font-size:28px;font-weight:750;letter-spacing:.02em;margin-bottom:8px}
+.lead{font-size:14px;line-height:1.9;color:#A8B6C8;margin-bottom:18px}
+.lead b{color:var(--teal)}
+
+.hud{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.stats{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--dim);font-family:Consolas,monospace}
+.stats b{color:var(--ink)}
+.stats .k{color:var(--dim2)}
+.settings{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.settings label{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px}
+.settings select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12px;min-height:34px}
+
+.board{
+  --n:3;
+  display:grid;grid-template-columns:repeat(var(--n),1fr);grid-template-rows:repeat(var(--n),1fr);
+  gap:clamp(4px,1.4vw,9px);width:100%;max-width:520px;margin:0 auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:clamp(6px,1.8vw,12px);aspect-ratio:1/1;touch-action:manipulation;
+}
+.tile{
+  display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;
+  font-family:Consolas,monospace;font-weight:700;
+  font-size:calc(min(88vw,520px) / var(--n) * 0.34);
+  border-radius:9px;border:1px solid var(--line2);
+  background:linear-gradient(180deg,#313D4C,#1D2632);color:var(--ink);
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  transition:transform .08s,border-color .12s,background .12s;
+}
+.tile:hover:not(.blank):not(.locked){border-color:var(--accent)}
+.tile.movable{border-color:rgba(96,165,250,.85);box-shadow:0 0 0 2px rgba(96,165,250,.18),0 3px 10px rgba(0,0,0,.4);color:#DCEBFF}
+.tile.placed{border-color:rgba(91,217,190,.5);background:linear-gradient(180deg,#22343A,#16242A);color:#BFEEE3}
+.tile.blank{background:var(--panel2);border:1px dashed rgba(122,135,152,.35);cursor:default}
+.tile.locked{cursor:default}
+.tile:active:not(.blank){transform:scale(.97)}
+
+.metarow{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:14px 0 6px}
+.badge-parity{
+  display:inline-flex;align-items:center;gap:8px;font-size:12px;font-family:Consolas,monospace;
+  border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:8px 11px;color:var(--dim);
+}
+.badge-parity b{color:var(--ink)}
+.badge-parity.ok{border-color:rgba(91,217,190,.45)}
+.badge-parity.ok b{color:var(--teal)}
+.badge-parity.bad{border-color:rgba(248,113,113,.5)}
+.badge-parity.bad b{color:var(--bad)}
+.goal{display:flex;align-items:center;gap:10px}
+.goal .glabel{font-size:11px;color:var(--dim2);line-height:1.5}
+.goal .ggrid{--n:3;display:grid;grid-template-columns:repeat(var(--n),1fr);gap:2px;width:66px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px}
+.goal .gcell{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-family:Consolas,monospace;font-size:7px;color:var(--dim);background:var(--panel2);border-radius:2px}
+.goal .gcell.empty{background:transparent;border:1px dashed rgba(122,135,152,.3)}
+
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin:14px 0 4px}
+.actions button{font-family:inherit;font-size:13px;min-height:42px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;padding:9px 14px;transition:.15s;-webkit-tap-highlight-color:transparent}
+.actions button:hover:not(:disabled){border-color:var(--accent)}
+.actions button.primary{background:var(--teal);border-color:var(--teal);color:#04211C;font-weight:650}
+.actions button:disabled{opacity:.35;cursor:not-allowed}
+
+.warnbox{background:rgba(248,113,113,.07);border-left:3px solid var(--bad);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.9;color:#C8B0B0;margin:12px 0}
+.warnbox b{color:var(--bad)}
+
+.result{background:var(--panel);border:1px solid rgba(74,222,128,.55);border-radius:12px;padding:18px;margin:16px 0}
+.result h2{font-size:20px;margin-bottom:8px;color:var(--ok)}
+.result p{font-size:13.5px;line-height:1.95;color:#B8C6D8;margin-bottom:10px}
+.result .math{font-size:13px;line-height:1.9;color:#9FB0C4;background:var(--panel2);border-radius:8px;padding:12px 14px;font-family:Consolas,monospace;white-space:pre-wrap}
+.sharebox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;margin:12px 0}
+.sharebox .sl{font-size:11px;color:var(--dim2);margin-bottom:8px}
+.sharebox pre{font-family:Consolas,monospace;font-size:12px;line-height:1.8;color:#C8D4E2;white-space:pre-wrap;word-break:break-all;margin-bottom:9px}
+.sharebox button{font-family:inherit;font-size:12px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);border-radius:7px;padding:7px 12px;cursor:pointer}
+.sharebox button:hover{border-color:var(--teal)}
+.share-msg{font-size:12px;color:var(--teal);margin-top:8px;min-height:18px}
+
+details.rules{margin-top:18px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;line-height:1.95;color:#9FB0C4}
+details.rules summary{cursor:pointer;color:var(--dim);font-size:13px;margin-bottom:8px}
+details.rules b{color:var(--teal)}
+details.rules .demo{margin-top:10px;font-size:12px;border:1px dashed var(--line2);background:transparent;color:var(--dim);border-radius:7px;padding:8px 12px;cursor:pointer;font-family:inherit}
+details.rules .demo:hover{border-color:var(--bad);color:var(--bad)}
+.footlinks{margin-top:22px;text-align:center;font-size:13px;line-height:1.9}
+.footlinks a{color:#FFB347;text-decoration:none;border-bottom:1px solid rgba(255,179,71,.3)}
+.footlinks .sep{color:#3A4757;margin:0 10px}
+.hidden{display:none!important}
+
+@media (max-width:560px){
+  body{padding:14px 10px 46px}
+  .title{font-size:23px}
+  .settings select{min-height:38px}
+  .stats{gap:10px;font-size:11.5px}
+  .badge-parity{font-size:11px}
+  .goal .ggrid{width:56px}
+}
+</style>
+<script src="../../analytics.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <span class="ep">反直觉系列 · <b>第五关</b></span>
+    <a href="../../brain/">← 回大脑保健操</a>
+  </div>
+  <h1 class="title">十五数码 · 奇偶</h1>
+  <p class="lead">
+    1 到 15 和一个空格，每次只能把<b>空格旁边</b>的数字滑进来，把它排成顺序就算完成。
+    但真相是：把数字随便一摆，<b>有一半的局面永远解不开</b>——不用试，数一下逆序数就知道。
+  </p>
+
+  <div id="app"></div>
+
+  <details class="rules">
+    <summary>规则 / 数学解释</summary>
+    <p><b>逆序数：</b>按从左到右、从上到下读这串数字，数一数「前面比后面大」的对数。</p>
+    <p><b>奇数宽度（3×3）：</b>逆序数是偶数 → 可解；奇数 → 永远解不开。</p>
+    <p><b>偶数宽度（4×4）：</b>还要看空格在哪一行——把「逆序数 + 空格所在行（从最底行数起，从 1 开始）」相加，和为奇数才可解。</p>
+    <p><b>为什么：</b>左右滑动不改变逆序数；上下滑动会改变 <b>3 或 5</b> 个逆序对，同时空格换了一行——两者的奇偶性一起翻，所以「逆序数 + 空格行」的奇偶是一个<b>不变量</b>。目标态的该值是定值，起点必须是同一奇偶才能到达。</p>
+    <button class="demo" id="btnDemo">演示：把棋盘弄成无解局面看看</button>
+  </details>
+
+  <div class="footlinks">
+    <a href="../../brain/">← 回大脑保健操</a><span class="sep">|</span><a href="../hanoi/">玩《汉诺塔》→</a><span class="sep">|</span><a href="../">回小游戏区</a>
+  </div>
+</div>
+
+<script>
+/* === FIFTEEN CORE START === */
+function createSolved(size) {
+  const tiles = [];
+  for (let i = 1; i < size * size; i++) tiles.push(i);
+  tiles.push(0);
+  return tiles;
+}
+
+function isSolved(tiles) {
+  for (let i = 0; i < tiles.length - 1; i++) if (tiles[i] !== i + 1) return false;
+  return tiles[tiles.length - 1] === 0;
+}
+
+/** 逆序对数：忽略空格（0），只数「前面比后面大」的数对。 */
+function inversionCount(tiles) {
+  let inv = 0;
+  for (let i = 0; i < tiles.length; i++) {
+    if (tiles[i] === 0) continue;
+    for (let j = i + 1; j < tiles.length; j++) {
+      if (tiles[j] !== 0 && tiles[j] < tiles[i]) inv++;
+    }
+  }
+  return inv;
+}
+
+/** 空格所在行，从最底行数起、从 1 开始（偶数宽度判据要用）。 */
+function blankRowFromBottom(tiles, size) {
+  const index = tiles.indexOf(0);
+  return size - Math.floor(index / size);
+}
+
+/**
+ * 逆序数奇偶判据：
+ *  - 宽度为奇数：逆序数偶数 ⇔ 可解；
+ *  - 宽度为偶数：逆序数 + 空格行（从底、从 1）之和为奇数 ⇔ 可解。
+ */
+function isSolvable(tiles, size) {
+  const inv = inversionCount(tiles);
+  if (size % 2 === 1) return inv % 2 === 0;
+  return (inv + blankRowFromBottom(tiles, size)) % 2 === 1;
+}
+
+function canSlide(tiles, size, index) {
+  const blank = tiles.indexOf(0);
+  if (index < 0 || index >= tiles.length || index === blank) return false;
+  const dr = Math.floor(index / size) - Math.floor(blank / size);
+  const dc = (index % size) - (blank % size);
+  return Math.abs(dr) + Math.abs(dc) === 1;
+}
+
+function slide(tiles, size, index) {
+  if (!canSlide(tiles, size, index)) return null;
+  const next = tiles.slice();
+  const blank = next.indexOf(0);
+  next[blank] = next[index];
+  next[index] = 0;
+  return next;
+}
+
+/** 空格朝某个方向移动时，被滑动的格子下标；越界返回 -1。 */
+function slideByDirection(tiles, size, dir) {
+  const blank = tiles.indexOf(0);
+  const row = Math.floor(blank / size);
+  const col = blank % size;
+  const delta = { up: -size, down: size, left: -1, right: 1 }[dir];
+  if (delta === undefined) return -1;
+  if ((dir === 'up' && row === 0) || (dir === 'down' && row === size - 1)) return -1;
+  if ((dir === 'left' && col === 0) || (dir === 'right' && col === size - 1)) return -1;
+  return blank + delta;
+}
+
+/** 曼哈顿距离：每个数字到目标位置的横竖距离之和，可解局面里每次滑动改变 ±1。 */
+function manhattan(tiles, size) {
+  let sum = 0;
+  for (let i = 0; i < tiles.length; i++) {
+    const value = tiles[i];
+    if (value === 0) continue;
+    const goal = value - 1;
+    sum += Math.abs(Math.floor(i / size) - Math.floor(goal / size)) + Math.abs((i % size) - (goal % size));
+  }
+  return sum;
+}
+
+/** 交换两个非空格 → 逆序数奇偶翻转，必能把无解局面修成可解。 */
+function repairParity(tiles) {
+  const next = tiles.slice();
+  const picks = [];
+  for (let i = 0; i < next.length && picks.length < 2; i++) if (next[i] !== 0) picks.push(i);
+  if (picks.length < 2) return next;
+  const a = picks[0];
+  const b = picks[1];
+  next[a] = tiles[b];
+  next[b] = tiles[a];
+  return next;
+}
+
+/** 从目标态随机走 k 步（必然可解，用作兜底）。 */
+function walkFromSolved(size, steps, rng) {
+  const rand = rng || Math.random;
+  let tiles = createSolved(size);
+  let previous = -1;
+  for (let i = 0; i < steps; i++) {
+    const options = [];
+    for (const dir of ['up', 'down', 'left', 'right']) {
+      const index = slideByDirection(tiles, size, dir);
+      if (index >= 0 && index !== previous) options.push(index);
+    }
+    const pick = options[Math.floor(rand() * options.length)];
+    const blank = tiles.indexOf(0);
+    previous = blank;
+    tiles = slide(tiles, size, pick);
+  }
+  return tiles;
+}
+
+/** 随机排列 + 逆序数校验，只返回可解且未完成的局面。 */
+function shuffleSolvable(size, rng) {
+  const rand = rng || Math.random;
+  for (let attempt = 0; attempt < 64; attempt++) {
+    const tiles = createSolved(size);
+    for (let i = tiles.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      const tmp = tiles[i];
+      tiles[i] = tiles[j];
+      tiles[j] = tmp;
+    }
+    if (isSolved(tiles)) continue;
+    const candidate = isSolvable(tiles, size) ? tiles : repairParity(tiles);
+    if (isSolved(candidate)) continue;
+    return candidate;
+  }
+  return walkFromSolved(size, size * size * 8, rand);
+}
+/* === FIFTEEN CORE END === */
+
+/* ================= UI ================= */
+const G = {
+  size: 3,
+  tiles: createSolved(3),
+  initial: createSolved(3),
+  moves: 0,
+  history: [],
+  phase: 'playing',
+  demo: false,
+  shareMsg: '',
+  best: {},
+};
+
+const app = document.getElementById('app');
+const STORE_KEY = 'fd_fifteen_best_v1';
+
+function track(name, params) {
+  try { if (window.counters && window.counters.track) window.counters.track(name, params); } catch (_) {}
+}
+
+function loadBest() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) G.best = JSON.parse(raw) || {};
+  } catch (_) {}
+}
+
+function saveBest() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(G.best)); } catch (_) {}
+}
+
+function newGame(size, options) {
+  const opts = options || {};
+  G.size = size || G.size;
+  G.tiles = opts.tiles ? opts.tiles.slice() : shuffleSolvable(G.size);
+  G.initial = G.tiles.slice();
+  G.moves = 0;
+  G.history = [];
+  G.phase = 'playing';
+  G.demo = false;
+  G.shareMsg = '';
+  track('game_start', { game: 'fifteen', size: G.size + 'x' + G.size });
+  render();
+}
+
+function render() {
+  if (!app) return;
+  const solvable = isSolvable(G.tiles, G.size);
+  app.innerHTML = `
+    <div class="hud">
+      <div class="stats">
+        <span class="k">步数</span> <b>${G.moves}</b>
+        <span class="k">距目标</span> <b>${manhattan(G.tiles, G.size)}</b>
+        <span class="k">最佳</span> <b>${G.best[G.size] || '—'}</b>
+      </div>
+      <div class="settings">
+        <label>规模
+          <select id="size">
+            <option value="3" ${G.size === 3 ? 'selected' : ''}>3×3</option>
+            <option value="4" ${G.size === 4 ? 'selected' : ''}>4×4</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="board" id="board" style="--n:${G.size}">${G.tiles.map(renderTile).join('')}</div>
+
+    <div class="metarow">
+      <span class="badge-parity ${solvable ? 'ok' : 'bad'}" id="parity">
+        逆序数 <b>${inversionCount(G.tiles)}</b>（${inversionCount(G.tiles) % 2 ? '奇' : '偶'}）
+        ${G.size % 2 === 0 ? `+ 空格第 <b>${blankRowFromBottom(G.tiles, G.size)}</b> 行` : ''}
+        → <b>${solvable ? '可解' : '永远无解'}</b>
+      </span>
+      ${renderGoalMini()}
+    </div>
+
+    ${G.demo ? `<div class="warnbox"><b>这是演示局面：</b>逆序数奇偶被破坏，无论怎么滑都到不了 1–15。点「重置」回到本局起点。</div>` : ''}
+    ${G.phase === 'win' ? renderWin() : ''}
+
+    ${G.phase === 'win' ? '' : `<div class="actions">
+      <button class="primary" id="btnNew">新的一局</button>
+      <button id="btnUndo" ${G.history.length && G.phase === 'playing' ? '' : 'disabled'}>撤销</button>
+      <button id="btnReset">重置</button>
+      <button id="btnCopy">复制分享文案</button>
+    </div>
+    <div class="share-msg">${G.shareMsg}</div>`}
+    <div class="hidden" id="aria-live" aria-live="polite"></div>
+  `;
+  bindEvents();
+}
+
+function renderTile(value, index) {
+  if (value === 0) return '<div class="tile blank" aria-hidden="true"></div>';
+  const movable = canSlide(G.tiles, G.size, index);
+  const placed = value === index + 1;
+  const cls = ['tile', movable ? 'movable' : '', placed ? 'placed' : ''].filter(Boolean).join(' ');
+  return `<button class="${cls}" data-index="${index}" aria-label="数字 ${value}${movable ? '，可滑动' : ''}">${value}</button>`;
+}
+
+function renderGoalMini() {
+  const solved = createSolved(G.size);
+  const cells = solved.map((v) => `<span class="gcell${v === 0 ? ' empty' : ''}">${v || ''}</span>`).join('');
+  return `<span class="goal"><span class="ggrid" style="--n:${G.size}">${cells}</span>
+    <span class="glabel">目标态<br>1–${G.size * G.size - 1} 顺序排列</span></span>`;
+}
+
+function renderWin() {
+  const inv = inversionCount(G.initial);
+  const row = blankRowFromBottom(G.initial, G.size);
+  const check = G.size % 2 === 1
+    ? `逆序数 ${inv} 是${inv % 2 ? '奇' : '偶'}数 → ${inv % 2 ? '无解' : '可解'}`
+    : `逆序数 ${inv}（${inv % 2 ? '奇' : '偶'}）+ 空格第 ${row} 行 = ${inv + row}（${(inv + row) % 2 ? '奇' : '偶'}）→ ${(inv + row) % 2 ? '可解' : '无解'}`;
+  const bestText = G.best[G.size] === G.moves ? '（也是你的本机最佳）' : '';
+  return `<div class="result">
+    <h2>${G.size}×${G.size} 完成 · ${G.moves} 步${bestText}</h2>
+    <p>你不是靠运气——这一局从一开始就是可解的。</p>
+    <div class="math">开局校验：${check}
+不变量：每次滑动都不改变「逆序数 + 空格行」的奇偶，
+所以无解局面从一开始就注定无解，试多久都一样。</div>
+    <div class="sharebox">
+      <div class="sl">分享文案（不含解法步骤）</div>
+      <pre>${shareText()}</pre>
+      <button id="btnShare">复制分享文案</button>
+      <div class="share-msg">${G.shareMsg}</div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="btnAgain">再来一局</button>
+      <button id="btnResize">换个规模</button>
+    </div>
+  </div>`;
+}
+
+// file:// 下 location.origin 是 "null"，分享出去会是个没用的链接，所以兜底到线上地址
+function shareLink() {
+  if (location.protocol === 'file:') return 'https://airseai6.github.io/fusion-data-academy/puzzle/fifteen/';
+  return location.origin + location.pathname;
+}
+
+function shareText() {
+  return `我在《十五数码》${G.size}×${G.size} 用了 ${G.moves} 步把 1–${G.size * G.size - 1} 排回原位。\n你以为靠运气？一半的排列永远解不开——数一下逆序数的奇偶就知道。\n来试：${shareLink()}`;
+}
+
+/** 通关后底部按钮排会隐藏，所以绑定必须容忍元素不存在。 */
+function on(id, event, handler) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener(event, handler);
+}
+
+function bindEvents() {
+  document.querySelectorAll('.tile[data-index]').forEach((el) => {
+    el.addEventListener('click', () => moveTile(Number(el.dataset.index)));
+  });
+  on('size', 'change', (e) => newGame(Number(e.target.value)));
+  on('btnNew', 'click', () => newGame(G.size));
+  on('btnUndo', 'click', undo);
+  on('btnReset', 'click', reset);
+  on('btnCopy', 'click', () => copyShare());
+  on('btnAgain', 'click', () => newGame(G.size));
+  on('btnResize', 'click', () => newGame(G.size === 3 ? 4 : 3));
+  on('btnShare', 'click', () => copyShare());
+}
+
+function moveTile(index) {
+  if (G.phase !== 'playing') return;
+  const next = slide(G.tiles, G.size, index);
+  if (!next) return;
+  G.history.push({ tiles: G.tiles.slice(), moves: G.moves });
+  G.tiles = next;
+  G.moves += 1;
+  track('fifteen_move', { game: 'fifteen', size: G.size + 'x' + G.size, moves: G.moves });
+  if (isSolved(G.tiles)) finish();
+  else render();
+}
+
+function finish() {
+  G.phase = 'win';
+  const prevBest = G.best[G.size];
+  if (!prevBest || G.moves < prevBest) {
+    G.best[G.size] = G.moves;
+    saveBest();
+  }
+  track('game_win', { game: 'fifteen', size: G.size + 'x' + G.size, moves: G.moves });
+  render();
+}
+
+function undo() {
+  if (!G.history.length || G.phase !== 'playing') return;
+  const prev = G.history.pop();
+  G.tiles = prev.tiles;
+  G.moves = prev.moves;
+  track('fifteen_undo', { game: 'fifteen', size: G.size + 'x' + G.size });
+  render();
+}
+
+function reset() {
+  G.tiles = G.initial.slice();
+  G.moves = 0;
+  G.history = [];
+  G.phase = 'playing';
+  G.demo = false;
+  G.shareMsg = '';
+  render();
+}
+
+function showUnsolvableDemo() {
+  const flipped = repairParity(G.tiles);
+  G.tiles = flipped;
+  G.demo = !isSolvable(flipped, G.size);
+  G.history = [];
+  G.phase = 'playing';
+  track('fifteen_demo_unsolvable', { game: 'fifteen', size: G.size + 'x' + G.size });
+  render();
+}
+
+function copyShare() {
+  const text = G.phase === 'win'
+    ? shareText()
+    : `我在玩《十五数码》${G.size}×${G.size}。一半的排列永远解不开——数一下逆序数的奇偶就知道。\n来试：${shareLink()}`;
+  const done = (ok) => {
+    G.shareMsg = ok ? '已复制 ✓' : '复制失败，请手动选中文案';
+    track('share', { game: 'fifteen', size: G.size + 'x' + G.size, solved: G.phase === 'win' });
+    render();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => done(true)).catch(() => done(false));
+  } else {
+    done(false);
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  const map = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+  const dir = map[e.key];
+  if (!dir || G.phase !== 'playing') return;
+  e.preventDefault();
+  moveTile(slideByDirection(G.tiles, G.size, dir));
+});
+
+loadBest();
+document.getElementById('btnDemo').addEventListener('click', showUnsolvableDemo);
+window.Fifteen = {
+  createSolved, isSolved, inversionCount, blankRowFromBottom, isSolvable,
+  canSlide, slide, slideByDirection, manhattan, repairParity, walkFromSolved, shuffleSolvable,
+};
+window.__fifteen = G;
+
+newGame(3, { tiles: shuffleSolvable(3) });
+</script>
+</body>
+</html>
