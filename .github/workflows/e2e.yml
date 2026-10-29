@@ -1,4 +1,4 @@
-name: E2E
+﻿name: E2E
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
           playwright install --with-deps chromium
 
       - name: Puzzle core logic tests
-        run: node --test tests/brain_hub_logic_test.mjs tests/nim_logic_test.mjs tests/hanoi_logic_test.mjs tests/fifteen_logic_test.mjs tests/twentyfour_logic_test.mjs tests/river_logic_test.mjs tests/fox_logic_test.mjs tests/fusion_logic_test.mjs
+        run: node --test tests/brain_hub_logic_test.mjs tests/balance_logic_test.mjs tests/sudoku_logic_test.mjs tests/nonogram_logic_test.mjs tests/euler_logic_test.mjs tests/monty_logic_test.mjs tests/nim_logic_test.mjs tests/hanoi_logic_test.mjs tests/fifteen_logic_test.mjs tests/twentyfour_logic_test.mjs tests/river_logic_test.mjs tests/fox_logic_test.mjs tests/fusion_logic_test.mjs
 
       - name: Run E2E
         run: python tests/e2e_test.py --root .
@@ -48,3 +48,4 @@ jobs:
     steps:
       - name: E2E passed
         run: echo "✓ E2E green — safe to publish"
+

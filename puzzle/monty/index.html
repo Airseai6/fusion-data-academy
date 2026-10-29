@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>三门问题 · 概率反转挑战</title>
+<meta name="description" content="三扇门、一辆车、两只羊。你选一扇，主持人打开一只羊，再决定换不换。用 1000 局模拟看清概率到底站在哪边。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0B0F14;--panel:#141A22;--panel2:#10161D;--line:#232C38;--line2:#3A4757;--ink:#E8EDF4;--dim:#96A5B8;--dim2:#7A8798;--amber:#FFB347;--teal:#5BD9BE;--fox:#FF8A4C;--violet:#B79CFF}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh;padding:26px 16px 56px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:640px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;color:var(--dim);font-family:Consolas,monospace;margin-bottom:22px}
+.top a{color:var(--dim);text-decoration:none}.top a:hover{color:var(--ink)}
+.kicker{font-size:11px;letter-spacing:.18em;color:var(--teal);font-family:Consolas,monospace;margin-bottom:8px}
+h1{font-size:clamp(28px,7vw,40px);line-height:1.2;letter-spacing:.01em}
+.lead{font-size:14px;line-height:1.9;color:#B4C2D2;margin-top:12px}
+.stats{display:flex;gap:14px;flex-wrap:wrap;margin:20px 0}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:96px}
+.stat b{display:block;font-family:Consolas,monospace;font-size:20px;color:var(--amber)}
+.stat span{display:block;font-size:10.5px;color:var(--dim2);margin-top:2px}
+.doors{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:24px 0}
+.door{min-height:150px;border-radius:14px;background:linear-gradient(180deg,#1b2431,#111821);border:1px solid var(--line2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;color:var(--ink);font-family:inherit;transition:.15s;padding:12px}
+.door:hover:not(:disabled){border-color:var(--teal);transform:translateY(-2px)}
+.door:disabled{cursor:default}
+.door .icon{font-size:46px;line-height:1}
+.door .label{font-size:13px;color:var(--dim)}
+.door.picked{border-color:var(--amber);box-shadow:0 0 0 1px rgba(255,179,71,.35) inset}
+.door.opened{opacity:.45;background:#0f141b}
+.door.win{border-color:var(--teal);background:rgba(91,217,190,.1)}
+.door.lose{border-color:#f87171;background:rgba(248,113,113,.08)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+button{font-family:inherit;font-size:14px;min-height:44px;padding:0 18px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);cursor:pointer;transition:.15s}
+button:hover:not(:disabled){border-color:var(--teal)}
+button.primary{background:var(--amber);border-color:var(--amber);color:#1A1004;font-weight:700}
+button:disabled{opacity:.4;cursor:default}
+.status{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:13px;line-height:1.8;color:#B4C2D2;min-height:48px;margin-top:16px}
+.status b{color:var(--amber)}
+.history{margin-top:18px;border-top:1px solid var(--line);padding-top:12px;font-family:Consolas,monospace;font-size:11.5px;line-height:1.9;color:var(--dim2)}
+.history b{color:var(--teal)}
+.explain{margin-top:26px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}
+.explain h3{color:var(--amber);font-size:15px;margin-bottom:10px}
+.explain p{font-size:13px;line-height:1.9;color:#A8B6C8}
+.explain p+p{margin-top:8px}
+@media(max-width:520px){body{padding:18px 12px 46px}.door{min-height:132px}.door .icon{font-size:38px}}
+</style>
+<script src="../../analytics.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><span>思维闯关 · 三扇门</span><a href="../../brain/">回大脑保健操 →</a></div>
+  <div class="kicker">概率实验 · 3 分钟一局</div>
+  <h1>三门问题：<br>换，还是不换？</h1>
+  <p class="lead">一扇门后是车，两扇门后是羊。你选一扇，主持人知道答案，会打开另一扇有羊的门。现在，换不换？</p>
+
+  <div class="stats">
+    <div class="stat"><b id="stat-total">0</b><span>已完成局数</span></div>
+    <div class="stat"><b id="stat-win">0</b><span>获胜局数</span></div>
+    <div class="stat"><b id="stat-rate">—</b><span>胜率</span></div>
+  </div>
+
+  <div class="doors" id="doors"></div>
+  <div class="actions" id="actions"></div>
+  <div class="status" id="status">先选一扇门。</div>
+
+  <div class="history" id="history"></div>
+
+  <div class="explain">
+    <h3>为什么换门更划算</h3>
+    <p>一开始选中的概率是 <b>1/3</b>，没选中是 <b>2/3</b>。主持人打开一只羊，不会改变你原门的 1/3，只是把另一边的 2/3 集中到剩下那扇门上。</p>
+    <p>所以：坚持 ≈ 33%，换门 ≈ 67%。如果连续做 1000 局，换门会稳定赢 2/3。</p>
+  </div>
+</div>
+
+<script>
+const DOORS = [0, 1, 2];
+
+function hostOpen(car, picked) {
+  const allowed = DOORS.filter((d) => d !== car && d !== picked);
+  if (!allowed.length) throw new Error('no host door');
+  return allowed[Math.floor(Math.random() * allowed.length)];
+}
+
+function switchTarget(picked, opened) {
+  return DOORS.find((d) => d !== picked && d !== opened);
+}
+
+function simulate(rounds = 1000) {
+  let switchWins = 0;
+  let stayWins = 0;
+  for (let i = 0; i < rounds; i++) {
+    const car = Math.floor(Math.random() * 3);
+    const picked = Math.floor(Math.random() * 3);
+    const opened = hostOpen(car, picked);
+    const switched = switchTarget(picked, opened);
+    if (car === picked) stayWins++;
+    if (car === switched) switchWins++;
+  }
+  return { rounds, switchWins, stayWins, switchRate: switchWins / rounds, stayRate: stayWins / rounds };
+}
+
+function newRound() {
+  return {
+    car: Math.floor(Math.random() * 3),
+    picked: null,
+    opened: null,
+    phase: 'pick',
+    last: null,
+    total: 0,
+    wins: 0
+  };
+}
+
+function choose(state, door) {
+  if (state.phase !== 'pick') return state;
+  return { ...state, picked: door, opened: hostOpen(state.car, door), phase: 'decide' };
+}
+
+function decide(state, switchDoor) {
+  if (state.phase !== 'decide') return state;
+  const finalDoor = switchDoor ? switchTarget(state.picked, state.opened) : state.picked;
+  const won = finalDoor === state.car;
+  return {
+    ...state,
+    phase: 'result',
+    finalDoor,
+    won,
+    last: switchDoor ? 'switch' : 'stay',
+    total: state.total + 1,
+    wins: state.wins + (won ? 1 : 0)
+  };
+}
+
+if (typeof window !== 'undefined') window.__monty = { DOORS, hostOpen, switchTarget, simulate, newRound, choose, decide };
+
+if (typeof document !== 'undefined') {
+  let G = newRound();
+  const doors = document.getElementById('doors');
+  const actions = document.getElementById('actions');
+  const status = document.getElementById('status');
+  const history = document.getElementById('history');
+  const statTotal = document.getElementById('stat-total');
+  const statWin = document.getElementById('stat-win');
+  const statRate = document.getElementById('stat-rate');
+
+  const icons = ['🐐', '🚗', '🐐'];
+  function revealIcon(i) {
+    if (G.phase === 'result') return i === G.car ? '🚗' : '🐐';
+    if (G.phase === 'decide' && i === G.opened) return '🐐';
+    return '🚪';
+  }
+
+  function render() {
+    doors.innerHTML = DOORS.map((i) => {
+      let cls = 'door';
+      if (G.picked === i && G.phase !== 'result') cls += ' picked';
+      if (G.opened === i) cls += ' opened';
+      if (G.phase === 'result') {
+        if (i === G.car) cls += ' win';
+        else if (i === G.finalDoor) cls += ' lose';
+      }
+      const label = G.phase === 'result'
+        ? (i === G.car ? '车在这里' : (i === G.finalDoor ? '你选的' : '羊'))
+        : (G.picked === i ? '你的选择' : (G.opened === i ? '主持人打开' : '点这扇门'));
+      return `<button class="${cls}" data-door="${i}" ${G.phase !== 'pick' ? 'disabled' : ''}>
+        <span class="icon">${revealIcon(i)}</span><span class="label">${label}</span></button>`;
+    }).join('');
+
+    if (G.phase === 'pick') {
+      actions.innerHTML = '';
+      status.innerHTML = '先选一扇门。<b>选中后不要急着确认</b>，先看主持人开哪扇。';
+    } else if (G.phase === 'decide') {
+      actions.innerHTML = `<button class="primary" id="switch-btn">换到 ${G.opened === 0 ? '另一扇' : '剩下那扇'}</button><button id="stay-btn">坚持原来的门</button>`;
+      status.innerHTML = `主持人打开了 <b>${G.opened + 1} 号门</b>，里面是羊。现在：换，还是不换？`;
+      document.getElementById('switch-btn').onclick = () => { G = decide(G, true); render(); };
+      document.getElementById('stay-btn').onclick = () => { G = decide(G, false); render(); };
+    } else {
+      actions.innerHTML = `<button class="primary" id="again-btn">再来一局</button><button id="sim-btn">模拟 1000 局</button>`;
+      status.innerHTML = G.won
+        ? `你赢了！车在 <b>${G.car + 1} 号门</b>，你${G.last === 'switch' ? '换门' : '坚持'}的选择正确。`
+        : `这次是羊。车在 <b>${G.car + 1} 号门</b>，你${G.last === 'switch' ? '换门' : '坚持'}选错了。`;
+      document.getElementById('again-btn').onclick = () => { G = { ...newRound(), total: G.total, wins: G.wins }; render(); };
+      document.getElementById('sim-btn').onclick = () => {
+        const r = simulate(1000);
+        history.innerHTML = `1000 局模拟：<b>换门赢 ${r.switchWins} 局</b>（${(r.switchRate * 100).toFixed(1)}%），坚持赢 ${r.stayWins} 局（${(r.stayRate * 100).toFixed(1)}%）。`;
+        status.innerHTML = `换门胜率约 <b>${(r.switchRate * 100).toFixed(1)}%</b>。这不是运气，是概率结构。`;
+      };
+    }
+
+    for (const btn of doors.querySelectorAll('button[data-door]')) {
+      btn.onclick = () => { G = choose(G, Number(btn.dataset.door)); render(); };
+    }
+    statTotal.textContent = G.total;
+    statWin.textContent = G.wins;
+    statRate.textContent = G.total ? Math.round(G.wins / G.total * 100) + '%' : '—';
+  }
+
+  render();
+  if (window.counters) window.counters.track('game_start', { game: 'monty' });
+}
+</script>
+</body>
+</html>

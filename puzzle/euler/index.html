@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>一笔画 · 七桥突围</title>
+<meta name="description" content="一笔画游戏：每条边只走一次，能不能走完？从折线到柯尼斯堡七桥，用奇偶度判断有没有欧拉路径。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0B0F14;--panel:#141A22;--panel2:#10161D;--line:#232C38;--line2:#3A4757;--ink:#E8EDF4;--dim:#96A5B8;--dim2:#7A8798;--amber:#FFB347;--teal:#5BD9BE;--fox:#FF8A4C}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh;padding:26px 16px 56px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:680px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;color:var(--dim);font-family:Consolas,monospace;margin-bottom:22px}
+.top a{color:var(--dim);text-decoration:none}.top a:hover{color:var(--ink)}
+.kicker{font-size:11px;letter-spacing:.18em;color:var(--teal);font-family:Consolas,monospace;margin-bottom:8px}
+h1{font-size:clamp(28px,7vw,40px);line-height:1.2}
+.lead{font-size:14px;line-height:1.9;color:#B4C2D2;margin-top:12px}
+.levels{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.levels button{font-family:inherit;font-size:12px;min-height:38px;padding:0 14px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--dim);cursor:pointer}
+.levels button.active{border-color:var(--amber);color:var(--amber);background:rgba(255,179,71,.08)}
+.stage{margin-top:16px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:8px}
+svg{display:block;width:100%;height:auto}
+.edge-hit{stroke:transparent;stroke-width:22;cursor:pointer}
+.edge-line{stroke:#3A4757;stroke-width:5;stroke-linecap:round;pointer-events:none;transition:.15s}
+.edge-line.used{stroke:var(--teal);opacity:.55}
+.edge-line.hot{stroke:var(--amber)}
+.node{fill:#141A22;stroke:#5A6B80;stroke-width:3;cursor:pointer;transition:.15s}
+.node.current{fill:var(--amber);stroke:#FFD08A}
+.node.start{stroke:var(--teal)}
+.node-label{fill:#E8EDF4;font-family:Consolas,monospace;font-size:15px;font-weight:700;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+button{font-family:inherit;font-size:13px;min-height:44px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--teal)}
+button.primary{background:var(--amber);border-color:var(--amber);color:#1A1004;font-weight:700}
+.status{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:13px;line-height:1.8;color:#B4C2D2;min-height:48px;margin-top:14px}
+.status b{color:var(--amber)}
+.explain{margin-top:24px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}
+.explain h3{color:var(--amber);font-size:15px;margin-bottom:10px}
+.explain p{font-size:13px;line-height:1.9;color:#A8B6C8}
+@media(max-width:520px){body{padding:18px 12px 46px}}
+</style>
+<script src="../../analytics.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><span>思维闯关 · 图论</span><a href="../../brain/">回大脑保健操 →</a></div>
+  <div class="kicker">一笔画 · 3 分钟</div>
+  <h1>一笔画：<br>七桥突围</h1>
+  <p class="lead">每条边只能走一次，能不能把所有边一次走完？先别试，数一数每个点连了几条边。</p>
+  <div class="levels" id="levels"></div>
+  <div class="stage"><svg id="svg" viewBox="0 0 680 380" aria-label="一笔画图"></svg></div>
+  <div class="actions">
+    <button id="validate-btn">检查欧拉条件</button>
+    <button id="undo-btn">撤销一步</button>
+    <button id="reset-btn">重来</button>
+  </div>
+  <div class="status" id="status">点一条与当前点相连的边开始。</div>
+  <div class="explain">
+    <h3>欧拉路径判定</h3>
+    <p>数每个点连了几条边：奇度点有 0 个或 2 个，才可能一笔画走完；如果超过 2 个，无论怎么试都走不通。</p>
+    <p>柯尼斯堡七桥有四个奇度点，所以「不重复走完七座桥」在数学上不可能。这不是路线没找对，是图不允许。</p>
+  </div>
+</div>
+
+<script>
+/* === EULER CORE START === */
+const LEVELS = [
+  {
+    id: 'ring',
+    name: '折线环',
+    nodes: [
+      { id: 0, x: 100, y: 190, label: 'A' },
+      { id: 1, x: 250, y: 90, label: 'B' },
+      { id: 2, x: 400, y: 190, label: 'C' },
+      { id: 3, x: 550, y: 90, label: 'D' },
+      { id: 4, x: 400, y: 300, label: 'E' }
+    ],
+    edges: [[0, 1], [1, 2], [2, 3], [3, 0], [0, 2], [2, 4], [4, 1]],
+    start: 0
+  },
+  {
+    id: 'bridges',
+    name: '柯尼斯堡七桥',
+    nodes: [
+      { id: 0, x: 120, y: 110, label: '北岸' },
+      { id: 1, x: 560, y: 110, label: '南岸' },
+      { id: 2, x: 340, y: 60, label: '岛 A' },
+      { id: 3, x: 340, y: 310, label: '岛 B' }
+    ],
+    edges: [[2, 0], [2, 0], [2, 1], [2, 1], [3, 0], [3, 1], [2, 3]],
+    start: 0
+  }
+];
+
+const levelById = (id) => LEVELS.find((l) => l.id === id) || null;
+
+function adjOf(level) {
+  const adj = level.nodes.map(() => []);
+  for (let i = 0; i < level.edges.length; i++) {
+    const [a, b] = level.edges[i];
+    adj[a].push({ node: b, edge: i });
+    adj[b].push({ node: a, edge: i });
+  }
+  return adj;
+}
+
+function degrees(level) {
+  const deg = level.nodes.map(() => 0);
+  for (const [a, b] of level.edges) { deg[a]++; deg[b]++; }
+  return deg;
+}
+
+function oddNodes(level) {
+  const deg = degrees(level);
+  return deg.map((d, i) => ({ node: i, deg: d })).filter((x) => x.deg % 2 === 1);
+}
+
+function hasEulerPath(level) {
+  const odd = oddNodes(level).length;
+  return odd === 0 || odd === 2;
+}
+
+function newState(level) {
+  return { level, current: level.start, used: [], history: [], done: false };
+}
+
+function canTraverse(state, edgeIndex) {
+  if (state.done) return false;
+  if (!state.level.edges[edgeIndex]) return false;
+  if (state.used.includes(edgeIndex)) return false;
+  const [a, b] = state.level.edges[edgeIndex];
+  return a === state.current || b === state.current;
+}
+
+function traverse(state, edgeIndex) {
+  if (!canTraverse(state, edgeIndex)) return { ok: false, state, error: '这条边和当前点不相连，或已经走过' };
+  const [a, b] = state.level.edges[edgeIndex];
+  const next = {
+    ...state,
+    current: a === state.current ? b : a,
+    used: state.used.concat([edgeIndex]),
+    history: state.history.concat([{ edge: edgeIndex, from: state.current }])
+  };
+  next.done = next.used.length === next.level.edges.length;
+  return { ok: true, state: next };
+}
+
+function undo(state) {
+  if (!state.history.length) return state;
+  const last = state.history[state.history.length - 1];
+  return {
+    ...state,
+    current: last.from,
+    used: state.used.filter((e) => e !== last.edge),
+    history: state.history.slice(0, -1),
+    done: false
+  };
+}
+
+if (typeof window !== 'undefined') window.__euler = { LEVELS, levelById, adjOf, degrees, oddNodes, hasEulerPath, newState, canTraverse, traverse, undo };
+/* === EULER CORE END === */
+
+if (typeof document !== 'undefined') {
+  let level = LEVELS[0];
+  let state = newState(level);
+  let hotEdge = null;
+  const svg = document.getElementById('svg');
+  const levelsEl = document.getElementById('levels');
+  const status = document.getElementById('status');
+
+  function renderLevels() {
+    levelsEl.innerHTML = LEVELS.map((l) => `<button data-level="${l.id}" class="${l.id === level.id ? 'active' : ''}">${l.name}</button>`).join('');
+    levelsEl.querySelectorAll('button').forEach((b) => {
+      b.onclick = () => { level = levelById(b.dataset.level); state = newState(level); hotEdge = null; render(); };
+    });
+  }
+
+  function render() {
+    renderLevels();
+    const byId = new Map(level.nodes.map((n) => [n.id, n]));
+    const lines = level.edges.map(([a, b], i) => {
+      const A = byId.get(a); const B = byId.get(b);
+      const used = state.used.includes(i);
+      return `<line class="edge-line ${used ? 'used' : ''}" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"></line>` +
+        `<line class="edge-hit" data-edge="${i}" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"></line>`;
+    }).join('');
+    const nodes = level.nodes.map((n) => {
+      const isCurrent = state.current === n.id;
+      const isStart = level.start === n.id && state.used.length === 0;
+      return `<circle class="node ${isCurrent ? 'current' : ''} ${isStart ? 'start' : ''}" cx="${n.x}" cy="${n.y}" r="24"></circle>` +
+        `<text class="node-label" x="${n.x}" y="${n.y}">${n.label}</text>`;
+    }).join('');
+    svg.innerHTML = lines + nodes;
+    svg.querySelectorAll('.edge-hit').forEach((el) => {
+      const i = Number(el.dataset.edge);
+      el.onmouseenter = () => { hotEdge = i; };
+      el.onmouseleave = () => { hotEdge = null; };
+      el.onclick = () => {
+        const r = traverse(state, i);
+        if (!r.ok) { status.textContent = r.error; return; }
+        state = r.state;
+        render();
+        if (state.done) {
+          status.innerHTML = `<b>走完了！</b>${level.name} 有欧拉路径，${level.edges.length} 条边全部走了一次。`;
+          if (window.counters) window.counters.track('game_win', { game: 'euler' });
+        } else {
+          status.innerHTML = `已走 <b>${state.used.length}/${level.edges.length}</b> 条边。当前点：<b>${byId.get(state.current).label}</b>`;
+        }
+      };
+    });
+    svg.querySelectorAll('.node').forEach((el, idx) => {
+      el.onclick = () => {
+        if (state.used.length) { status.textContent = '已经出发了，想换起点先撤销或重来。'; return; }
+        level = { ...level, start: idx };
+        state = newState(level);
+        render();
+        status.innerHTML = `起点设为 <b>${level.nodes[idx].label}</b>。点相邻的边走。`;
+      };
+    });
+  }
+
+  document.getElementById('validate-btn').onclick = () => {
+    const deg = degrees(level);
+    const odd = oddNodes(level);
+    const lines = level.nodes.map((n) => `${n.label}：${deg[n.id]}`).join('，');
+    if (hasEulerPath(level)) {
+      status.innerHTML = `各点度数：${lines}。奇度点 <b>${odd.length}</b> 个，有欧拉路径（可以一笔画走完）。`;
+    } else {
+      status.innerHTML = `各点度数：${lines}。奇度点 <b>${odd.length}</b> 个，超过 2 个 —— 这个图<b>没有欧拉路径</b>，怎么走都会剩边。`;
+    }
+  };
+  document.getElementById('undo-btn').onclick = () => { state = undo(state); render(); status.textContent = '撤销一步。'; };
+  document.getElementById('reset-btn').onclick = () => { state = newState(level); render(); status.textContent = '回到起点。'; };
+
+  render();
+  if (window.counters) window.counters.track('game_start', { game: 'euler' });
+}
+</script>
+</body>
+</html>

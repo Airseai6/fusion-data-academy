@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>天平称币 · 3 次锁定假币</title>
+<meta name="description" content="12 枚金币，1 枚假币，可能偏重也可能偏轻。只给你 3 次天平，用信息论把 24 种可能缩到 1 种。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0B0F14;--panel:#141A22;--panel2:#10161D;--line:#232C38;--line2:#3A4757;--ink:#E8EDF4;--dim:#96A5B8;--dim2:#7A8798;--amber:#FFB347;--teal:#5BD9BE;--red:#F87171;--violet:#B79CFF}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh;padding:26px 16px 56px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:660px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;color:var(--dim);font-family:Consolas,monospace;margin-bottom:22px}
+.top a{color:var(--dim);text-decoration:none}.top a:hover{color:var(--ink)}
+.kicker{font-size:11px;letter-spacing:.18em;color:var(--teal);font-family:Consolas,monospace;margin-bottom:8px}
+h1{font-size:clamp(28px,7vw,40px);line-height:1.2}
+.lead{font-size:14px;line-height:1.9;color:#B4C2D2;margin-top:12px}
+.bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:18px 0 8px;font-family:Consolas,monospace;font-size:12px;color:var(--dim)}
+.bar b{color:var(--amber)}
+.coins{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:12px}
+.coin{min-height:58px;border-radius:10px;background:var(--panel);border:1px solid var(--line2);color:var(--ink);font-family:Consolas,monospace;font-size:16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:.12s}
+.coin:hover{border-color:var(--teal)}
+.coin .tag{font-size:9px;font-family:inherit;color:var(--dim2);line-height:1}
+.coin.left{border-color:var(--amber);background:rgba(255,179,71,.14)}
+.coin.right{border-color:var(--violet);background:rgba(183,156,255,.14)}
+.pans{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.pan{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-height:76px}
+.pan h3{font-size:10.5px;letter-spacing:.12em;color:var(--dim2);font-family:Consolas,monospace;margin-bottom:7px}
+.pan .list{font-size:13px;line-height:1.7;color:#D6DEE8;word-break:break-all}
+.pan.left h3{color:var(--amber)}.pan.right h3{color:var(--violet)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+button{font-family:inherit;font-size:13px;min-height:44px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--teal)}
+button.primary{background:var(--amber);border-color:var(--amber);color:#1A1004;font-weight:700}
+button:disabled{opacity:.4;cursor:default}
+.status{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:13px;line-height:1.8;color:#B4C2D2;min-height:48px;margin-top:14px}
+.status b{color:var(--amber)}
+.history{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;font-family:Consolas,monospace;font-size:11.5px;line-height:2;color:var(--dim2)}
+.history b{color:var(--teal)}
+.guess{margin-top:16px;background:rgba(255,179,71,.07);border:1px solid rgba(255,179,71,.35);border-radius:12px;padding:14px}
+.guess h3{font-size:13px;color:var(--amber);margin-bottom:8px}
+.guess-btns{display:flex;gap:7px;flex-wrap:wrap}
+.guess-btns button{font-size:12px;min-height:38px;padding:0 10px;background:#1b2431}
+.explain{margin-top:24px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}
+.explain h3{color:var(--amber);font-size:15px;margin-bottom:10px}
+.explain p{font-size:13px;line-height:1.9;color:#A8B6C8}
+@media(max-width:520px){body{padding:18px 12px 46px}.coins{grid-template-columns:repeat(4,1fr)}}
+</style>
+<script src="../../analytics.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><span>思维闯关 · 信息论</span><a href="../../brain/">回大脑保健操 →</a></div>
+  <div class="kicker">3 次称重 · 24 种可能</div>
+  <h1>3 次称重，<br>锁定假币</h1>
+  <p class="lead">12 枚金币里有一枚假币，可能偏重也可能偏轻。天平只能称 3 次，但信息量足够把 24 种可能缩成 1 种。</p>
+
+  <div class="bar"><span>第 <b id="round">1</b>/3 次称重</span><span>剩余可能：<b id="cand">24</b></span></div>
+  <div class="coins" id="coins"></div>
+  <div class="pans">
+    <div class="pan left"><h3>左盘</h3><div class="list" id="left-list">空</div></div>
+    <div class="pan right"><h3>右盘</h3><div class="list" id="right-list">空</div></div>
+  </div>
+  <div class="actions">
+    <button class="primary" id="weigh-btn">称一次</button>
+    <button id="clear-btn">清空选择</button>
+    <button id="restart-btn">重新开始</button>
+  </div>
+  <div class="status" id="status">点金币放上左盘/右盘；两边数量要相同。</div>
+  <div class="history" id="history"></div>
+  <div class="guess" id="guess" style="display:none"></div>
+
+  <div class="explain">
+    <h3>为什么 3 次能锁定</h3>
+    <p>每次天平有左重/右重/平衡 3 种结果，3 次最多区分 3³ = 27 种情况，而 12 枚 × 重/轻 = 24 种，刚好装得下。</p>
+    <p>关键是第一次别只称 6 对 6：要留下没上秤的币，让三种结果都能继续分。</p>
+  </div>
+</div>
+
+<script>
+/* === BALANCE CORE START === */
+const COINS = Array.from({ length: 12 }, (_, i) => i + 1);
+const MAX_WEIGH = 3;
+
+function initialCandidates() {
+  const out = [];
+  for (const coin of COINS) {
+    out.push({ coin, heavy: true });
+    out.push({ coin, heavy: false });
+  }
+  return out;
+}
+
+function weightOf(coin, secret) {
+  let w = 1;
+  if (coin === secret.coin) w += secret.heavy ? 1 : -1;
+  return w;
+}
+
+function compare(secret, left, right) {
+  const l = left.reduce((s, c) => s + weightOf(c, secret), 0);
+  const r = right.reduce((s, c) => s + weightOf(c, secret), 0);
+  return l > r ? 'left' : (l < r ? 'right' : 'balance');
+}
+
+function filterCandidates(candidates, left, right, outcome) {
+  return candidates.filter((c) => compare(c, left, right) === outcome);
+}
+
+function newGame(secret) {
+  const s = secret || { coin: COINS[Math.floor(Math.random() * COINS.length)], heavy: Math.random() < 0.5 };
+  return {
+    secret: s,
+    candidates: initialCandidates(),
+    weighings: [],
+    phase: 'weigh',
+    selected: {},
+    outcome: null,
+    won: null
+  };
+}
+
+function validateWeigh(left, right) {
+  if (!left.length || !right.length) return { ok: false, msg: '两边都要放金币' };
+  if (left.length !== right.length) return { ok: false, msg: '两边数量必须相同' };
+  if (new Set([...left, ...right]).size !== left.length + right.length) return { ok: false, msg: '同一枚币不能同时放两边' };
+  if ([...left, ...right].some((c) => !COINS.includes(c))) return { ok: false, msg: '没有这枚币' };
+  return { ok: true };
+}
+
+function weigh(state, left, right) {
+  if (state.phase !== 'weigh') return { ok: false, state, error: '已经不能继续称了' };
+  const v = validateWeigh(left, right);
+  if (!v.ok) return { ok: false, state, error: v.msg };
+  const outcome = compare(state.secret, left, right);
+  const candidates = filterCandidates(state.candidates, left, right, outcome);
+  const next = {
+    ...state,
+    candidates,
+    outcome,
+    weighings: state.weighings.concat([{ left, right, outcome }]),
+    selected: {}
+  };
+  if (next.weighings.length >= MAX_WEIGH) next.phase = 'guess';
+  return { ok: true, state: next };
+}
+
+function makeGuess(state, coin, heavy) {
+  if (state.phase !== 'guess') return { ok: false, state, error: '先完成 3 次称重' };
+  const won = state.secret.coin === coin && state.secret.heavy === heavy;
+  return { ok: true, state: { ...state, phase: 'done', won, guess: { coin, heavy } } };
+}
+
+if (typeof window !== 'undefined') window.__balance = { COINS, MAX_WEIGH, initialCandidates, compare, filterCandidates, newGame, validateWeigh, weigh, makeGuess };
+/* === BALANCE CORE END === */
+
+if (typeof document !== 'undefined') {
+  let G = newGame();
+  const coinsEl = document.getElementById('coins');
+  const leftList = document.getElementById('left-list');
+  const rightList = document.getElementById('right-list');
+  const status = document.getElementById('status');
+  const history = document.getElementById('history');
+  const guessEl = document.getElementById('guess');
+  const roundEl = document.getElementById('round');
+  const candEl = document.getElementById('cand');
+
+  function selectedSides() {
+    const left = []; const right = [];
+    for (const coin of COINS) {
+      if (G.selected[coin] === 'left') left.push(coin);
+      if (G.selected[coin] === 'right') right.push(coin);
+    }
+    return { left, right };
+  }
+
+  function render() {
+    coinsEl.innerHTML = COINS.map((coin) => {
+      const side = G.selected[coin];
+      return `<button class="coin ${side || ''}" data-coin="${coin}">${coin}<span class="tag">${side === 'left' ? '左' : side === 'right' ? '右' : '点选'}</span></button>`;
+    }).join('');
+    coinsEl.querySelectorAll('.coin').forEach((b) => {
+      b.onclick = () => {
+        if (G.phase !== 'weigh') return;
+        const coin = Number(b.dataset.coin);
+        const cur = G.selected[coin];
+        G.selected = { ...G.selected };
+        if (!cur) G.selected[coin] = 'left';
+        else if (cur === 'left') G.selected[coin] = 'right';
+        else delete G.selected[coin];
+        render();
+      };
+    });
+    const { left, right } = selectedSides();
+    leftList.textContent = left.length ? left.join('、') + ' 号' : '空';
+    rightList.textContent = right.length ? right.join('、') + ' 号' : '空';
+    roundEl.textContent = Math.min(G.weighings.length + 1, MAX_WEIGH);
+    candEl.textContent = G.candidates.length;
+    history.innerHTML = G.weighings.map((w, i) => {
+      const oc = w.outcome === 'balance' ? '平衡' : (w.outcome === 'left' ? '左盘重' : '右盘重');
+      return `第 ${i + 1} 次：左 ${w.left.join(',')} / 右 ${w.right.join(',')} → <b>${oc}</b>`;
+    }).join('<br>') || '';
+    const weighBtn = document.getElementById('weigh-btn');
+    weighBtn.disabled = G.phase !== 'weigh';
+    document.getElementById('clear-btn').disabled = G.phase !== 'weigh';
+    if (G.phase === 'guess') {
+      guessEl.style.display = 'block';
+      guessEl.innerHTML = `<h3>3 次用完，做最后判断（剩余 ${G.candidates.length} 种可能）</h3>` +
+        `<div class="guess-btns" id="guess-btns"></div>`;
+      const box = document.getElementById('guess-btns');
+      const list = G.candidates;
+      for (const c of list) {
+        const b = document.createElement('button');
+        b.textContent = `${c.coin} 号${c.heavy ? '偏重' : '偏轻'}`;
+        b.onclick = () => {
+          const r = makeGuess(G, c.coin, c.heavy);
+          if (r.ok) { G = r.state; render(); }
+        };
+        box.appendChild(b);
+      }
+      if (!list.length) guessEl.innerHTML += '<p>没有候选了，检查一下称重过程。</p>';
+    } else if (G.phase === 'done') {
+      guessEl.style.display = 'block';
+      const truth = `假币是 <b>${G.secret.coin} 号</b>，${G.secret.heavy ? '偏重' : '偏轻'}。`;
+      guessEl.innerHTML = `<h3>${G.won ? '锁定成功' : '判断错了'}</h3><p>${truth}</p>`;
+      status.innerHTML = G.won ? '<b>你赢了。</b>3 次称重把 24 种可能压到 1 种。' : '<b>差一点。</b>看看历史，哪一步的分组信息不够。';
+      if (window.counters) window.counters.track(G.won ? 'game_win' : 'game_fail', { game: 'balance' });
+    } else {
+      guessEl.style.display = 'none';
+      status.innerHTML = G.weighings.length ? '继续。目标不是碰运气，是让每次称重尽量把候选分成三份。' : '点金币放上左盘/右盘；两边数量要相同。';
+    }
+  }
+
+  document.getElementById('weigh-btn').onclick = () => {
+    const { left, right } = selectedSides();
+    const r = weigh(G, left, right);
+    if (!r.ok) { status.textContent = r.error; return; }
+    G = r.state;
+    render();
+  };
+  document.getElementById('clear-btn').onclick = () => { G.selected = {}; render(); };
+  document.getElementById('restart-btn').onclick = () => { G = newGame(); render(); };
+
+  render();
+  if (window.counters) window.counters.track('game_start', { game: 'balance' });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>数织 · 5×5 图像推理</title>
+<meta name="description" content="5×5 数织：看行和列旁边的数字，涂出隐藏的图案。每行连续涂色的段数和长度就是线索。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0B0F14;--panel:#141A22;--panel2:#10161D;--line:#232C38;--line2:#3A4757;--ink:#E8EDF4;--dim:#96A5B8;--dim2:#7A8798;--amber:#FFB347;--teal:#5BD9BE;--red:#F87171}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh;padding:26px 16px 56px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:560px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;color:var(--dim);font-family:Consolas,monospace;margin-bottom:22px}
+.top a{color:var(--dim);text-decoration:none}.top a:hover{color:var(--ink)}
+.kicker{font-size:11px;letter-spacing:.18em;color:var(--teal);font-family:Consolas,monospace;margin-bottom:8px}
+h1{font-size:clamp(28px,7vw,40px);line-height:1.2}
+.lead{font-size:14px;line-height:1.9;color:#B4C2D2;margin-top:12px}
+.puzzle{margin:24px auto 0;width:min(94vw,400px);display:grid;grid-template-columns:44px repeat(5,1fr);gap:3px;background:var(--panel2);padding:8px;border-radius:12px;border:1px solid var(--line)}
+.corner{background:transparent}
+.col-clue{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-height:64px;font-family:Consolas,monospace;font-size:11px;line-height:1.35;color:var(--teal);padding-bottom:4px}
+.row-clue{display:flex;align-items:center;justify-content:flex-end;gap:3px;font-family:Consolas,monospace;font-size:11px;color:var(--teal);padding-right:5px;min-height:54px}
+.cell{min-height:54px;background:#111A25;border:1px solid var(--line);border-radius:4px;cursor:pointer;transition:.1s}
+.cell:hover{border-color:var(--line2)}
+.cell.on{background:var(--amber);border-color:var(--amber);box-shadow:0 0 12px rgba(255,179,71,.18)}
+.cell.hint{box-shadow:inset 0 0 0 2px var(--teal)}
+.cell.wrong{background:rgba(248,113,113,.3);border-color:var(--red)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+button{font-family:inherit;font-size:13px;min-height:44px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--teal)}
+button.primary{background:var(--amber);border-color:var(--amber);color:#1A1004;font-weight:700}
+.status{text-align:center;margin-top:14px;font-size:13px;line-height:1.8;color:#B4C2D2;min-height:44px}
+.status b{color:var(--amber)}
+.legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:12px;font-size:11px;color:var(--dim2)}
+.legend span{display:flex;align-items:center;gap:5px}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+.explain{margin-top:26px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}
+.explain h3{color:var(--amber);font-size:15px;margin-bottom:10px}
+.explain p{font-size:13px;line-height:1.9;color:#A8B6C8}
+@media(max-width:520px){body{padding:18px 12px 46px}.puzzle{grid-template-columns:34px repeat(5,1fr);gap:2px;padding:6px}.cell{min-height:46px}.row-clue,.col-clue{font-size:10px}}
+</style>
+<script src="../../analytics.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><span>思维闯关 · 5×5</span><a href="../../brain/">回大脑保健操 →</a></div>
+  <div class="kicker">图像推理 · 3 分钟</div>
+  <h1>5×5，<br>图像推理</h1>
+  <p class="lead">行和列旁边的数字，表示这一行/列里连续涂色的段长。把隐藏图案一点点推出来。</p>
+  <div class="puzzle" id="puzzle"></div>
+  <div class="legend">
+    <span><i class="sw" style="background:#111A25;border:1px solid #3A4757"></i>未定</span>
+    <span><i class="sw" style="background:#FFB347"></i>涂色</span>
+    <span><i class="sw" style="background:rgba(248,113,113,.4);border:1px solid #F87171"></i>错误</span>
+  </div>
+  <div class="actions">
+    <button id="hint-btn">提示一格</button>
+    <button id="reset-btn">重来</button>
+    <button class="primary" id="new-btn">换一幅</button>
+  </div>
+  <div class="status" id="status">先看行和列的数字。</div>
+  <div class="explain">
+    <h3>数织怎么推</h3>
+    <p>一行 5 格，线索「3」表示三个连续涂色；「1 2」表示先一个、空至少一格、再两个。先找最长段，再挤出它可能的位置。</p>
+  </div>
+</div>
+
+<script>
+/* === NONOGRAM CORE START === */
+const N = 5;
+const PUZZLES = [
+  {
+    name: '爱心',
+    grid: [
+      [0, 1, 0, 1, 0],
+      [1, 1, 1, 1, 1],
+      [1, 1, 1, 1, 1],
+      [0, 1, 1, 1, 0],
+      [0, 0, 1, 0, 0]
+    ]
+  },
+  {
+    name: '箭头',
+    grid: [
+      [0, 0, 1, 0, 0],
+      [0, 1, 1, 1, 0],
+      [1, 1, 1, 1, 1],
+      [0, 0, 1, 0, 0],
+      [0, 0, 1, 0, 0]
+    ]
+  },
+  {
+    name: '沙漏',
+    grid: [
+      [1, 1, 1, 1, 1],
+      [0, 1, 1, 1, 0],
+      [0, 0, 1, 0, 0],
+      [0, 1, 1, 1, 0],
+      [1, 1, 1, 1, 1]
+    ]
+  }
+];
+
+function lineClue(line) {
+  const runs = [];
+  let count = 0;
+  for (const v of line) {
+    if (v) count++;
+    else if (count) { runs.push(count); count = 0; }
+  }
+  if (count) runs.push(count);
+  return runs.length ? runs : [0];
+}
+
+function cluesOf(grid) {
+  const rows = grid.map((row) => lineClue(row));
+  const cols = [];
+  for (let c = 0; c < N; c++) cols.push(lineClue(grid.map((row) => row[c])));
+  return { rows, cols };
+}
+
+function isSolved(player, solution) {
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (!!player[r][c] !== !!solution[r][c]) return false;
+  }
+  return true;
+}
+
+function toggle(grid, r, c) {
+  const next = grid.map((row) => row.slice());
+  next[r][c] = next[r][c] ? 0 : 1;
+  return next;
+}
+
+function emptyGrid() { return Array.from({ length: N }, () => Array(N).fill(0)); }
+
+if (typeof window !== 'undefined') window.__nonogram = { N, PUZZLES, lineClue, cluesOf, isSolved, toggle, emptyGrid };
+/* === NONOGRAM CORE END === */
+
+if (typeof document !== 'undefined') {
+  let puzzle = null;
+  let player = null;
+  let clue = null;
+  let hint = null;
+  const root = document.getElementById('puzzle');
+  const status = document.getElementById('status');
+
+  function start(idx) {
+    puzzle = PUZZLES[idx == null ? Math.floor(Math.random() * PUZZLES.length) : idx];
+    player = emptyGrid();
+    clue = cluesOf(puzzle.grid);
+    hint = null;
+    render();
+  }
+
+  function render() {
+    root.innerHTML = '';
+    root.appendChild(Object.assign(document.createElement('div'), { className: 'corner' }));
+    for (let c = 0; c < N; c++) {
+      const el = document.createElement('div');
+      el.className = 'col-clue';
+      el.textContent = clue.cols[c].join(' ');
+      root.appendChild(el);
+    }
+    for (let r = 0; r < N; r++) {
+      const rowLabel = document.createElement('div');
+      rowLabel.className = 'row-clue';
+      rowLabel.textContent = clue.rows[r].join(' ');
+      root.appendChild(rowLabel);
+      for (let c = 0; c < N; c++) {
+        const el = document.createElement('div');
+        el.className = 'cell';
+        if (player[r][c]) el.classList.add('on');
+        if (hint && hint[0] === r && hint[1] === c) el.classList.add('hint');
+        el.onclick = () => {
+          player = toggle(player, r, c);
+          hint = null;
+          render();
+          if (isSolved(player, puzzle.grid)) {
+            status.innerHTML = `<b>完成！</b>你解出了「${puzzle.name}」。`;
+            if (window.counters) window.counters.track('game_win', { game: 'nonogram' });
+          } else {
+            status.textContent = '继续推。涂错了就再点一下取消。';
+          }
+        };
+        root.appendChild(el);
+      }
+    }
+  }
+
+  document.getElementById('hint-btn').onclick = () => {
+    const empty = [];
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      if (!!player[r][c] !== !!puzzle.grid[r][c]) empty.push([r, c]);
+    }
+    if (!empty.length) return;
+    const [r, c] = empty[Math.floor(Math.random() * empty.length)];
+    player[r][c] = puzzle.grid[r][c];
+    hint = [r, c];
+    render();
+    status.innerHTML = `提示：第 <b>${r + 1}</b> 行第 <b>${c + 1}</b> 列${puzzle.grid[r][c] ? '要涂' : '不涂'}。`;
+  };
+  document.getElementById('reset-btn').onclick = () => { player = emptyGrid(); hint = null; render(); status.textContent = '已清空，重新推。'; };
+  document.getElementById('new-btn').onclick = () => { start(); status.textContent = '换了一幅，继续。'; };
+
+  start(0);
+  if (window.counters) window.counters.track('game_start', { game: 'nonogram' });
+}
+</script>
+</body>
+</html>

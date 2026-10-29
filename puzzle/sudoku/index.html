@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>迷你数独 · 4×4 逻辑突围</title>
+<meta name="description" content="4×4 迷你数独：每行、每列、每个 2×2 宫都填 1–4。每天 3 分钟，用排除法把空格填满。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0B0F14;--panel:#141A22;--panel2:#10161D;--line:#232C38;--line2:#3A4757;--ink:#E8EDF4;--dim:#96A5B8;--dim2:#7A8798;--amber:#FFB347;--teal:#5BD9BE;--red:#F87171;--violet:#B79CFF}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh;padding:26px 16px 56px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:560px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;color:var(--dim);font-family:Consolas,monospace;margin-bottom:22px}
+.top a{color:var(--dim);text-decoration:none}.top a:hover{color:var(--ink)}
+.kicker{font-size:11px;letter-spacing:.18em;color:var(--teal);font-family:Consolas,monospace;margin-bottom:8px}
+h1{font-size:clamp(28px,7vw,40px);line-height:1.2}
+.lead{font-size:14px;line-height:1.9;color:#B4C2D2;margin-top:12px}
+.board{width:min(92vw,380px);margin:24px auto 0;display:grid;grid-template-columns:repeat(4,1fr);border:2px solid var(--line2);border-radius:12px;overflow:hidden;background:var(--panel2)}
+.cell{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-family:Consolas,monospace;font-size:30px;cursor:pointer;border-right:1px solid var(--line);border-bottom:1px solid var(--line);color:var(--ink);position:relative}
+.cell:nth-child(4n){border-right:0}
+.cell:nth-child(n+13){border-bottom:0}
+.cell.box-r{border-right:2px solid var(--line2)}
+.cell.box-b{border-bottom:2px solid var(--line2)}
+.cell.given{color:#9fb0c7;background:#111a25;font-weight:700}
+.cell.selected{background:rgba(255,179,71,.16);box-shadow:inset 0 0 0 2px var(--amber)}
+.cell.wrong{color:var(--red)}
+.cell.hint{color:var(--teal)}
+.controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+.numpad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:min(92vw,380px);margin:16px auto 0}
+.num{min-height:52px;border-radius:9px;background:var(--panel);border:1px solid var(--line2);color:var(--ink);font-family:Consolas,monospace;font-size:22px;cursor:pointer}
+.num:hover{border-color:var(--teal)}
+.num.clear{grid-column:span 2;font-size:13px;font-family:inherit;color:var(--dim)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+button{font-family:inherit;font-size:13px;min-height:44px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--teal)}
+button.primary{background:var(--amber);border-color:var(--amber);color:#1A1004;font-weight:700}
+.status{text-align:center;margin-top:16px;font-size:13px;line-height:1.8;color:#B4C2D2;min-height:44px}
+.status b{color:var(--amber)}
+.explain{margin-top:26px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}
+.explain h3{color:var(--amber);font-size:15px;margin-bottom:10px}
+.explain p{font-size:13px;line-height:1.9;color:#A8B6C8}
+</style>
+<script src="../../analytics.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><span>思维闯关 · 4×4</span><a href="../../brain/">回大脑保健操 →</a></div>
+  <div class="kicker">逻辑突围 · 3 分钟</div>
+  <h1>4×4，<br>逻辑突围</h1>
+  <p class="lead">每行、每列、每个 2×2 宫都填 1–4，不能重复。空格不多，但每一格都得有理由。</p>
+  <div class="board" id="board"></div>
+  <div class="numpad" id="numpad"></div>
+  <div class="actions">
+    <button id="hint-btn">提示一格</button>
+    <button id="reset-btn">重来</button>
+    <button class="primary" id="new-btn">新题</button>
+  </div>
+  <div class="status" id="status">点一个空格，再点数字。</div>
+  <div class="explain">
+    <h3>为什么 4×4 也能练逻辑</h3>
+    <p>数独不是猜，是排除：一行有了 1，其他格就不能是 1；一列、一个 2×2 宫同理。4×4 只有 16 格，刚好够一局 3 分钟。</p>
+  </div>
+</div>
+
+<script>
+/* === SUDOKU CORE START === */
+const SIZE = 4;
+const FULL = (() => {
+  const base = [
+    [1, 2, 3, 4],
+    [3, 4, 1, 2],
+    [2, 1, 4, 3],
+    [4, 3, 2, 1]
+  ];
+  return base;
+})();
+
+function clone(grid) { return grid.map((r) => r.slice()); }
+
+function shuffleRows(grid) {
+  const bands = [[0, 1], [2, 3]];
+  for (const band of bands) {
+    if (Math.random() < 0.5) {
+      const [a, b] = band;
+      [grid[a], grid[b]] = [grid[b], grid[a]];
+    }
+  }
+  if (Math.random() < 0.5) {
+    const cols = [[0, 1], [2, 3]];
+    for (const pair of cols) {
+      if (Math.random() < 0.5) {
+        const [a, b] = pair;
+        for (const row of grid) [row[a], row[b]] = [row[b], row[a]];
+      }
+    }
+  }
+  return grid;
+}
+
+function permuteDigits(grid) {
+  const digits = [1, 2, 3, 4];
+  for (let i = digits.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [digits[i], digits[j]] = [digits[j], digits[i]];
+  }
+  const map = {};
+  for (let i = 0; i < 4; i++) map[i + 1] = digits[i];
+  return grid.map((row) => row.map((v) => map[v]));
+}
+
+function makeSolution() {
+  return permuteDigits(shuffleRows(clone(FULL)));
+}
+
+function boxStart(r, c) { return [Math.floor(r / 2) * 2, Math.floor(c / 2) * 2]; }
+
+function canPlace(grid, r, c, v) {
+  for (let i = 0; i < SIZE; i++) {
+    if (grid[r][i] === v && i !== c) return false;
+    if (grid[i][c] === v && i !== r) return false;
+  }
+  const [br, bc] = boxStart(r, c);
+  for (let i = br; i < br + 2; i++) for (let j = bc; j < bc + 2; j++) {
+    if (grid[i][j] === v && !(i === r && j === c)) return false;
+  }
+  return true;
+}
+
+function solveCount(grid, limit = 2) {
+  let count = 0;
+  const work = clone(grid);
+  function walk() {
+    if (count >= limit) return;
+    let br = -1; let bc = -1;
+    for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+      if (work[r][c] === 0) { br = r; bc = c; break; }
+    }
+    if (br === -1) { count++; return; }
+    for (let v = 1; v <= 4; v++) {
+      if (!canPlace(work, br, bc, v)) continue;
+      work[br][bc] = v;
+      walk();
+      work[br][bc] = 0;
+      if (count >= limit) return;
+    }
+  }
+  walk();
+  return count;
+}
+
+function makePuzzle() {
+  const solution = makeSolution();
+  let puzzle;
+  let tries = 0;
+  do {
+    puzzle = clone(solution);
+    const cells = [];
+    for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) cells.push([r, c]);
+    for (let i = cells.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cells[i], cells[j]] = [cells[j], cells[i]];
+    }
+    // 4x4 留 7–8 个空格，保证一局 2–4 分钟
+    const blanks = 7 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < blanks; i++) {
+      const [r, c] = cells[i];
+      puzzle[r][c] = 0;
+    }
+    tries++;
+  } while (solveCount(puzzle, 2) !== 1 && tries < 200);
+  return { puzzle, solution };
+}
+
+function isSolved(grid) {
+  if (grid.some((row) => row.some((v) => !v))) return false;
+  for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+    if (!canPlace(grid, r, c, grid[r][c])) return false;
+  }
+  return true;
+}
+
+function findWrong(grid, solution) {
+  const out = [];
+  for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+    if (grid[r][c] && solution[r][c] && grid[r][c] !== solution[r][c]) out.push([r, c]);
+  }
+  return out;
+}
+
+if (typeof window !== 'undefined') window.__sudoku = { SIZE, makeSolution, makePuzzle, solveCount, canPlace, isSolved, findWrong, clone };
+/* === SUDOKU CORE END === */
+
+if (typeof document !== 'undefined') {
+  let game = null;
+  let grid = null;
+  let selected = null;
+  let wrong = [];
+  let hintCell = null;
+
+  const board = document.getElementById('board');
+  const numpad = document.getElementById('numpad');
+  const status = document.getElementById('status');
+
+  function start() {
+    game = makePuzzle();
+    grid = clone(game.puzzle);
+    selected = null;
+    wrong = [];
+    hintCell = null;
+    render();
+  }
+
+  function render() {
+    board.innerHTML = '';
+    for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+      const v = grid[r][c];
+      const given = game.puzzle[r][c] !== 0;
+      const el = document.createElement('div');
+      let cls = 'cell';
+      if (given) cls += ' given';
+      if (selected && selected[0] === r && selected[1] === c) cls += ' selected';
+      if (!given && v && !wrong.some(([wr, wc]) => wr === r && wc === c) && hintCell && hintCell[0] === r && hintCell[1] === c) cls += ' hint';
+      if (!given && wrong.some(([wr, wc]) => wr === r && wc === c)) cls += ' wrong';
+      if (c === 1) cls += ' box-r';
+      if (r === 1) cls += ' box-b';
+      el.className = cls;
+      el.textContent = v || '';
+      el.onclick = () => { selected = [r, c]; hintCell = null; render(); };
+      board.appendChild(el);
+    }
+    numpad.innerHTML = '';
+    for (let n = 1; n <= 4; n++) {
+      const b = document.createElement('button');
+      b.className = 'num';
+      b.textContent = n;
+      b.onclick = () => place(n);
+      numpad.appendChild(b);
+    }
+    const clear = document.createElement('button');
+    clear.className = 'num clear';
+    clear.textContent = '清空';
+    clear.onclick = () => place(0);
+    numpad.appendChild(clear);
+  }
+
+  function place(n) {
+    if (!selected) { status.textContent = '先点一个空格。'; return; }
+    const [r, c] = selected;
+    if (game.puzzle[r][c] !== 0) { status.textContent = '这是题目给定的数字，不能改。'; return; }
+    grid[r][c] = n;
+    wrong = findWrong(grid, game.solution);
+    hintCell = null;
+    render();
+    if (wrong.length) {
+      status.innerHTML = `有一格不对，再想想。<b>已填 ${grid.flat().filter(Boolean).length}/16</b>`;
+    } else if (isSolved(grid)) {
+      status.innerHTML = `<b>完成！</b>4×4 全部合法。`;
+      if (window.counters) window.counters.track('game_win', { game: 'sudoku' });
+    } else {
+      status.innerHTML = `继续填。<b>已填 ${grid.flat().filter(Boolean).length}/16</b>`;
+    }
+  }
+
+  document.getElementById('hint-btn').onclick = () => {
+    const empty = [];
+    for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) if (!grid[r][c]) empty.push([r, c]);
+    if (!empty.length) return;
+    const [r, c] = empty[Math.floor(Math.random() * empty.length)];
+    grid[r][c] = game.solution[r][c];
+    hintCell = [r, c];
+    wrong = findWrong(grid, game.solution);
+    render();
+    status.innerHTML = `提示：<b>第 ${r + 1} 行第 ${c + 1} 列</b>填 ${game.solution[r][c]}。`;
+  };
+  document.getElementById('reset-btn').onclick = () => {
+    grid = clone(game.puzzle);
+    selected = null;
+    wrong = [];
+    hintCell = null;
+    render();
+    status.textContent = '已回到开局。';
+  };
+  document.getElementById('new-btn').onclick = () => { start(); status.textContent = '新题来了。'; };
+
+  start();
+  if (window.counters) window.counters.track('game_start', { game: 'sudoku' });
+}
+</script>
+</body>
+</html>

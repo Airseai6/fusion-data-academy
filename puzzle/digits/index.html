@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>反直觉 · 数字侦探 — Bulls &amp; Cows 每日数学小游戏</title>
+<title>高能思维 · 数字侦探 — Bulls &amp; Cows 每日数学小游戏</title>
 <meta name="description" content="4 位数字、6 次机会，用 A/B 反馈排除候选找出答案。每日一题同一天所有人同一题，也可以随机练习。信息论与排除法的 3 分钟小游戏，纯静态无后端。">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -189,7 +189,7 @@ h2{font-size:22px;margin-bottom:12px}
 
 <script>
 /* ══════════════════════════════════════════════════════════════
-   反直觉 · 数字侦探（Bulls & Cows）
+   高能思维 · 数字侦探（Bulls & Cows）
    - 4 位数字、6 次机会；反馈 A（数字位置都对）/ B（数字对位置错）
    - 每日挑战：日期 hash 作种子，同一天所有人同一题
    - 练习模式：普通（不重复）/ 困难（可重复）随机出题
@@ -504,7 +504,7 @@ h2{font-size:22px;margin-bottom:12px}
     var resultLine = win
       ? '用 ' + D.resultAttempts + '/6 次猜中了答案'
       : '6 次机会用完，差一点';
-    return '🕵️ 反直觉 · 数字侦探' + NL + modeLine + ' · ' + resultLine + NL +
+    return '🕵️ 高能思维 · 数字侦探' + NL + modeLine + ' · ' + resultLine + NL +
       '4 位数字 + A/B 反馈，你也来试试 → ' + GAME_URL;
   }
 
@@ -553,7 +553,7 @@ h2{font-size:22px;margin-bottom:12px}
     var right = D.mode === 'daily'
       ? '每日挑战 · ' + D.date
       : '练习 · ' + (D.difficulty === 'hard' ? '困难' : '普通');
-    return '<div class="topbar"><span class="ep">反直觉 · <b>数字侦探</b></span>' +
+    return '<div class="topbar"><span class="ep">高能思维 · <b>数字侦探</b></span>' +
       '<span class="day">' + right + '</span></div>';
   }
 
@@ -605,7 +605,7 @@ h2{font-size:22px;margin-bottom:12px}
   function renderIntro() {
     var today = dateKey(new Date());
     app.innerHTML = [
-      '<div class="topbar"><span class="ep">反直觉 · <b>数字侦探</b></span>' +
+      '<div class="topbar"><span class="ep">高能思维 · <b>数字侦探</b></span>' +
         '<span class="day">Bulls &amp; Cows</span></div>',
       '<div class="title">四位数字，六次机会</div>',
       '<div class="subtitle">你每猜一串 4 位数，系统只回两个数字：' +

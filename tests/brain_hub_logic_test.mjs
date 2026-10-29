@@ -19,7 +19,7 @@ const T = sandbox.window.__brainHub;
 if (!T) throw new Error('missing window.__brainHub');
 
 const games = T.HUB_GAMES;
-if (games.length !== 9) throw new Error('expected 9 games, got ' + games.length);
+if (games.length !== 14) throw new Error('expected 14 games, got ' + games.length);
 if (!games.every((g) => g.name && g.href && g.icon)) throw new Error('bad game item');
 
 const a = T.dailyPicks('2026-10-29', 3);
