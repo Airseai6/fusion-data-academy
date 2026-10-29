@@ -45,6 +45,37 @@ h1 .hl{color:var(--fox)}
 .stat .v{font-family:Consolas,monospace;font-size:19px;font-weight:700;color:var(--amber)}
 .stat .k{font-size:11.5px;color:var(--dim2);letter-spacing:.04em}
 
+/* ── 每日一练 ── */
+.daily{
+  margin:26px 0 30px;padding:22px 24px;border-radius:14px;
+  background:linear-gradient(135deg,rgba(91,217,190,.08),rgba(255,179,71,.04));
+  border:1px solid rgba(91,217,190,.28);
+}
+.daily-top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap}
+.daily-k{font-family:Consolas,monospace;font-size:10.5px;letter-spacing:.16em;color:var(--teal);margin-bottom:8px}
+.daily-title{font-size:22px;font-weight:800;letter-spacing:.01em}
+.daily-sub{font-size:12.5px;line-height:1.8;color:var(--dim);margin-top:6px}
+.daily-random{
+  min-height:44px;padding:0 18px;border-radius:9px;cursor:pointer;
+  background:var(--amber);border:1px solid var(--amber);color:#1A1004;
+  font-family:inherit;font-size:13px;font-weight:700;white-space:nowrap;
+}
+.daily-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
+.daily-item{
+  display:flex;align-items:center;gap:10px;min-height:54px;padding:10px 12px;
+  background:rgba(11,15,20,.42);border:1px solid var(--line);border-radius:10px;
+  text-decoration:none;color:var(--ink);transition:.15s;
+}
+.daily-item:hover{border-color:var(--teal);background:rgba(11,15,20,.72)}
+.daily-item .n{font-size:20px;flex:0 0 auto}
+.daily-item .t{font-size:13px;font-weight:600;line-height:1.35}
+.daily-item .x{margin-left:auto;color:var(--dim2);font-size:14px}
+@media (max-width:600px){
+  .daily{padding:18px 16px}
+  .daily-list{grid-template-columns:1fr}
+  .daily-random{width:100%}
+}
+
 /* ── 游戏卡 ── */
 .games{display:flex;flex-direction:column;gap:14px}
 .card{
@@ -134,6 +165,18 @@ h1 .hl{color:var(--fox)}
     <div class="stat"><span class="v">≈3</span><span class="k">分钟 / 局</span></div>
     <div class="stat"><span class="v">0</span><span class="k">门槛</span></div>
     <div class="stat"><span class="v">∞</span><span class="k">练习模式</span></div>
+  </div>
+
+  <div class="daily" id="daily-practice">
+    <div class="daily-top">
+      <div>
+        <div class="daily-k">DAILY · <span id="daily-date"></span></div>
+        <div class="daily-title">每日一练</div>
+        <div class="daily-sub">今天 3 个关卡，按日期固定；不想按顺序，就随机抽一个。</div>
+      </div>
+      <button class="daily-random" id="daily-random" type="button">随机一关</button>
+    </div>
+    <div class="daily-list" id="daily-list"></div>
   </div>
 
   <div class="games">
@@ -317,21 +360,102 @@ h1 .hl{color:var(--fox)}
 </div>
 
 <script>
-/* 简单埋点：记录从 hub 点进哪个游戏 */
-document.querySelectorAll('.card[href]').forEach(el => {
-  el.addEventListener('click', () => {
-    try {
-      if (window.counters) {
-        const name = el.querySelector('.name')?.textContent || 'unknown';
-        window.counters.track('game_enter', { game: name, from: 'brain-hub' });
-      }
-    } catch (e) {}
-  });
-});
+/* ── 每日一练 / 随机体验 ───────────────────────────── */
+const HUB_GAMES = [
+  { name: '抓狐狸', href: '../puzzle/', icon: '🦊' },
+  { name: '数字侦探', href: '../puzzle/digits/', icon: '🔢' },
+  { name: '最后一颗', href: '../puzzle/nim/', icon: '🪨' },
+  { name: '汉诺塔', href: '../puzzle/hanoi/', icon: '🗼' },
+  { name: '十五数码', href: '../puzzle/fifteen/', icon: '🧩' },
+  { name: '24点', href: '../puzzle/24/', icon: '🃏' },
+  { name: '过河', href: '../puzzle/river/', icon: '🛶' },
+  { name: '围堵狐狸', href: '../puzzle/fox-hunt/', icon: '🧭' },
+  { name: '聚变堆叠', href: '../puzzle/fusion-stack/', icon: '⚛️' }
+];
 
-// 卡片数量自动同步：每加一个游戏不用再手改上面那个数字（之前写死 5，加完 G5 就过时了）
-const gamesStat = document.getElementById('stat-games');
-if (gamesStat) gamesStat.textContent = String(document.querySelectorAll('.games a.card').length);
+function hubHash(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
+function hubRandom(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hubDateKey(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function dailyPicks(dateStr, count = 3) {
+  const rnd = hubRandom(hubHash('brain-daily|' + dateStr));
+  const pool = HUB_GAMES.slice();
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, Math.min(count, pool.length));
+}
+
+function randomPick() {
+  return HUB_GAMES[Math.floor(Math.random() * HUB_GAMES.length)];
+}
+
+function trackEnter(name, from) {
+  try {
+    if (window.counters) window.counters.track('game_enter', { game: name, from });
+  } catch (e) {}
+}
+
+if (typeof window !== 'undefined') {
+  window.__brainHub = { HUB_GAMES, dailyPicks, randomPick, hubDateKey, hubHash };
+}
+
+if (typeof document !== 'undefined') {
+  /* 简单埋点：记录从 hub 点进哪个游戏 */
+  document.querySelectorAll('.card[href]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const name = el.querySelector('.name')?.textContent || 'unknown';
+      trackEnter(name, 'brain-hub');
+    });
+  });
+
+  // 卡片数量自动同步：每加一个游戏不用再手改上面那个数字
+  const gamesStat = document.getElementById('stat-games');
+  if (gamesStat) gamesStat.textContent = String(document.querySelectorAll('.games a.card').length);
+
+  const dateStr = hubDateKey(new Date());
+  const dateEl = document.getElementById('daily-date');
+  if (dateEl) dateEl.textContent = dateStr;
+  const list = document.getElementById('daily-list');
+  if (list) {
+    list.innerHTML = dailyPicks(dateStr, 3).map((g) => (
+      `<a class="daily-item" href="${g.href}" data-daily="${g.name}">` +
+      `<span class="n">${g.icon}</span><span class="t">${g.name}</span><span class="x">→</span></a>`
+    )).join('');
+    list.querySelectorAll('a[data-daily]').forEach((a) => {
+      a.addEventListener('click', () => trackEnter(a.dataset.daily, 'brain-daily'));
+    });
+  }
+  const randomBtn = document.getElementById('daily-random');
+  if (randomBtn) {
+    randomBtn.addEventListener('click', () => {
+      const g = randomPick();
+      trackEnter(g.name, 'brain-random');
+      window.location.href = g.href;
+    });
+  }
+}
 </script>
 </body>
 </html>
