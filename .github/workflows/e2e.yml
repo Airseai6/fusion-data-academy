@@ -1,4 +1,4 @@
-﻿name: E2E
+name: E2E
 
 on:
   push:
@@ -24,6 +24,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install playwright
           playwright install --with-deps chromium
+
+      - name: Check no full WeChat AppID is committed
+        run: node scripts/check-no-full-appid.mjs
 
       - name: Puzzle core logic tests
         run: node --test tests/brain_hub_logic_test.mjs tests/balance_logic_test.mjs tests/sudoku_logic_test.mjs tests/nonogram_logic_test.mjs tests/euler_logic_test.mjs tests/monty_logic_test.mjs tests/nim_logic_test.mjs tests/hanoi_logic_test.mjs tests/fifteen_logic_test.mjs tests/twentyfour_logic_test.mjs tests/river_logic_test.mjs tests/fox_logic_test.mjs tests/fusion_logic_test.mjs
