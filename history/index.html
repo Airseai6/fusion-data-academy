@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>谋士 · 刘伯温的三次选择</title>
+<meta name="description" content="你扮演刘伯温，在三个历史节点做选择。选完告诉你：真实的他，当时是怎么选的。一个 5 分钟的历史互动小说。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --ink:#E8E0D0; --dim:#9A8E7C; --gold:#FFC86E; --gold2:#E0A040;
+  --rust:#B8503A; --jade:#5BA88C; --bg:#0C0A08;
+}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",serif;
+  overflow:hidden; -webkit-font-smoothing:antialiased;
+  user-select:none; -webkit-tap-highlight-color:transparent;
+}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+
+/* ── 背景层 ── */
+#bg{
+  position:absolute;inset:0;background-size:cover;background-position:center;
+  transition:opacity .6s ease, transform 8s linear;
+  transform:scale(1.04);
+}
+#bg.fade{opacity:.35}
+#bg.zoom{transform:scale(1.12)}
+#veil{
+  position:absolute;inset:0;
+  background:linear-gradient(180deg,
+    rgba(12,10,8,.72) 0%,
+    rgba(12,10,8,.30) 22%,
+    rgba(12,10,8,.55) 42%,
+    rgba(12,10,8,.88) 62%,
+    rgba(12,10,8,.96) 100%);
+}
+#vignette{
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 45%,transparent 30%,rgba(0,0,0,.55) 100%);
+  pointer-events:none;
+}
+
+/* ── 内容层 ── */
+#stage{position:relative;flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:0 0 8px}
+
+/* 章节标 */
+#chapter{
+  position:absolute;top:22px;left:22px;right:22px;
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:Consolas,monospace;font-size:11px;letter-spacing:.18em;
+  color:var(--dim);
+}
+#chapter .prog{color:var(--gold);letter-spacing:.1em}
+
+/* 对话区 */
+#dialog{
+  padding:0 22px 4px;
+  max-height:56vh;overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+#dialog::-webkit-scrollbar{width:0}
+.speaker{
+  font-size:12px;letter-spacing:.16em;color:var(--gold);
+  margin-bottom:10px;font-family:Consolas,monospace;
+}
+.text{
+  font-size:17px;line-height:2.05;color:var(--ink);
+  text-shadow:0 2px 12px rgba(0,0,0,.9);
+  white-space:pre-wrap;
+}
+.text em{color:var(--gold);font-style:normal;font-weight:600}
+.text .hist{color:var(--jade);font-style:normal}
+
+/* 继续提示 */
+#next{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  height:52px;color:var(--dim);font-size:13px;cursor:pointer;
+  opacity:0;transition:opacity .3s;
+}
+#next.on{opacity:1}
+#next .arrow{animation:bob 1.4s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+
+/* 选择区 */
+#choices{padding:0 18px 10px;display:flex;flex-direction:column;gap:10px}
+.choice{
+  background:rgba(28,24,20,.92);border:1px solid rgba(255,200,110,.28);
+  border-radius:3px;padding:16px 20px;cursor:pointer;
+  font-size:15.5px;line-height:1.6;color:var(--ink);
+  transition:.16s;position:relative;overflow:hidden;
+  font-family:inherit;text-align:left;width:100%;
+}
+.choice::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--gold);transform:scaleY(0);transform-origin:top;transition:.2s;
+}
+.choice:hover,.choice:active{
+  background:rgba(45,38,30,.95);border-color:var(--gold);
+  transform:translateX(2px);
+}
+.choice:hover::before{transform:scaleY(1)}
+.choice .tag{
+  font-family:Consolas,monospace;font-size:10.5px;color:var(--dim);
+  display:block;margin-top:6px;letter-spacing:.06em;
+}
+
+/* 结局区 */
+#ending{
+  padding:8px 22px 0;overflow-y:auto;max-height:72vh;
+}
+#ending::-webkit-scrollbar{width:0}
+.verdict{
+  text-align:center;margin:16px 0 22px;
+}
+.verdict .grade{
+  font-family:Consolas,monospace;font-size:52px;font-weight:800;
+  color:var(--gold);line-height:1;letter-spacing:.04em;
+}
+.verdict .label{font-size:12px;letter-spacing:.24em;color:var(--dim);margin-top:8px}
+.verdict .title{font-size:19px;color:var(--ink);margin-top:14px;font-weight:600}
+
+.histbox{
+  background:rgba(20,26,24,.9);border-left:3px solid var(--jade);
+  padding:16px 18px;margin:16px 0;border-radius:2px;
+}
+.histbox .h{
+  font-size:11px;letter-spacing:.2em;color:var(--jade);
+  font-family:Consolas,monospace;margin-bottom:10px;
+}
+.histbox p{font-size:14px;line-height:1.95;color:#C8D4CE;margin-bottom:8px}
+.histbox p:last-child{margin-bottom:0}
+.histbox b{color:var(--jade);font-weight:600}
+
+.actions{display:flex;gap:10px;margin:22px 0 30px;flex-wrap:wrap;justify-content:center}
+.btn{
+  background:transparent;border:1px solid var(--gold);color:var(--gold);
+  padding:13px 26px;border-radius:3px;font-size:14px;cursor:pointer;
+  font-family:inherit;transition:.16s;letter-spacing:.04em;
+}
+.btn:hover{background:rgba(255,200,110,.12)}
+.btn.primary{background:var(--gold);color:#1a1408;font-weight:600}
+.btn.primary:hover{background:#FFD98A}
+
+/* ── 开场 ── */
+#intro{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;
+  padding:32px 26px;background:rgba(12,10,8,.9);
+  z-index:10;
+}
+#intro .kicker{font-family:Consolas,monospace;font-size:11px;letter-spacing:.3em;color:var(--dim);margin-bottom:22px}
+#intro h1{font-size:clamp(26px,7vw,36px);font-weight:800;color:var(--ink);line-height:1.35;margin-bottom:8px}
+#intro h1 em{color:var(--gold);font-style:normal}
+#intro .sub{font-size:15px;color:var(--dim);margin:14px 0 30px;line-height:1.9}
+#intro .warn{
+  font-size:12.5px;color:var(--dim);line-height:1.9;max-width:340px;
+  margin-bottom:34px;padding:14px 16px;
+  border:1px solid rgba(255,200,110,.2);border-radius:3px;
+}
+#intro .warn b{color:var(--gold)}
+
+@media(max-width:400px){
+  .text{font-size:16px;line-height:2}
+  .choice{padding:14px 16px;font-size:15px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="bg"></div>
+  <div id="veil"></div>
+  <div id="vignette"></div>
+
+  <div id="stage">
+    <div id="chapter"><span id="ch-name"></span><span class="prog" id="ch-prog"></span></div>
+    <div id="dialog">
+      <div class="speaker" id="speaker"></div>
+      <div class="text" id="text"></div>
+    </div>
+    <div id="choices" style="display:none"></div>
+    <div id="next"><span class="arrow">▾</span></div>
+    <div id="ending" style="display:none"></div>
+  </div>
+
+  <div id="intro">
+    <div class="kicker">HISTORICAL FICTION · 互动历史</div>
+    <h1>谋士 · <em>刘伯温</em><br>的三次选择</h1>
+    <div class="sub">你扮演刘基，字伯温。<br>三个节点，三次抉择。</div>
+    <div class="warn">
+      每一幕选完，都会告诉你：<b>真实的他，当时怎么选的。</b><br>
+      你的选择和史实差多远？
+    </div>
+    <button class="btn primary" id="start">开始 · 约 5 分钟</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   素材
+   ══════════════════════════════════════════ */
+const IMG = {
+  tent:    'assets/img/HC01-dim-interior.webp',
+  archer:  'assets/img/HC02-outdoor-figure.webp',
+  study:   'assets/img/HC03-daylight-study.webp',
+  object:  'assets/img/HC04-object-detail.webp',
+  battle:  'assets/img/HC05-wide-landscape.webp',
+  modern:  'assets/img/HC06-modern-outdoor.webp',
+};
+
+/* ══════════════════════════════════════════
+   剧情图
+   ══════════════════════════════════════════ */
+const S = {};
+
+/* ── 序章 ── */
+S.prologue = {
+  ch: '序章', prog: '1/4', img: 'study',
+  speaker: '元 · 至正年间',
+  text: `你叫刘基，字伯温，处州青田人。
+
+二十三岁中进士，这在元朝末年是件了不得的事——汉人能走到这一步，一代人里没几个。
+
+可你上任第一天就发现，衙门里坐着的，是一群<em>不会写字的人在批公文</em>。
+
+你手里的笔，是朝廷给的。但你很快会明白，这支笔写什么，不由你定。`,
+  next: 'act1',
+};
+
+/* ── 第一幕：官场 ── */
+S.act1 = {
+  ch: '第一幕', prog: '2/4', img: 'tent',
+  speaker: '江西 · 高安县丞',
+  text: `你做了一个县丞。
+
+本地豪强把持田产，赋税全压在穷人身上。你把账册翻出来，一笔一笔核，追回了三千石粮。
+
+第二天，有人在衙门口堵住你，笑着递上一包银子：<em>"大人，一点心意。"</em>
+
+你拒绝了。
+
+第三天，你被调走。理由是"处事太刚，不宜牧民"。
+
+此后二十年，你三次被起用，三次被罢。最近一次，你辞官回家，在青田山中盖了间草堂，教几个村童读书。 
+
+有人劝你：<em>低个头，官就做下去了。</em>
+你只是笑。`,
+  choices: [
+    { t: '低头。二十年了，也该学会做人', sub: '同流合污，先把官做稳', to: 'act1_a' },
+    { t: '不低头，但也不硬碰。躲着走', sub: '明哲保身，只求无过', to: 'act1_b' },
+    { t: '彻底辞官。这官，我不做了', sub: '归隐山林，教书终老', to: 'act1_c' },
+  ],
+};
+
+S.act1_a = {
+  ch: '第一幕', prog: '2/4', img: 'tent', hist: true,
+  speaker: '史实对照',
+  text: `历史上，刘基没有低头。
+
+他在《卖柑者言》里写："<span class="hist">金玉其外，败絮其中</span>"——讽刺的就是那些看着光鲜、内里烂透的权贵。
+
+他辞了官，回青田。此后二十年，朝廷五次召他，他五次推辞。
+
+史书上说他"<span class="hist">屡仕屡黜</span>"——不是他不会做官，是他不肯做那种官。`,
+  next: 'act2',
+};
+
+S.act1_b = {
+  ch: '第一幕', prog: '2/4', img: 'tent', hist: true,
+  speaker: '史实对照',
+  text: `刘基确实试过"躲着走"。
+
+他在江浙做了几年小官，尽量不结党、不站队、不与人争。
+
+结果是：既没升上去，也没被整死，但什么都做不成。
+
+他后来在文集里写，那几年"<span class="hist">郁郁不得志</span>"。中庸之道救了他的命，也耗光了他的时间。`,
+  next: 'act2',
+};
+
+S.act1_c = {
+  ch: '第一幕', prog: '2/4', img: 'study', hist: true,
+  speaker: '史实对照',
+  text: `这一步，你选对了。
+
+刘基确实辞官归隐。他在青田山中筑室读书，写《郁离子》，把二十年的愤懑都写成了寓言。
+
+其中一篇说：楚国有个养猴人，给猴子吃橡子，早上三颗晚上四颗，猴子大怒；改成早上四颗晚上三颗，猴子大喜。
+
+<span class="hist">名实未亏，而喜怒为用。</span>
+
+——他早就看透了，只是没人听。`,
+  next: 'act2',
+};
+
+/* ── 第二幕：三请 ── */
+S.act2 = {
+  ch: '第二幕', prog: '3/4', img: 'archer',
+  speaker: '至正二十年 · 应天',
+  text: `至正二十年，一队人马进了青田。
+
+来的人叫孙炎，是朱元璋的部下。他带来一句话：<em>"先生若肯出山，天下可定。"</em>
+
+你没答应。
+
+一个月后，孙炎又来了，带着朱元璋的亲笔信。信里说：<em>"吾为天下屈先生，先生忍弃天下乎？"</em>
+
+你还是没答应。
+
+第三次，孙炎留了下来，在你门口坐了三天。
+
+民间传说里，诸葛亮是三顾茅庐才出山的。现在，轮到你被请了三次。`,
+  choices: [
+    { t: '第一次就该出山，何必让人请三次', sub: '主动投奔，争取信任', to: 'act2_a' },
+    { t: '等第三次。姿态要做足，才能被重用', sub: '三请而后出，博取名分', to: 'act2_b' },
+    { t: '无论请几次，我都不出。天下与我何干', sub: '终老山林，不问世事', to: 'act2_c' },
+  ],
+};
+
+S.act2_a = {
+  ch: '第二幕', prog: '3/4', img: 'archer', hist: true,
+  speaker: '史实对照',
+  text: `历史上，刘基被请了不止三次。
+
+《明史》记载：朱元璋"<span class="hist">遣使再召，乃至</span>"，中间还有孙炎写信、朱元璋亲笔信、陶安劝说。
+
+刘基自己后来对朱元璋说："臣所以迟迟者，非敢慢也，恐负陛下。"——不是摆架子，是怕担不起。
+
+<span class="hist">姿态有时候不是虚荣，是在衡量自己扛不扛得住。</span>`,
+  next: 'act3',
+};
+
+S.act2_b = {
+  ch: '第二幕', prog: '3/4', img: 'archer', hist: true,
+  speaker: '史实对照',
+  text: `你选的路，和刘基接近。
+
+他见了朱元璋，第一次谈话就上了《时务十八策》——不是寒暄，是直接交方案。
+
+朱元璋当场拍板，把他留在身边，不设官位，只做"谋主"。
+
+<span class="hist">三请之后的第一次见面，他没有浪费一个字。</span>`,
+  next: 'act3',
+};
+
+S.act2_c = {
+  ch: '第二幕', prog: '3/4', img: 'study', hist: true,
+  speaker: '史实对照',
+  text: `历史上，刘基最终出山了。
+
+他五十岁，在山里待了二十年，本可以不出。但他出了。
+
+后来有人问他为什么，他说得很实在：<span class="hist">"吾岂不知元之将亡？然天下苍生何辜。"</span>
+
+不是因为朱元璋请他，是因为他放不下那些在乱世里活不下去的人。`,
+  next: 'act3',
+};
+
+/* ── 第三幕：功成 ── */
+S.act3 = {
+  ch: '第三幕', prog: '4/4', img: 'battle',
+  speaker: '洪武元年 · 应天',
+  text: `洪武元年，大明立国。
+
+论功行赏，你被封为诚意伯，岁禄二百四十石。
+
+同年受封的，李善长封韩国公，岁禄四千石；徐达封魏国公，五千石。
+
+你的封号是"伯"——比"公"低两等，俸禄只有李善长的<em>十七分之一</em>。
+
+朱元璋私下跟你说：<em>"伯温啊，你功劳最大，但朕不能封你太高。"</em>
+
+你知道为什么。你是汉人谋士，不是淮西旧部；你太聪明，聪明到让人不安。`,
+  choices: [
+    { t: '争。功劳摆在那儿，凭什么只给伯', sub: '力争封赏，要个公道', to: 'act3_a' },
+    { t: '不争。告老还乡，离开这个是非之地', sub: '急流勇退，保住性命', to: 'act3_b' },
+    { t: '留下。天下初定，还有事要做', sub: '继续辅佐，鞠躬尽瘁', to: 'act3_c' },
+  ],
+};
+
+S.act3_a = {
+  ch: '第三幕', prog: '4/4', img: 'battle', hist: true,
+  speaker: '史实对照',
+  text: `刘基没有争。
+
+他受封诚意伯，第二天就上表请辞。
+
+朱元璋不许，他再请。三请之后，朱元璋才放他回青田。
+
+<span class="hist">他知道，功劳这东西，争来的都是债。</span>`,
+  next: 'end',
+};
+
+S.act3_b = {
+  ch: '第三幕', prog: '4/4', img: 'study', hist: true,
+  speaker: '史实对照',
+  text: `你选的，正是刘基做的。
+
+洪武四年，他告老还乡，回青田。
+
+回乡后他做了一件事：把家里所有田产捐了，只留几亩薄田。有人问他为什么，他说：<span class="hist">"吾家世受国恩，今老矣，无以报，愿以田归官。"</span>
+
+——他要让朱元璋放心：我不图钱了。`,
+  next: 'end',
+};
+
+S.act3_c = {
+  ch: '第三幕', prog: '4/4', img: 'tent', hist: true,
+  speaker: '史实对照',
+  text: `刘基留了一段，但没留到最后。
+
+他留在朝中不到两年。洪武四年，他就请辞了。
+
+再往后的事，史书记得含糊：他被丞相胡惟庸派医送药，服药后"<span class="hist">有物积腹中如拳石</span>"，几个月后去世。享年六十五。
+
+有人说是毒杀，有人说是旧疾。没有定论。
+
+但所有人都记得他临死前那句话：<span class="hist">"吾死后，勿葬，以天为盖。"</span>`,
+  next: 'end',
+};
+
+/* ══════════════════════════════════════════
+   结局
+   ══════════════════════════════════════════ */
+S.end = {
+  ending: true,
+  ch: '结局', prog: '4/4', img: 'modern',
+};
+
+/* ══════════════════════════════════════════
+   引擎
+   ══════════════════════════════════════════ */
+const G = {
+  cur: null,
+  histRead: 0,       // 看过几次史实对照
+  choicesMade: 0,
+  path: [],
+};
+
+const $ = id => document.getElementById(id);
+const bgEl = $('bg'), speakerEl = $('speaker'), textEl = $('text'),
+      nextEl = $('next'), choicesEl = $('choices'), endingEl = $('ending'),
+      chNameEl = $('ch-name'), chProgEl = $('ch-prog');
+
+/* 逐字打字 */
+let typing = null, typeTimer = null;
+function typeText(str, done) {
+  clearInterval(typeTimer);
+  textEl.innerHTML = '';
+  let i = 0, html = '';
+  const plain = str.length;
+  textEl.innerHTML = str;            // 先设完整内容算高度
+  const full = str;
+  textEl.innerHTML = '';
+  typing = true;
+  const speed = 18;
+
+  function step() {
+    // 按 HTML 标签安全地逐字符推进
+    i += 2;
+    if (i >= full.length) {
+      textEl.innerHTML = full;
+      typing = false;
+      clearInterval(typeTimer);
+      done && done();
+      return;
+    }
+    // 避免截断在标签中间
+    let cut = full.slice(0, i);
+    const lastLt = cut.lastIndexOf('<');
+    const lastGt = cut.lastIndexOf('>');
+    if (lastLt > lastGt) {
+      const close = full.indexOf('>', lastLt);
+      if (close > -1) cut = full.slice(0, close + 1);
+    }
+    textEl.innerHTML = cut;
+  }
+  typeTimer = setInterval(step, speed);
+}
+
+function setBg(name, zoom) {
+  const src = IMG[name];
+  if (!src) return;
+  if (bgEl.dataset.cur === src) {
+    bgEl.classList.toggle('zoom', !!zoom);
+    return;
+  }
+  bgEl.dataset.cur = src;
+  const im = new Image();
+  im.onload = () => {
+    bgEl.style.backgroundImage = `url("${src}")`;
+    bgEl.classList.toggle('zoom', !!zoom);
+  };
+  im.src = src;
+}
+
+function showScene(key) {
+  const sc = S[key];
+  if (!sc) return;
+  G.cur = key;
+
+  if (sc.ending) { renderEnding(); return; }
+
+  // 隐藏其它
+  endingEl.style.display = 'none';
+  choicesEl.style.display = 'none';
+  choicesEl.innerHTML = '';          // 关键：清空上一幕残留的按钮
+  $('dialog').style.display = '';
+  nextEl.classList.remove('on');
+
+  chNameEl.textContent = sc.ch || '';
+  chProgEl.textContent = sc.prog || '';
+  speakerEl.textContent = sc.speaker || '';
+  setBg(sc.img, true);
+
+  if (sc.hist) G.histRead++;
+
+  typeText(sc.text, () => {
+    if (sc.choices) {
+      renderChoices(sc.choices);
+    } else {
+      nextEl.classList.add('on');
+    }
+  });
+}
+
+function renderChoices(list) {
+  choicesEl.innerHTML = '';
+  choicesEl.style.display = 'flex';
+  nextEl.classList.remove('on');
+  list.forEach((c, idx) => {
+    const b = document.createElement('button');
+    b.className = 'choice';
+    b.innerHTML = `<span>${c.t}</span><span class="tag">${c.sub || ''}</span>`;
+    b.onclick = () => {
+      G.choicesMade++;
+      G.path.push({ from: G.cur, pick: c.t, type: idx });
+      choicesEl.style.display = 'none';
+      showScene(c.to);
+    };
+    choicesEl.appendChild(b);
+  });
+}
+
+function renderEnding() {
+  $('dialog').style.display = 'none';
+  choicesEl.style.display = 'none';
+  nextEl.classList.remove('on');
+  endingEl.style.display = 'block';
+  setBg('modern', false);
+
+  // 评级：看你跟史实差多远（史实路径是 act1_c → act2_b → act3_b）
+  const HIST_PATH = ['c', 'b', 'b'];
+  let match = 0;
+  G.path.forEach((p, i) => {
+    const t = p.type;
+    if (HIST_PATH[i] === ['a','b','c'][t]) match++;
+  });
+
+  let grade, label, title;
+  if (match === 3) {
+    grade = 'S'; label = '与史重合';
+    title = '你走的，就是刘基走的路';
+  } else if (match === 2) {
+    grade = 'A'; label = '大同小异';
+    title = '大体相似，关键处有分歧';
+  } else if (match === 1) {
+    grade = 'B'; label = '各有道理';
+    title = '你选的是另一条路，也说得通';
+  } else {
+    grade = 'C'; label = '完全另一条路';
+    title = '如果刘基像你这样选，历史会不同';
+  }
+
+  endingEl.innerHTML = `
+    <div class="verdict">
+      <div class="grade">${grade}</div>
+      <div class="label">${label}</div>
+      <div class="title">${title}</div>
+    </div>
+
+    <div class="histbox">
+      <div class="h">真实的刘基 · 1375 年去世</div>
+      <p>他中过进士，做过元朝的官，因为不肯低头，二十年里屡仕屡黜。</p>
+      <p>五十岁出山辅佐朱元璋，第一面就上了《时务十八策》。陈友谅六十万水军压境时，
+         他力主先打陈友谅、后取张士诚——这个次序，后来决定了整个南方的归属。</p>
+      <p>大明开国，他封诚意伯，岁禄二百四十石，只有李善长的十七分之一。
+         他没争。洪武四年告老还乡，把田产捐了大半。</p>
+      <p>洪武八年，他服了胡惟庸送来的药，"有物积腹中如拳石"，几个月后去世。</p>
+      <p><b>他算准了朱元璋能得天下，却没算准自己能不能活到最后。</b></p>
+    </div>
+
+    <div class="histbox" style="border-left-color:var(--gold2)">
+      <div class="h" style="color:var(--gold2)">他留下的一句话</div>
+      <p style="font-size:15px;color:var(--gold);line-height:2">
+        「金玉其外，败絮其中。」<br>
+        <span style="font-size:13px;color:#9A8E7C">——《卖柑者言》</span>
+      </p>
+      <p>这句说的是橘子，也是官场，也是所有"看着光鲜、内里烂透"的东西。</p>
+    </div>
+
+    <div class="actions">
+      <button class="btn primary" onclick="location.reload()">再走一次</button>
+      <button class="btn" id="share">保存结局卡</button>
+    </div>
+
+    <div style="text-align:center;font-size:11px;color:#5A5048;margin-bottom:26px;line-height:1.9">
+      Fusion Data Academy · 互动历史<br>
+      <span style="color:#3A332C">素材：story-studio 厚涂历史漫画参考图 · 史实依据《明史·刘基传》</span>
+    </div>
+  `;
+
+  $('share').onclick = makeCard;
+}
+
+/* ── 生成结局卡 ── */
+function makeCard() {
+  const W = 1080, H = 1350;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+
+  // 背景
+  const g = x.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#14100C');
+  g.addColorStop(1, '#0A0806');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+
+  // 顶部细线
+  x.fillStyle = '#FFC86E'; x.fillRect(0, 0, W, 4);
+
+  x.textAlign = 'center';
+
+  // 系列名
+  x.fillStyle = '#7A6E60';
+  x.font = '28px Consolas, monospace';
+  x.fillText('HISTORICAL FICTION', W / 2, 110);
+
+  // 标题
+  x.fillStyle = '#E8E0D0';
+  x.font = 'bold 62px "Microsoft YaHei", sans-serif';
+  x.fillText('谋士 · 刘伯温', W / 2, 200);
+
+  x.fillStyle = '#9A8E7C';
+  x.font = '30px "Microsoft YaHei", sans-serif';
+  x.fillText('的三次选择', W / 2, 255);
+
+  // 评级圈
+  const cy = 480, r = 130;
+  x.strokeStyle = '#FFC86E'; x.lineWidth = 8;
+  x.beginPath(); x.arc(W / 2, cy, r, 0, Math.PI * 2); x.stroke();
+
+  x.fillStyle = '#FFC86E';
+  x.font = 'bold 150px Consolas, monospace';
+  x.textAlign = 'center';
+  const grade = document.querySelector('.grade')?.textContent || 'A';
+  x.fillText(grade, W / 2, cy + 55);
+
+  // 评级说明
+  x.fillStyle = '#9A8E7C';
+  x.font = '26px Consolas, monospace';
+  x.fillText(document.querySelector('.label')?.textContent || '', W / 2, cy + r + 60);
+
+  // 标题语
+  x.fillStyle = '#E8E0D0';
+  x.font = '34px "Microsoft YaHei", sans-serif';
+  const t = document.querySelector('.title')?.textContent || '';
+  x.fillText(t.length > 16 ? t.slice(0, 16) + '…' : t, W / 2, cy + r + 130);
+
+  // 金句
+  x.fillStyle = '#FFC86E';
+  x.font = '32px "Microsoft YaHei", sans-serif';
+  x.fillText('金玉其外，败絮其中', W / 2, 1000);
+
+  x.fillStyle = '#7A6E60';
+  x.font = '24px "Microsoft YaHei", sans-serif';
+  x.fillText('——《卖柑者言》', W / 2, 1050);
+
+  // 底部
+  x.fillStyle = '#4A4238';
+  x.font = '24px Consolas, monospace';
+  x.fillText('Fusion Data Academy · 互动历史', W / 2, H - 90);
+
+  // 下载
+  c.toBlob(b => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = '刘伯温的三次选择.png';
+    a.click();
+  }, 'image/png');
+}
+
+/* ── 事件 ── */
+nextEl.onclick = () => {
+  if (typing) {          // 打字中：立即显示全文
+    clearInterval(typeTimer);
+    textEl.innerHTML = S[G.cur].text;
+    typing = false;
+    if (S[G.cur].choices) renderChoices(S[G.cur].choices);
+    else nextEl.classList.add('on');
+    return;
+  }
+  const sc = S[G.cur];
+  if (sc && sc.next) showScene(sc.next);
+};
+
+// 点击对话区也能推进
+$('dialog').onclick = () => nextEl.onclick();
+
+$('start').onclick = () => {
+  $('intro').style.display = 'none';
+  showScene('prologue');
+};
+
+// 键盘
+document.addEventListener('keydown', e => {
+  if (e.key === ' ' || e.key === 'Enter') {
+    e.preventDefault();
+    if (nextEl.classList.contains('on')) nextEl.onclick();
+  }
+});
+
+// 预加载
+Object.values(IMG).forEach(src => { const i = new Image(); i.src = src; });
+</script>
+</body>
+</html>
